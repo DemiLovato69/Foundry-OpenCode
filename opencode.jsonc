@@ -470,11 +470,14 @@
       "palantir": {
         "type": "local",
         "command": [
+          "direnv",
+          "exec",
+          ".",
           "sh",
           "-c",
           "FOUNDRY_TOKEN=\"$OPENCODE_API_KEY\" exec npx -y palantir-mcp --foundry-api-url \"$OPENCODE_BASE_URL\""
         ],
-        "disabled": true
+        "disabled": false
       }
     }
   }
