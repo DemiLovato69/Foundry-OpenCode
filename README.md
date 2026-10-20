@@ -1,175 +1,95 @@
-# OpenCode Config
+# OpenCode v2 Config
 
-Personal OpenCode configuration for routing OpenAI and Anthropic models through the Palantir proxy. Ponytail is installed by default through the `plugin` array in `opencode.jsonc`; remove `./plugins/ponytail.mjs` from that array if you do not want Ponytail enabled.
+Personal OpenCode configuration for OpenAI and Anthropic models through the Palantir proxy. Requires OpenCode v2; this migration is tested with 2.0.32. The configuration uses the native v2 format and must not be loaded by v1.
 
-## Install OpenCode
+## Install
 
-Install OpenCode with the official install script:
+Remove a package-managed v1 installation before installing v2. Follow the [official v2 installation instructions](https://opencode.ai/v2/docs/cli/), then confirm `opencode --version` reports v2.
 
-```sh
-curl -fsSL https://opencode.ai/install | bash
-```
-
-Alternative installs:
-
-```sh
-npm install -g opencode-ai
-brew install anomalyco/tap/opencode
-```
-
-After installing, confirm the binary is available:
-
-```sh
-opencode --version
-```
-
-## Install This Config
-
-Clone or copy this repository into OpenCode's global config directory:
+Clone this repository into `~/.config/opencode`, backing up any existing directory first:
 
 ```sh
 mkdir -p ~/.config
 git clone <repo-url> ~/.config/opencode
-```
-
-If `~/.config/opencode` already exists, back it up first or copy only the files you want:
-
-```sh
-mkdir -p ~/.config/opencode
-cp opencode.jsonc ~/.config/opencode/opencode.jsonc
-cp -R command ~/.config/opencode/command
-cp -R plugins ~/.config/opencode/plugins
-cp package.json ~/.config/opencode/package.json
-```
-
-Install the provider and plugin dependencies from the config directory:
-
-```sh
 cd ~/.config/opencode
 npm install
 ```
 
-This config loads:
+When copying files into an existing installation, copy `opencode.jsonc`, `package.json`, `agents/`, `commands/`, and `plugins/`. Remove the previous active v1 plugin files; v2 discovers local plugins automatically. `plugins-old/` holds the original v1 plugins and the incomplete copied Ponytail plugin for reference; OpenCode does not load that directory.
 
-- `./plugins/ponytail.mjs`
-- `./plugins/lms-responses-compat.js`
-- commands from `./command/*.md`
-- provider packages from `package.json`
+## Credentials
 
-Ponytail is enabled by the `./plugins/ponytail.mjs` entry in `opencode.jsonc`. To disable Ponytail, remove that one entry from the `plugin` array and restart OpenCode.
-
-Restart OpenCode after changing `opencode.jsonc`, plugins, commands, or environment variables. OpenCode reads config at startup.
-
-## Environment Variables
-
-This config expects a proxy base URL and a bearer token.
-
-Required:
+Set these variables in the environment that starts the OpenCode server, for example through `~/.zshrc`:
 
 ```sh
 export OPENCODE_BASE_URL="https://your-foundry-stack.palantir.com"
 export OPENCODE_API_KEY="your-foundry-token"
 ```
 
-`OPENCODE_BASE_URL` is used to build provider URLs like:
-
-```text
-${OPENCODE_BASE_URL}/api/v2/llm/proxy/openai/v1
-${OPENCODE_BASE_URL}/api/v2/llm/proxy/anthropic/v1
-```
-
-`OPENCODE_API_KEY` is sent as:
-
-```text
-Authorization: Bearer ${OPENCODE_API_KEY}
-```
-
-## Add Variables To zshrc
-
-Add the exports to `~/.zshrc` so new terminal sessions have them automatically.
-
-```sh
-cat >> ~/.zshrc <<'EOF'
-
-# OpenCode proxy configuration
-export OPENCODE_BASE_URL="https://your-foundry-stack.palantir.com"
-export OPENCODE_API_KEY="your-foundry-token"
-EOF
-```
-
-Reload your shell config:
-
-```sh
-source ~/.zshrc
-```
-
-Verify the variables are present without printing the secret value:
+Keep the token out of this repository. Check that variables are present without printing their values:
 
 ```sh
 test -n "$OPENCODE_BASE_URL" && echo "OPENCODE_BASE_URL is set"
 test -n "$OPENCODE_API_KEY" && echo "OPENCODE_API_KEY is set"
 ```
 
-## Start OpenCode
+The current OpenAI endpoint is `${OPENCODE_BASE_URL}/language-model-service/api/proxy/openai/v1`. Anthropic keeps the v1 setup's `${OPENCODE_BASE_URL}/api/v2/llm/proxy/anthropic/v1`. Adjust `providers.<id>.settings.baseURL` if your Foundry enrollment uses different routes.
 
-From any project directory:
+## Models and plugins
 
-```sh
-opencode
-```
+Start `opencode` in a project. The default model is `palantir-openai/gpt-6-sol`; the built-in title agent uses `palantir-openai/gpt-6-luna`. Provider policies allow only `palantir-openai` and `palantir-anthropic`. These dedicated IDs inherit the vendor catalogs through `canonical` and avoid binding proxy requests to saved OpenAI or Anthropic OAuth accounts. Existing sessions using `openai/...` or `anthropic/...` must select the corresponding `palantir-*` model through `/models`. Automatic updates and sharing are disabled.
 
-The default model is `openai/gpt-6-sol`, and the small model is `openai/gpt-6-luna`.
+OpenAI uses the native Responses runtime, and Anthropic uses the native Messages runtime. `modelID` values in `opencode.jsonc` contain the upstream Palantir model identifiers. The local `lms-responses-compat` plugin uses v2 `http.request` hooks to remove unsupported fields and normalize bearer authentication for primary, compaction, title, and transient requests. It rejects OpenAI `input_file` attachments, including PDFs; use text or image inputs there. Anthropic retains PDF support.
 
-The Palantir compatibility plugin translates model IDs and removes unsupported request fields. OpenAI `input_file` attachments, including PDFs, are rejected instead of rendered; use supported text or image inputs.
+The compatibility plugin also preserves the old model allowlists through a v2 model transform. When adding a model, update both `providers.<id>.models` in `opencode.jsonc` and `plugins/lms-responses-compat/models.json`.
 
-OpenChamber 1.24.2 selects `small_model` from this config unless its own Small Model setting overrides it. Its background requests bypass OpenCode plugins and read the provider's `baseURL` directly, so the `{env:OPENCODE_BASE_URL}` placeholder and the LMS model-ID translations in this config do not apply there. Selecting Luna in OpenChamber does not by itself make its background generation work through this proxy.
+[Ponytail](https://www.npmjs.com/package/@dietrichgebert/ponytail) is pinned to 5.3.2, whose published package includes its v2 entrypoint, shared hooks, commands, and skills. Its default mode is full. Use `/ponytail off`, `/ponytail lite`, `/ponytail`, or `/ponytail ultra` to switch modes, and `/ponytail-help` for help. Active mode persists in `~/.config/opencode/.ponytail-active`. To disable loading Ponytail entirely, replace its plugin entry with `-ponytail` (the plugin ID).
 
-## Install Palantir MCP
+Local command definitions live in `commands/`; custom primary agents live in `agents/`. The old GitKraken hook remains archived and inactive.
 
-Palantir MCP lets OpenCode use Foundry tools through the Model Context Protocol. The Palantir wrapper package is `palantir-mcp` and runs through `npx`.
+V2 accepts the retained `lsp` settings but does not run language servers, expose LSP tools, or provide LSP diagnostics. Use each project's lint, typecheck, and compiler commands instead. Shell and edit permissions remain allowed; access outside the project asks for permission, preserving v1's default.
 
-Requirements:
+OpenCode v2 watches server configuration automatically. Use `opencode reload` after changing plugin code; restart the server after changing its environment. Terminal settings belong to global `cli.json`, which v2 migrates automatically and this repo does not track.
 
-- Node.js 18 or newer
-- access to a Foundry enrollment
-- `OPENCODE_BASE_URL` set to the Foundry URL
-- `OPENCODE_API_KEY` set to the Foundry token
+Clients that call the v1 server API, including older OpenChamber versions, must migrate to the v2 API and `@opencode/client`; updating this config does not migrate those clients.
 
-Verify the OpenCode variables are present without printing the token:
+A global `integration.use` policy blocks `plugin:context-mode`, whose current package uses the incompatible v1 plugin API. This also blocks the inherited entry in `~/.opencode/opencode.json` without modifying that file. Remove the policy after installing a v2-compatible release.
 
-```sh
-test -n "$OPENCODE_BASE_URL" && echo "OPENCODE_BASE_URL is set"
-test -n "$OPENCODE_API_KEY" && echo "OPENCODE_API_KEY is set"
-```
+## Palantir MCP
 
-Add the Palantir MCP server to the top level of `~/.config/opencode/opencode.jsonc`:
+The Palantir MCP server is configured under `mcp.servers.palantir` and starts disabled. Change `disabled` to `false` to enable it. It requires Node.js 18 or newer and access to your Foundry enrollment.
+
+The command maps `OPENCODE_API_KEY` to `FOUNDRY_TOKEN` for the MCP process:
 
 ```jsonc
 {
-  "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "palantir": {
-      "type": "local",
-      "command": [
-        "sh",
-        "-c",
-        "FOUNDRY_TOKEN=\"$OPENCODE_API_KEY\" exec npx -y palantir-mcp --foundry-api-url \"$OPENCODE_BASE_URL\""
-      ],
-      "enabled": true
+    "servers": {
+      "palantir": {
+        "type": "local",
+        "command": [
+          "sh",
+          "-c",
+          "FOUNDRY_TOKEN=\"$OPENCODE_API_KEY\" exec npx -y palantir-mcp --foundry-api-url \"$OPENCODE_BASE_URL\""
+        ],
+        "disabled": false
+      }
     }
   }
 }
 ```
 
-Keep the actual token out of `opencode.jsonc`; the MCP command reads it from `OPENCODE_API_KEY`. Palantir MCP expects the token in an environment variable named `FOUNDRY_TOKEN`, so the command maps `OPENCODE_API_KEY` to `FOUNDRY_TOKEN` only for the MCP process.
-
-If you want to test Palantir MCP before using it in OpenCode, run:
+## Verify
 
 ```sh
-npx @modelcontextprotocol/inspector \
-  npx -y palantir-mcp \
-  --foundry-api-url \
-  "$OPENCODE_BASE_URL"
+npm test
+opencode debug agents
+opencode plugin list
+opencode models
 ```
 
-Restart OpenCode after adding or changing MCP config. Once it starts, you can ask OpenCode to use the `palantir` MCP tools in your prompt.
+In a project, verify that both custom agents and the Ponytail commands appear, select a model, and send a short prompt. Confirm real proxy access separately for OpenAI and Anthropic, and enable and exercise MCP if needed. Local tests use synthetic requests and do not spend model tokens.
+
+Validation included nine local tests, the official v2 JSON schema, the 36-model allowlist, Ponytail commands and mode persistence, and complete OpenAI and Anthropic prompts through OpenCode 2.0.32 against a local mock proxy using the two custom agents. A real `palantir-openai/gpt-6-sol` prompt through Foundry returned `OK`. Real Anthropic and MCP connectivity remain untested.
+
+Migration references: [configuration](https://opencode.ai/v2/docs/migrate-v1/) and [plugins](https://opencode.ai/v2/docs/build/plugins/migrate-v1/).
