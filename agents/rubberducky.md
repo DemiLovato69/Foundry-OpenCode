@@ -1,5 +1,4 @@
 ---
-id: rubberducky 
 description: ADHD Engineer Debugging Agent.
 mode: primary
 ---
