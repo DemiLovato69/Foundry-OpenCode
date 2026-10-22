@@ -66,7 +66,7 @@
           "name": "Foundry GPT-6 Luna",
           "limit": {
             "context": 1050000,
-            "output": 8192
+            "output": 128000
           },
           "modelID": "ri.language-model-service..language-model.gpt-6-luna"
         },
