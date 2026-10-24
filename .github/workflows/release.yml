@@ -1,0 +1,79 @@
+name: Installer CI and release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: foundry-opencode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+
+  build:
+    if: github.event_name == 'push'
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: foundry-opencode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --locked --release --target ${{ matrix.target }}
+        env:
+          FOUNDRY_OPENCODE_VERSION: 0.1.${{ github.run_number }}
+      - name: Package binary
+        run: |
+          test "$(target/${{ matrix.target }}/release/foundry-opencode version)" = "0.1.${{ github.run_number }}"
+          tar -czf foundry-opencode-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release foundry-opencode
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foundry-opencode-${{ matrix.target }}
+          path: foundry-opencode/foundry-opencode-${{ matrix.target }}.tar.gz
+
+  release:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: foundry-opencode-*
+          merge-multiple: true
+      - name: Publish macOS binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v0.1.${{ github.run_number }}
+        run: |
+          shasum -a 256 foundry-opencode-*.tar.gz > SHA256SUMS
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" foundry-opencode-*.tar.gz SHA256SUMS --clobber
+          else
+            gh release create "$TAG" foundry-opencode-*.tar.gz SHA256SUMS --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+          fi
