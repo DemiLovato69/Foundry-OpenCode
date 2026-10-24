@@ -17,6 +17,17 @@ use crossterm::{
 use ratatui::DefaultTerminal;
 use ui::notice;
 
+#[derive(Debug)]
+struct Cancelled;
+
+impl std::fmt::Display for Cancelled {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Cancelled")
+    }
+}
+
+impl std::error::Error for Cancelled {}
+
 fn version() -> &'static str {
     option_env!("FOUNDRY_OPENCODE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
 }
@@ -64,7 +75,7 @@ fn main() -> eyre::Result<()> {
     if !cfg!(target_os = "macos") && !args.dry_run && !matches!(args.command, Some(Mode::Init)) {
         eyre::bail!("Installation and updates require macOS and Homebrew");
     }
-    let staged = ratatui::run(|terminal| {
+    let staged = match ratatui::run(|terminal| {
         execute!(std::io::stdout(), EnableMouseCapture)?;
         let result = match args.command.unwrap_or(Mode::Install) {
             Mode::Init => init(terminal, args.dry_run).map(|_| None),
@@ -74,7 +85,14 @@ fn main() -> eyre::Result<()> {
         };
         execute!(std::io::stdout(), DisableMouseCapture)?;
         result
-    })?;
+    }) {
+        Ok(staged) => staged,
+        Err(error) if error.is::<Cancelled>() => {
+            println!("Cancelled; no changes were made.");
+            return Ok(());
+        }
+        Err(error) => return Err(error),
+    };
     if let Some(staged) = staged {
         ops::install_binary(&staged, std::path::Path::new(ops::BIN_PATH))?;
         println!("Installed foundry-opencode to {}", ops::BIN_PATH);
@@ -215,7 +233,7 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
             }
         };
         match nav {
-            ui::Nav::Cancel => eyre::bail!("Cancelled; no changes were made"),
+            ui::Nav::Cancel => return Err(Cancelled.into()),
             ui::Nav::Back => step = step.saturating_sub(1),
             ui::Nav::Open => open_token_page(terminal, &url, dry_run)?,
             ui::Nav::Next => {
@@ -680,7 +698,7 @@ fn collect_install_plan(
             }
         };
         match nav {
-            ui::Nav::Cancel => eyre::bail!("Cancelled; no changes were made"),
+            ui::Nav::Cancel => return Err(Cancelled.into()),
             ui::Nav::Back => page = page.saturating_sub(1),
             ui::Nav::Open => {
                 if let InstallPage::Token(name) = &pages[page] {
@@ -1086,11 +1104,11 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
             config.display()
         )
     };
-    eyre::ensure!(
-        ui::step_review(terminal, "Review update", &details, dry_run, true, "Update")?
-            == ui::Nav::Next,
-        "Cancelled"
-    );
+    if ui::step_review(terminal, "Review update", &details, dry_run, true, "Update")?
+        != ui::Nav::Next
+    {
+        return Err(Cancelled.into());
+    }
     if dry_run {
         simulate(
             terminal,
@@ -1148,6 +1166,12 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancelled_is_a_distinct_outcome() {
+        let error: eyre::Report = Cancelled.into();
+        assert!(error.is::<Cancelled>());
+    }
 
     #[test]
     fn no_arguments_select_install() {

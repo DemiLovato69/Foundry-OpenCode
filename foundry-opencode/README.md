@@ -15,6 +15,12 @@ foundry-opencode usage    # print examples
 
 During development, use `cargo run -- <command>` from this repository.
 
+Release binaries are **not signed or notarized**. On macOS, compare the output of
+`shasum -a 256 foundry-opencode-<arch>.tar.gz` with the matching entry in the
+release's `SHA256SUMS`. If macOS blocks
+the first launch, use **System Settings → Privacy & Security → Open Anyway**
+only after confirming you trust the release; do not disable Gatekeeper.
+
 `install` updates Homebrew, installs or upgrades OpenCode and direnv, and optionally
 OpenChamber. It verifies the standard OpenCode formula is V2 before removing
 confirmed V1 packages/executables or migrating the Homebrew `opencode-v2` formula.
