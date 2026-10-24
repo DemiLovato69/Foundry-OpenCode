@@ -1,0 +1,13 @@
+node_modules
+package-lock.json
+bun.lock
+*.bak
+context-mode/
+service.json
+cli.json
+
+
+# Added by cargo
+
+/target
+/foundry-opencode/target/

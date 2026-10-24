@@ -1,95 +1,100 @@
 # OpenCode v2 Config
 
-Personal OpenCode configuration for OpenAI and Anthropic models through the Palantir proxy. Requires OpenCode v2; this migration is tested with 2.0.32. The configuration uses the native v2 format and must not be loaded by v1.
+OpenCode configuration for Palantir. Requires OpenCode v2; The configuration uses the native v2 format and must not be loaded by v1.
 
-## Install
+# Install
 
-Remove a package-managed v1 installation before installing v2. Follow the [official v2 installation instructions](https://opencode.ai/v2/docs/cli/), then confirm `opencode --version` reports v2.
+## WARNING
+The installer replaces `~/.config/opencode` only after confirmation, preserving the old directory as a timestamped backup. It identifies and removes confirmed V1 OpenCode executables/packages and non-Homebrew OpenCode binaries before installing Homebrew OpenCode V2. OpenChamber is optional: a non-Homebrew `/Applications/OpenChamber.app` is moved to Trash only when you choose to install the Homebrew cask. Existing sessions and OpenChamber data are not purged.
 
-Clone this repository into `~/.config/opencode`, backing up any existing directory first:
+## Installation
+Download the [latest macOS release](https://github.com/DemiLovato69/Foundry-OpenCode-Configs/releases/latest) for Apple Silicon (`aarch64-apple-darwin`) or Intel (`x86_64-apple-darwin`), extract the binary, and run it from the extracted location. The installer offers to copy itself into `/usr/local/bin` for future use. Homebrew, Git, and SSH access to this repository are required; OpenChamber is optional.
 
+Run `foundry-opencode` (equivalent to `foundry-opencode install`). It will walk you through the entire installation setup. The selected projects directory is broadly whitelisted by direnv, so any `.envrc` within it can execute automatically. The installer adds `eval "$(direnv hook zsh)"` to your active `.zshrc` if it is not already present (using `$ZDOTDIR/.zshrc` when configured). Open a new Zsh shell afterward to activate the hook.
+
+Before uninstalling any OpenCode installation, the installer verifies that the standard Homebrew `opencode` formula targets V2. Its review and dry-run list every package and executable it proposes to remove. An unrecognized executable blocks installation rather than risking a wrong deletion. A Homebrew-managed `opencode-v2` is migrated to the standard V2 formula after confirmation.
+
+Use the mouse or keyboard in the wizard: Space toggles checkboxes, arrows navigate stacks, and Enter activates the focused button. Type to filter stack names; Space immediately selects the highlighted match, and choices stay checked when the filter changes. Cancel is on the first page, Back preserves your answers, and Continue is on the right. On first installation the wizard offers to copy itself to `/usr/local/bin/foundry-opencode` so it can be run from anywhere. It will ask before doing so, may request an administrator password after closing the TUI, and will not overwrite an existing binary.
+
+When entering the main projects directory, suggestions show existing folders as you type. Use Up/Down to choose a suggestion and Tab or a mouse click to fill the field; Enter continues after validating the directory. For the recommended layout, choose the parent `~/Projects`, not `~/Projects/Stack1`.
+
+## After Install
+
+The installer provides many commands to make developer experience better.
+
+- Generate .envrc
+*Run this command from your stack directory*
+`foundry-opencode init`
+
+At the token prompt, select **Open Foundry token page** to open `https://<host>/workspace/settings/tokens`, create your token there, then paste it into the masked prompt. Opening the browser is optional and never happens just by entering the host.
+
+- Update everything
+`foundry-opencode update`
+
+- Re-run the install process
+*This backs up and replaces previous configs after confirmation*
+`foundry-opencode install`
+
+- Show the binary version or example commands
+`foundry-opencode version` / `foundry-opencode usage`
+
+Preview any operation without writing files, opening a browser, or requesting a token: `foundry-opencode init --dry-run`, `foundry-opencode update --dry-run`, or `foundry-opencode --dry-run install` (also `foundry-opencode --dry-run` for the default install). After review, dry-run animates a mock progress bar with illustrative times for each planned step; it never performs those steps.
+
+Releases are created automatically from successful merges to `main` (including changes to these configs); each release contains macOS Apple Silicon and Intel binaries and checksums.
+
+
+# Futher Reading
+<details>
+<summary>
+Expand the section for more information of what happens behind the scenes.
+</summary>
+
+## Project Setup
+
+### Directories
+
+Its recommended that projects are stored under a centeralized directory on your system.
+
+For example
+`$HOME/Projects/`
+
+For the cleanest results use:
+
+```text
+$HOME/Projects/
+├── Stack1/
+│   ├── .envrc                   # Stack1 host and API key
+│   ├── Functions Repo/
+│   └── OSDK React App Repo/
+├── Stack2/
+│   ├── .envrc                   # Stack2 host and API key
+│   ├── Functions Repo/
+│   ├── Pipeline Repo/
+│   └── OSDK React App Repo/
+└── ...
+```
+
+With that directory topology whenever you switch between stacks your system will always load the most appropriate envirnment variables for that stack.
+
+This is not required but provides the best results.
+
+### Direnv
+
+#### !IMPORTANT!
+If you don't follow the recomended topology and put your .envrc in Git tracked repositories, absolutely ensure that you do not commit that file. It contains your secrets.
+
+If you work on multiple stacks direnv is required to swap between workspaces.
+*It is recommended to use this direnv setup even if you work on a singlular stack*
+
+direnv allows the hotswapping of environment variables and automatically restarting the opencode service.
+*In Opencode-v2 a background service is started which loads the last known environment variables for the host and api key*
+
+Each stack directory will have a `.envrc` file. This file will contain:
 ```sh
-mkdir -p ~/.config
-git clone <repo-url> ~/.config/opencode
-cd ~/.config/opencode
-npm install
+export OPENCODE_API_KEY=<YOUR_FOUNDRY_TOKEN>
+export OPENCODE_BASE_URL=https://xyz.palantirfoundry.com
+opencode service restart
 ```
 
-When copying files into an existing installation, copy `opencode.jsonc`, `package.json`, `agents/`, `commands/`, and `plugins/`. Remove the previous active v1 plugin files; v2 discovers local plugins automatically. `plugins-old/` holds the original v1 plugins and the incomplete copied Ponytail plugin for reference; OpenCode does not load that directory.
-
-## Credentials
-
-Set these variables in the environment that starts the OpenCode server, for example through `~/.zshrc`:
-
-```sh
-export OPENCODE_BASE_URL="https://your-foundry-stack.palantir.com"
-export OPENCODE_API_KEY="your-foundry-token"
-```
-
-Keep the token out of this repository. Check that variables are present without printing their values:
-
-```sh
-test -n "$OPENCODE_BASE_URL" && echo "OPENCODE_BASE_URL is set"
-test -n "$OPENCODE_API_KEY" && echo "OPENCODE_API_KEY is set"
-```
-
-The current OpenAI endpoint is `${OPENCODE_BASE_URL}/language-model-service/api/proxy/openai/v1`. Anthropic keeps the v1 setup's `${OPENCODE_BASE_URL}/api/v2/llm/proxy/anthropic/v1`. Adjust `providers.<id>.settings.baseURL` if your Foundry enrollment uses different routes.
-
-## Models and plugins
-
-Start `opencode` in a project. The default model is `palantir-openai/gpt-6-sol`; the built-in title agent uses `palantir-openai/gpt-6-luna`. Provider policies allow only `palantir-openai` and `palantir-anthropic`. These dedicated IDs inherit the vendor catalogs through `canonical` and avoid binding proxy requests to saved OpenAI or Anthropic OAuth accounts. Existing sessions using `openai/...` or `anthropic/...` must select the corresponding `palantir-*` model through `/models`. Automatic updates and sharing are disabled.
-
-OpenAI uses the native Responses runtime, and Anthropic uses the native Messages runtime. `modelID` values in `opencode.jsonc` contain the upstream Palantir model identifiers. The local `lms-responses-compat` plugin uses v2 `http.request` hooks to remove unsupported fields and normalize bearer authentication for primary, compaction, title, and transient requests. It rejects OpenAI `input_file` attachments, including PDFs; use text or image inputs there. Anthropic retains PDF support.
-
-The compatibility plugin also preserves the old model allowlists through a v2 model transform. When adding a model, update both `providers.<id>.models` in `opencode.jsonc` and `plugins/lms-responses-compat/models.json`.
-
-[Ponytail](https://www.npmjs.com/package/@dietrichgebert/ponytail) is pinned to 5.3.2, whose published package includes its v2 entrypoint, shared hooks, commands, and skills. Its default mode is full. Use `/ponytail off`, `/ponytail lite`, `/ponytail`, or `/ponytail ultra` to switch modes, and `/ponytail-help` for help. Active mode persists in `~/.config/opencode/.ponytail-active`. To disable loading Ponytail entirely, replace its plugin entry with `-ponytail` (the plugin ID).
-
-Local command definitions live in `commands/`; custom primary agents live in `agents/`. The old GitKraken hook remains archived and inactive.
-
-V2 accepts the retained `lsp` settings but does not run language servers, expose LSP tools, or provide LSP diagnostics. Use each project's lint, typecheck, and compiler commands instead. Shell and edit permissions remain allowed; access outside the project asks for permission, preserving v1's default.
-
-OpenCode v2 watches server configuration automatically. Use `opencode reload` after changing plugin code; restart the server after changing its environment. Terminal settings belong to global `cli.json`, which v2 migrates automatically and this repo does not track.
-
-Clients that call the v1 server API, including older OpenChamber versions, must migrate to the v2 API and `@opencode/client`; updating this config does not migrate those clients.
-
-A global `integration.use` policy blocks `plugin:context-mode`, whose current package uses the incompatible v1 plugin API. This also blocks the inherited entry in `~/.opencode/opencode.json` without modifying that file. Remove the policy after installing a v2-compatible release.
-
-## Palantir MCP
-
-The Palantir MCP server is configured under `mcp.servers.palantir` and starts disabled. Change `disabled` to `false` to enable it. It requires Node.js 18 or newer and access to your Foundry enrollment.
-
-The command maps `OPENCODE_API_KEY` to `FOUNDRY_TOKEN` for the MCP process:
-
-```jsonc
-{
-  "mcp": {
-    "servers": {
-      "palantir": {
-        "type": "local",
-        "command": [
-          "sh",
-          "-c",
-          "FOUNDRY_TOKEN=\"$OPENCODE_API_KEY\" exec npx -y palantir-mcp --foundry-api-url \"$OPENCODE_BASE_URL\""
-        ],
-        "disabled": false
-      }
-    }
-  }
-}
-```
-
-## Verify
-
-```sh
-npm test
-opencode debug agents
-opencode plugin list
-opencode models
-```
-
-In a project, verify that both custom agents and the Ponytail commands appear, select a model, and send a short prompt. Confirm real proxy access separately for OpenAI and Anthropic, and enable and exercise MCP if needed. Local tests use synthetic requests and do not spend model tokens.
-
-Validation included nine local tests, the official v2 JSON schema, the 36-model allowlist, Ponytail commands and mode persistence, and complete OpenAI and Anthropic prompts through OpenCode 2.0.32 against a local mock proxy using the two custom agents. A real `palantir-openai/gpt-6-sol` prompt through Foundry returned `OK`. Real Anthropic and MCP connectivity remain untested.
-
-Migration references: [configuration](https://opencode.ai/v2/docs/migrate-v1/) and [plugins](https://opencode.ai/v2/docs/build/plugins/migrate-v1/).
+The `.envrc` file can be generated using the installer command.
+</details>
