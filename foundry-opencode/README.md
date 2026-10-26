@@ -7,6 +7,8 @@ foundry-opencode          # install (same as install)
 foundry-opencode install  # guided installation; optional OpenChamber
 foundry-opencode update   # update Homebrew packages and configs
 foundry-opencode init     # from your stack directory: create .envrc
+foundry-opencode init-rag # from a project directory: install and index RAG
+foundry-opencode init-rag --dry-run # preview RAG files and commands
 foundry-opencode --dry-run install  # preview without changes
 foundry-opencode init --dry-run     # preview .envrc without entering a token
 foundry-opencode version  # print version
@@ -52,10 +54,29 @@ creates `.envrc` with private permissions. If inside a Git repo, it offers to
 ignore `.envrc` and refuses to create an unignored secret. Review the file, and run `direnv allow`
 if it isn't under your whitelisted projects directory. Press Esc to cancel.
 
-`--dry-run` works with `init`, `install` (including the no-argument default), and
+If OpenChamber is running, `install` and `update` skip its optional installation
+or upgrade and continue with the required setup. Quit OpenChamber and rerun the
+command to upgrade it.
+
+`init-rag` runs separately from installation, from the root of **one project**.
+Load that project's stack `.envrc` first so `OPENCODE_BASE_URL` and
+`OPENCODE_API_KEY` are available (or supply `FOUNDRY_TOKEN` for the token).
+It requires Node.js and npm. It creates `.opencode/rag.json`, pinned npm
+dependencies, compatibility patches, a CLI helper, local ignores, and a
+project-local V2 MCP server entry in `.opencode/opencode.json`, preserving
+other JSON settings. It refuses existing RAG files or a conflicting MCP entry
+instead of overwriting them. It installs the dependencies and indexes the
+project with Foundry's `text-embedding-3-large` endpoint; API credentials are
+read from the environment, not written to disk. Reindex after edits with
+`node .opencode/rag-cli.mjs index` from the project root. The underlying RAG
+package's automatic watcher is a V1 plugin and cannot run in OpenCode V2;
+indexing is manual after the initial setup. The OpenCode background service
+also needs access to the same credentials to connect the MCP search server.
+
+`--dry-run` works with `init`, `init-rag`, `install` (including the no-argument default), and
 `update`, before or after the command. It previews paths, commands, and redacted
-credentials, then animates the real progress-bar layout with short, illustrative
-times for each step. It does not change files, run installation commands,
+credentials; installation and update also animate the progress-bar layout with short,
+illustrative times for each step. It does not change files, run installation commands,
 request a token, or open a browser. The review shows whether `.zshrc` would be
 updated or skipped.
 The wizard supports mouse clicks as well as keyboard input; use Space to toggle

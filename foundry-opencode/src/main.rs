@@ -1,5 +1,6 @@
 mod cleanup;
 mod ops;
+mod rag;
 mod ui;
 
 use std::fs;
@@ -46,6 +47,8 @@ struct Args {
 enum Mode {
     /// Generate .envrc in the current stack directory
     Init,
+    /// Configure and index RAG in the current project
+    InitRag,
     /// Update Homebrew packages and fast-forward the config checkout
     Update,
     /// Install tools and set up Foundry OpenCode (the default)
@@ -65,20 +68,24 @@ fn main() -> eyre::Result<()> {
         }
         Some(Mode::Usage) => {
             println!(
-                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Re-run installation; back up existing configs\nfoundry-opencode update    Update installed tools and configs\nfoundry-opencode init      Create .envrc in the current stack directory\nfoundry-opencode --dry-run install  Preview without changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
+                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Re-run installation; back up existing configs\nfoundry-opencode update    Update installed tools and configs\nfoundry-opencode init      Create .envrc in the current stack directory\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run init-rag  Preview RAG setup\nfoundry-opencode --dry-run install  Preview without changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
             );
             return Ok(());
         }
         _ => {}
     }
     color_eyre::install()?;
-    if !cfg!(target_os = "macos") && !args.dry_run && !matches!(args.command, Some(Mode::Init)) {
+    if !cfg!(target_os = "macos")
+        && !args.dry_run
+        && !matches!(args.command, Some(Mode::Init | Mode::InitRag))
+    {
         eyre::bail!("Installation and updates require macOS and Homebrew");
     }
     let staged = match ratatui::run(|terminal| {
         execute!(std::io::stdout(), EnableMouseCapture)?;
         let result = match args.command.unwrap_or(Mode::Install) {
             Mode::Init => init(terminal, args.dry_run).map(|_| None),
+            Mode::InitRag => init_rag(terminal, args.dry_run).map(|_| None),
             Mode::Update => update(terminal, args.dry_run).map(|_| None),
             Mode::Install => install(terminal, args.dry_run),
             _ => unreachable!(),
@@ -98,6 +105,35 @@ fn main() -> eyre::Result<()> {
         println!("Installed foundry-opencode to {}", ops::BIN_PATH);
     }
     Ok(())
+}
+
+fn init_rag(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let url = std::env::var("OPENCODE_BASE_URL")
+        .wrap_err("Set OPENCODE_BASE_URL (run from a direnv-enabled project)")?;
+    let preview = rag::setup(&cwd, &url, true)?;
+    if ui::step_review(
+        terminal,
+        "Review RAG setup",
+        &preview,
+        dry_run,
+        false,
+        "Initialize RAG",
+    )? != ui::Nav::Next
+    {
+        return Err(Cancelled.into());
+    }
+    if dry_run {
+        return notice(terminal, "Dry-run complete", &preview);
+    }
+    eyre::ensure!(
+        std::env::var_os("FOUNDRY_TOKEN").is_some()
+            || std::env::var_os("OPENAI_API_KEY").is_some()
+            || std::env::var_os("OPENCODE_API_KEY").is_some(),
+        "Load a Foundry token via direnv before indexing"
+    );
+    let result = rag::setup(&cwd, &url, false)?;
+    notice(terminal, "RAG — complete", &result)
 }
 
 fn token_page(url: &str) -> String {
@@ -414,6 +450,77 @@ fn brew_update(terminal: &mut DefaultTerminal, progress: &mut Progress) -> eyre:
         cmd.arg("update");
         cmd
     })
+}
+
+fn chamber_running() -> eyre::Result<bool> {
+    let output = Process::new("pgrep").args(["-x", "OpenChamber"]).output()?;
+    chamber_status(output.status.code())
+}
+
+fn chamber_status(code: Option<i32>) -> eyre::Result<bool> {
+    match code {
+        Some(0) => Ok(true),
+        Some(1) => Ok(false),
+        _ => eyre::bail!(
+            "Could not determine whether OpenChamber is running; skipping its upgrade is safer"
+        ),
+    }
+}
+
+fn chamber_available(terminal: &mut DefaultTerminal) -> bool {
+    match chamber_running() {
+        Ok(false) => true,
+        Ok(true) => {
+            let _ = notice(
+                terminal,
+                "OpenChamber skipped",
+                "OpenChamber is running. Quit it and rerun install/update to upgrade it. The remaining setup will continue.",
+            );
+            false
+        }
+        Err(error) => {
+            let _ = notice(
+                terminal,
+                "OpenChamber skipped",
+                &format!("{error}. The remaining setup will continue."),
+            );
+            false
+        }
+    }
+}
+
+fn optional_chamber(terminal: &mut DefaultTerminal, progress: &mut Progress) -> bool {
+    if chamber_available(terminal) {
+        if let Err(error) = brew_package(terminal, progress, "openchamber", true) {
+            let _ = notice(
+                terminal,
+                "OpenChamber upgrade skipped",
+                &format!("{error}. Continue setup; retry after quitting OpenChamber."),
+            );
+            progress.done += 1;
+            return false;
+        }
+    } else {
+        progress.done += 1;
+        return false;
+    }
+    true
+}
+
+fn restore_chamber(backup: &std::path::Path, app: &std::path::Path) -> eyre::Result<()> {
+    eyre::ensure!(
+        fs::symlink_metadata(app).is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound),
+        "OpenChamber upgrade failed; previous app is safe at {} but {} is occupied",
+        backup.display(),
+        app.display()
+    );
+    fs::rename(backup, app).wrap_err_with(|| {
+        format!(
+            "OpenChamber upgrade failed; restore the previous app from {}",
+            backup.display()
+        )
+    })?;
+    Ok(())
 }
 
 fn home() -> eyre::Result<PathBuf> {
@@ -925,13 +1032,9 @@ fn install(
         cleanup::inspect(&home()?, with_chamber)? == inventory,
         "Install inventory changed after the Homebrew refresh; review the install again before removing anything"
     );
-    if inventory.chamber {
-        let running = Process::new("pgrep").args(["-x", "OpenChamber"]).output()?;
-        eyre::ensure!(
-            running.status.code() == Some(1),
-            "Quit OpenChamber or verify its process status before replacing its non-Homebrew app bundle"
-        );
-    }
+    // Decide before removing anything: a running optional app must never block required setup.
+    let plan_with_chamber = with_chamber;
+    let with_chamber = with_chamber && chamber_available(terminal);
     let mut trashed = Vec::new();
     for name in &inventory.brew_v1 {
         let mut command = Process::new("brew");
@@ -989,15 +1092,33 @@ fn install(
         "Installed opencode does not resolve to V2; check PATH before continuing"
     );
     if with_chamber {
-        if inventory.chamber {
+        let safe_to_move = inventory.chamber && chamber_available(terminal);
+        let mut chamber_backup = None;
+        if safe_to_move {
             progress.show(terminal, "Moving non-Homebrew OpenChamber.app to Trash")?;
-            trashed.push(cleanup::move_to_trash(
+            let backup = cleanup::move_to_trash(
                 std::path::Path::new("/Applications/OpenChamber.app"),
                 &home()?,
-            )?);
+            )?;
+            chamber_backup = Some(backup.clone());
+            trashed.push(backup);
             progress.done += 1;
         }
-        brew_package(terminal, &mut progress, "openchamber", true)?;
+        if !inventory.chamber || safe_to_move {
+            if !optional_chamber(terminal, &mut progress) {
+                if let Some(backup) = chamber_backup {
+                    let app = std::path::Path::new("/Applications/OpenChamber.app");
+                    restore_chamber(&backup, app)?;
+                    trashed.retain(|path| path != &backup);
+                }
+            }
+        } else {
+            progress.done += 2; // skipped the app move and optional cask installation
+        }
+    } else if inventory.chamber {
+        progress.done += 2;
+    } else if plan_with_chamber {
+        progress.done += 1;
     }
     brew_package(terminal, &mut progress, "direnv", false)?;
     fs::create_dir_all(config.parent().expect("config has parent"))?;
@@ -1148,7 +1269,7 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     cleanup::latest_is_v2()?;
     brew_package(terminal, &mut progress, "opencode", false)?;
     if chamber {
-        brew_package(terminal, &mut progress, "openchamber", true)?;
+        let _ = optional_chamber(terminal, &mut progress);
     }
     brew_package(terminal, &mut progress, "direnv", false)?;
     let mut git = Process::new("git");
@@ -1189,9 +1310,34 @@ mod tests {
             vec!["foundry-opencode", "--dry-run", "init"],
             vec!["foundry-opencode", "init", "--dry-run"],
             vec!["foundry-opencode", "update", "--dry-run"],
+            vec!["foundry-opencode", "init-rag", "--dry-run"],
         ] {
             assert!(Args::try_parse_from(args).unwrap().dry_run);
         }
+    }
+
+    #[test]
+    fn unknown_chamber_status_is_not_treated_as_not_running() {
+        assert!(chamber_status(Some(0)).unwrap());
+        assert!(!chamber_status(Some(1)).unwrap());
+        assert!(chamber_status(Some(2)).is_err());
+        assert!(chamber_status(None).is_err());
+    }
+
+    #[test]
+    fn chamber_restore_never_replaces_an_existing_app() {
+        let root = ops::backup_path(&std::env::temp_dir().join("chamber-restore-test"));
+        fs::create_dir(&root).unwrap();
+        let backup = root.join("backup");
+        let app = root.join("app");
+        fs::write(&backup, "original").unwrap();
+        fs::write(&app, "new").unwrap();
+        assert!(restore_chamber(&backup, &app).is_err());
+        assert_eq!(fs::read_to_string(&backup).unwrap(), "original");
+        fs::remove_file(&app).unwrap();
+        restore_chamber(&backup, &app).unwrap();
+        assert_eq!(fs::read_to_string(&app).unwrap(), "original");
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
