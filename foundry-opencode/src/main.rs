@@ -405,6 +405,30 @@ fn run(
     }
 }
 
+fn run_interactive_git(
+    terminal: &mut DefaultTerminal,
+    progress: &mut Progress,
+    label: &str,
+    mut command: Process,
+) -> eyre::Result<()> {
+    execute!(std::io::stdout(), DisableMouseCapture)?;
+    ratatui::try_restore()?;
+    eyre::ensure!(
+        !crossterm::terminal::is_raw_mode_enabled()?,
+        "Cannot prompt for SSH trust while the terminal is in raw mode"
+    );
+    println!(
+        "{label}. Verify any SSH host fingerprint against GitHub's published fingerprints before accepting it."
+    );
+    let result = command.status();
+    *terminal = ratatui::try_init()?;
+    execute!(std::io::stdout(), EnableMouseCapture)?;
+    let status = result.wrap_err(format!("{label} failed to start"))?;
+    eyre::ensure!(status.success(), "{label} failed ({status})");
+    progress.done += 1;
+    progress.show(terminal, label)
+}
+
 fn installed(name: &str, cask: bool) -> eyre::Result<bool> {
     let mut command = Process::new("brew");
     command.arg("list");
@@ -1127,7 +1151,9 @@ fn install(
     clone
         .args(["clone", "--depth", "1", "--branch", "main", ops::REMOTE])
         .arg(&staged);
-    if let Err(error) = run(terminal, &mut progress, "Cloning latest configs", clone) {
+    if let Err(error) =
+        run_interactive_git(terminal, &mut progress, "Cloning latest configs", clone)
+    {
         if staged.exists() {
             fs::remove_dir_all(&staged)?;
         }
@@ -1276,7 +1302,7 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     git.arg("-C")
         .arg(&config)
         .args(["pull", "--ff-only", "origin", "main"]);
-    run(terminal, &mut progress, "Updating configs", git)?;
+    run_interactive_git(terminal, &mut progress, "Updating configs", git)?;
     notice(
         terminal,
         "Update — complete",
