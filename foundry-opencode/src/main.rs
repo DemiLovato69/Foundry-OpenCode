@@ -415,11 +415,9 @@ fn run_interactive_git(
     ratatui::try_restore()?;
     eyre::ensure!(
         !crossterm::terminal::is_raw_mode_enabled()?,
-        "Cannot prompt for SSH trust while the terminal is in raw mode"
+        "Cannot prompt for Git credentials while the terminal is in raw mode"
     );
-    println!(
-        "{label}. Verify any SSH host fingerprint against GitHub's published fingerprints before accepting it."
-    );
+    println!("{label}.");
     let result = command.status();
     *terminal = ratatui::try_init()?;
     execute!(std::io::stdout(), EnableMouseCapture)?;
@@ -1229,7 +1227,14 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     let mut can_pull = true;
     let details = if dry_run {
         let state = match ops::check_checkout(&config) {
-            Ok(()) => "Checkout is clean and on main.".to_string(),
+            Ok(legacy) => format!(
+                "Checkout is clean and on main. {}",
+                if legacy {
+                    "Would switch the config origin from SSH to HTTPS."
+                } else {
+                    "Config origin already uses HTTPS."
+                }
+            ),
             Err(error) => {
                 can_pull = false;
                 format!("Config pull would be blocked: {error}")
@@ -1245,10 +1250,15 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
             config.display()
         )
     } else {
-        ops::check_checkout(&config)?;
+        let legacy = ops::check_checkout(&config)?;
         format!(
-            "Upgrade OpenCode and direnv, upgrade OpenChamber if installed, and fast-forward the config checkout in {} from main?",
-            config.display()
+            "Upgrade OpenCode and direnv, upgrade OpenChamber if installed, and fast-forward the config checkout in {} from main?{}",
+            config.display(),
+            if legacy {
+                " The config origin will switch from SSH to HTTPS."
+            } else {
+                ""
+            }
         )
     };
     if ui::step_review(terminal, "Review update", &details, dry_run, true, "Update")?
@@ -1298,6 +1308,7 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
         let _ = optional_chamber(terminal, &mut progress);
     }
     brew_package(terminal, &mut progress, "direnv", false)?;
+    ops::migrate_remote(&config)?;
     let mut git = Process::new("git");
     git.arg("-C")
         .arg(&config)
