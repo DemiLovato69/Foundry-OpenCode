@@ -1105,12 +1105,12 @@ fn install(
             progress.done += 1;
         }
         if !inventory.chamber || safe_to_move {
-            if !optional_chamber(terminal, &mut progress) {
-                if let Some(backup) = chamber_backup {
-                    let app = std::path::Path::new("/Applications/OpenChamber.app");
-                    restore_chamber(&backup, app)?;
-                    trashed.retain(|path| path != &backup);
-                }
+            if !optional_chamber(terminal, &mut progress)
+                && let Some(backup) = chamber_backup
+            {
+                let app = std::path::Path::new("/Applications/OpenChamber.app");
+                restore_chamber(&backup, app)?;
+                trashed.retain(|path| path != &backup);
             }
         } else {
             progress.done += 2; // skipped the app move and optional cask installation
