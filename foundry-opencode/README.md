@@ -1,6 +1,6 @@
 # foundry-opencode
 
-macOS Ratatui installer for Foundry OpenCode setup. Requires Homebrew, Git, and SSH access to the configs repository.
+macOS Ratatui installer for Foundry OpenCode setup. Requires Homebrew, Git, and HTTPS access to the public configs repository; no GitHub SSH key is needed.
 
 ```sh
 foundry-opencode          # install (same as install)
@@ -44,7 +44,8 @@ Existing `.envrc` files are never overwritten. The installer adds
 `$ZDOTDIR`), or leaves an existing hook alone. Open a new Zsh shell to use it.
 
 `update` upgrades the installed tools (OpenChamber only when present) and pulls
-`main` with `--ff-only`; it refuses to pull over local config changes. `init`
+`main` with `--ff-only`; it refuses to pull over local config changes. Existing SSH
+config checkouts are switched to HTTPS before pulling. `init`
 prompts for a Foundry HTTPS base URL. At the token step, select **Open Foundry
 token page** with Tab/Arrows and Enter (or click it) to open
 `https://<host>/workspace/settings/tokens`,

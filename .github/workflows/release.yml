@@ -23,9 +23,27 @@ jobs:
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
 
-  build:
+  version:
     if: github.event_name == 'push'
     needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      number: ${{ steps.calculate.outputs.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: calculate
+        run: |
+          base=$(git describe --tags --first-parent --match 'v0.1.[0-9]*' --abbrev=0)
+          patch=${base#v0.1.}
+          [[ "$patch" =~ ^[0-9]+$ ]]
+          commits=$(git rev-list --count --first-parent "$base"..HEAD)
+          echo "number=0.1.$((patch + commits))" >> "$GITHUB_OUTPUT"
+
+  build:
+    if: github.event_name == 'push'
+    needs: version
     strategy:
       matrix:
         include:
@@ -44,10 +62,10 @@ jobs:
           targets: ${{ matrix.target }}
       - run: cargo build --locked --release --target ${{ matrix.target }}
         env:
-          FOUNDRY_OPENCODE_VERSION: 0.1.${{ github.run_number }}
+          FOUNDRY_OPENCODE_VERSION: ${{ needs.version.outputs.number }}
       - name: Package binary
         run: |
-          test "$(target/${{ matrix.target }}/release/foundry-opencode version)" = "0.1.${{ github.run_number }}"
+          test "$(target/${{ matrix.target }}/release/foundry-opencode version)" = "${{ needs.version.outputs.number }}"
           tar -czf foundry-opencode-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release foundry-opencode
       - uses: actions/upload-artifact@v4
         with:
@@ -56,7 +74,7 @@ jobs:
 
   release:
     if: github.event_name == 'push'
-    needs: build
+    needs: [build, version]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -69,7 +87,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: v0.1.${{ github.run_number }}
+          TAG: v${{ needs.version.outputs.number }}
         run: |
           shasum -a 256 foundry-opencode-*.tar.gz > SHA256SUMS
           if gh release view "$TAG" >/dev/null 2>&1; then

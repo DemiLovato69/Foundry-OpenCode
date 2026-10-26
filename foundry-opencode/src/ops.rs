@@ -8,7 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use color_eyre::eyre::{self, Context};
 use toml_edit::{Array, DocumentMut, Item, Table, value};
 
-pub const REMOTE: &str = "git@github.com:DemiLovato69/Foundry-OpenCode-Configs.git";
+pub const REMOTE: &str = "https://github.com/DemiLovato69/Foundry-OpenCode-Configs.git";
+const LEGACY_REMOTE: &str = "git@github.com:DemiLovato69/Foundry-OpenCode-Configs.git";
 static NEXT_PATH: AtomicU64 = AtomicU64::new(0);
 pub const BIN_PATH: &str = "/usr/local/bin/foundry-opencode";
 pub const ZSH_HOOK: &str = "eval \"$(direnv hook zsh)\"";
@@ -339,7 +340,7 @@ pub fn replace_config(
     Ok(())
 }
 
-pub fn check_checkout(path: &Path) -> eyre::Result<()> {
+pub fn check_checkout(path: &Path) -> eyre::Result<bool> {
     eyre::ensure!(
         path.join(".git").exists(),
         "{} is not a Git checkout; run install instead",
@@ -355,8 +356,9 @@ pub fn check_checkout(path: &Path) -> eyre::Result<()> {
         eyre::ensure!(output.status.success(), "Could not inspect config checkout");
         Ok(String::from_utf8(output.stdout)?.trim().to_owned())
     };
+    let origin = run(&["remote", "get-url", "origin"])?;
     eyre::ensure!(
-        run(&["remote", "get-url", "origin"])? == REMOTE,
+        origin == REMOTE || origin == LEGACY_REMOTE,
         "Config origin does not match {}; not pulling",
         REMOTE
     );
@@ -368,6 +370,18 @@ pub fn check_checkout(path: &Path) -> eyre::Result<()> {
         run(&["status", "--porcelain"])?.is_empty(),
         "Config checkout has local changes; commit or back them up before updating"
     );
+    Ok(origin == LEGACY_REMOTE)
+}
+
+pub fn migrate_remote(path: &Path) -> eyre::Result<()> {
+    if check_checkout(path)? {
+        let status = Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(["remote", "set-url", "origin", REMOTE])
+            .status()?;
+        eyre::ensure!(status.success(), "Could not switch config origin to HTTPS");
+    }
     Ok(())
 }
 
@@ -571,6 +585,47 @@ mod tests {
         assert!(check_checkout(&root).is_err());
         fs::remove_file(root.join("mine")).unwrap();
         assert!(check_checkout(&root).is_ok());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn update_migrates_only_clean_legacy_origin() {
+        let root = sandbox();
+        let git = |args: &[&str]| {
+            Command::new("git")
+                .arg("-C")
+                .arg(&root)
+                .args(args)
+                .output()
+                .unwrap()
+        };
+        assert!(git(&["init", "-q", "-b", "main"]).status.success());
+        assert!(
+            git(&["remote", "add", "origin", LEGACY_REMOTE])
+                .status
+                .success()
+        );
+        let origin = || String::from_utf8(git(&["remote", "get-url", "origin"]).stdout).unwrap();
+        assert!(check_checkout(&root).unwrap());
+        fs::write(root.join("mine"), "local work").unwrap();
+        assert!(migrate_remote(&root).is_err());
+        assert_eq!(origin().trim(), LEGACY_REMOTE);
+        fs::remove_file(root.join("mine")).unwrap();
+        migrate_remote(&root).unwrap();
+        assert!(!check_checkout(&root).unwrap());
+        migrate_remote(&root).unwrap();
+        assert_eq!(origin().trim(), REMOTE);
+        assert!(
+            git(&[
+                "remote",
+                "set-url",
+                "origin",
+                "https://example.com/other.git"
+            ])
+            .status
+            .success()
+        );
+        assert!(migrate_remote(&root).is_err());
         fs::remove_dir_all(root).unwrap();
     }
 
