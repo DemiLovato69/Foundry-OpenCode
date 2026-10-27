@@ -6,6 +6,7 @@ macOS Ratatui installer for Foundry OpenCode setup. Requires Homebrew, Git, and 
 foundry-opencode          # install (same as install)
 foundry-opencode install  # guided installation; optional OpenChamber
 foundry-opencode update   # update Homebrew packages and configs
+foundry-opencode reset    # stop OpenCode/OpenChamber and clear OpenCode cache
 foundry-opencode init     # from your stack directory: create .envrc
 foundry-opencode init-rag # from a project directory: install and index RAG
 foundry-opencode init-rag --dry-run # preview RAG files and commands
@@ -36,9 +37,10 @@ with the new checkout. It then trusts the chosen projects directory in direnv
 and creates `.envrc` files for selected stack directories. Broad direnv trust
 means **all** `.envrc` files below the projects directory run without individual
 approval; only use a directory you trust.
-The installer offers to copy itself to `/usr/local/bin/foundry-opencode` after
-setup. This may require an administrator password in the restored terminal;
-existing binaries are never overwritten. You can decline this step.
+The installer replaces `/usr/local/bin/foundry-opencode` after a successful
+install or update, even if an older copy exists. This may require an administrator
+password in the restored terminal. Installation commands show live output in the
+installer's Terminal pane; Git credential prompts use the native terminal.
 Existing `.envrc` files are never overwritten. The installer adds
 `eval "$(direnv hook zsh)"` to your active `.zshrc` if needed (respecting
 `$ZDOTDIR`), or leaves an existing hook alone. Open a new Zsh shell to use it.
@@ -54,6 +56,11 @@ into the masked prompt; merely entering a host never opens the browser. It
 creates `.envrc` with private permissions. If inside a Git repo, it offers to
 ignore `.envrc` and refuses to create an unignored secret. Review the file, and run `direnv allow`
 if it isn't under your whitelisted projects directory. Press Esc to cancel.
+
+`reset` asks for confirmation, stops the current user's OpenCode service and
+OpenCode/OpenChamber processes, then deletes `~/.cache/opencode` if present.
+It interrupts active sessions but preserves configs and the session database.
+`reset --dry-run` previews the operation without stopping anything.
 
 If OpenChamber is running, `install` and `update` skip its optional installation
 or upgrade and continue with the required setup. Quit OpenChamber and rerun the
@@ -75,7 +82,7 @@ indexing is manual after the initial setup. The OpenCode background service
 also needs access to the same credentials to connect the MCP search server.
 
 `--dry-run` works with `init`, `init-rag`, `install` (including the no-argument default), and
-`update`, before or after the command. It previews paths, commands, and redacted
+`update` and `reset`, before or after the command. It previews paths, commands, and redacted
 credentials; installation and update also animate the progress-bar layout with short,
 illustrative times for each step. It does not change files, run installation commands,
 request a token, or open a browser. The review shows whether `.zshrc` would be

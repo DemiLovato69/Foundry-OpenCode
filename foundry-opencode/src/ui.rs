@@ -648,12 +648,23 @@ pub fn notice(terminal: &mut DefaultTerminal, title: &str, message: &str) -> Res
 }
 
 pub fn progress(frame: &mut Frame, label: &str, done: usize, total: usize) {
+    progress_with_output(frame, label, done, total, &[]);
+}
+
+pub fn progress_with_output(
+    frame: &mut Frame,
+    label: &str,
+    done: usize,
+    total: usize,
+    output: &[String],
+) {
     progress_frame(
         frame,
         label,
         done as f64 / total.max(1) as f64,
         &format!("Overall progress  {done}/{total}"),
         false,
+        output,
     );
 }
 
@@ -664,13 +675,22 @@ pub fn mock_progress(frame: &mut Frame, label: &str, done: usize, total: usize, 
         (done as f64 + fraction) / total.max(1) as f64,
         &format!("Mock progress  {}/{}", (done + 1).min(total), total),
         true,
+        &[],
     );
 }
 
-fn progress_frame(frame: &mut Frame, label: &str, ratio: f64, title: &str, dry_run: bool) {
+fn progress_frame(
+    frame: &mut Frame,
+    label: &str,
+    ratio: f64,
+    title: &str,
+    dry_run: bool,
+    output: &[String],
+) {
     let areas = Layout::vertical([
         Constraint::Length(3),
-        Constraint::Min(5),
+        Constraint::Length(5),
+        Constraint::Min(3),
         Constraint::Length(3),
         Constraint::Length(1),
     ])
@@ -679,7 +699,7 @@ fn progress_frame(frame: &mut Frame, label: &str, ratio: f64, title: &str, dry_r
         Paragraph::new(if dry_run {
             " Foundry OpenCode  /  DRY-RUN SIMULATION"
         } else {
-            " Foundry OpenCode  /  Installing"
+            " Foundry OpenCode  /  Working"
         })
         .style(
             Style::default()
@@ -702,11 +722,29 @@ fn progress_frame(frame: &mut Frame, label: &str, ratio: f64, title: &str, dry_r
         areas[1],
     );
     frame.render_widget(
+        Paragraph::new(
+            output
+                .iter()
+                .rev()
+                .take(areas[2].height.saturating_sub(2) as usize)
+                .rev()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Terminal output"),
+        ),
+        areas[2],
+    );
+    frame.render_widget(
         Gauge::default()
             .block(Block::default().title(title).borders(Borders::ALL))
             .ratio(ratio.clamp(0.0, 1.0))
             .gauge_style(Style::default().fg(Color::Cyan)),
-        areas[2],
+        areas[3],
     );
     frame.render_widget(
         Paragraph::new(if dry_run {
@@ -715,7 +753,7 @@ fn progress_frame(frame: &mut Frame, label: &str, ratio: f64, title: &str, dry_r
             " Please keep this window open until installation completes."
         })
         .style(Style::default().fg(Color::Gray)),
-        areas[3],
+        areas[4],
     );
 }
 
@@ -752,6 +790,31 @@ mod tests {
             modifiers: KeyModifiers::NONE,
         });
         assert_eq!(click(&second, &areas), Some(1));
+    }
+
+    #[test]
+    fn progress_displays_recent_terminal_output() {
+        let mut terminal = Terminal::new(TestBackend::new(70, 20)).unwrap();
+        terminal
+            .draw(|frame| {
+                progress_with_output(
+                    frame,
+                    "Indexing",
+                    1,
+                    2,
+                    &["npm installed".into(), "indexing files".into()],
+                )
+            })
+            .unwrap();
+        let display = terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+        assert!(display.contains("Terminal output"));
+        assert!(display.contains("indexing files"));
     }
 
     #[test]

@@ -39,14 +39,6 @@ pub fn stage_binary(source: &Path) -> io::Result<StagedBinary> {
     Ok(staged)
 }
 
-pub fn bin_is_missing(path: &Path) -> io::Result<bool> {
-    match fs::symlink_metadata(path) {
-        Ok(_) => Ok(false),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(true),
-        Err(error) => Err(error),
-    }
-}
-
 fn copy_binary(source: &StagedBinary, destination: &Path) -> io::Result<()> {
     let temporary = backup_path(destination);
     let mut created = false;
@@ -63,7 +55,7 @@ fn copy_binary(source: &StagedBinary, destination: &Path) -> io::Result<()> {
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(&temporary, fs::Permissions::from_mode(0o755))?;
         }
-        fs::hard_link(&temporary, destination)
+        fs::rename(&temporary, destination)
     })();
     if created {
         let _ = fs::remove_file(&temporary);
@@ -72,11 +64,15 @@ fn copy_binary(source: &StagedBinary, destination: &Path) -> io::Result<()> {
 }
 
 pub fn install_binary(source: &StagedBinary, destination: &Path) -> eyre::Result<()> {
-    eyre::ensure!(
-        bin_is_missing(destination)?,
-        "{} already exists; not replacing it",
-        destination.display()
-    );
+    match fs::symlink_metadata(destination) {
+        Ok(metadata) => eyre::ensure!(
+            metadata.is_file() && !metadata.file_type().is_symlink(),
+            "{} is not a regular binary; refusing to replace it",
+            destination.display()
+        ),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
     let parent = destination
         .parent()
         .ok_or_else(|| eyre::eyre!("Invalid binary destination"))?;
@@ -94,7 +90,7 @@ pub fn install_binary(source: &StagedBinary, destination: &Path) -> eyre::Result
         }
     }
     // sudo runs only after the TUI restores the terminal, so macOS can prompt normally.
-    let script = "set -e; d=$(dirname \"$2\"); if [ ! -d \"$d\" ]; then /usr/bin/install -d -m 0755 \"$d\"; fi; t=$(mktemp \"$2.tmp.XXXXXXXX\"); trap 'rm -f \"$t\"' EXIT; /usr/bin/install -m 0755 \"$1\" \"$t\"; /bin/ln \"$t\" \"$2\"";
+    let script = "set -e; d=$(dirname \"$2\"); if [ -L \"$d\" ]; then exit 1; fi; if [ ! -d \"$d\" ]; then /usr/bin/install -d -m 0755 \"$d\"; fi; if [ -L \"$2\" ] || { [ -e \"$2\" ] && [ ! -f \"$2\" ]; }; then exit 1; fi; t=$(mktemp \"$2.tmp.XXXXXXXX\"); trap 'rm -f \"$t\"' EXIT; /usr/bin/install -m 0755 \"$1\" \"$t\"; /bin/mv -f \"$t\" \"$2\"";
     let status = Command::new("sudo")
         .args(["/bin/sh", "-c", script, "foundry-opencode"])
         .arg(&source.0)
@@ -630,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    fn binary_copy_is_executable_and_never_overwrites() {
+    fn binary_copy_is_executable_and_replaces_existing_file() {
         let root = sandbox();
         let source = root.join("source");
         let destination = root.join("foundry-opencode");
@@ -638,8 +634,16 @@ mod tests {
         let staged = stage_binary(&source).unwrap();
         install_binary(&staged, &destination).unwrap();
         assert_eq!(fs::read(&destination).unwrap(), b"binary");
-        assert!(install_binary(&staged, &destination).is_err());
+        fs::write(&destination, b"outdated").unwrap();
+        install_binary(&staged, &destination).unwrap();
         assert_eq!(fs::read(&destination).unwrap(), b"binary");
+        #[cfg(unix)]
+        {
+            let link = root.join("link");
+            std::os::unix::fs::symlink(&destination, &link).unwrap();
+            assert!(install_binary(&staged, &link).is_err());
+            assert_eq!(fs::read(&destination).unwrap(), b"binary");
+        }
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;

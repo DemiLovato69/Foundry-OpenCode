@@ -174,31 +174,25 @@ fn activate_config(config: &Path, original: Option<&str>, doc: &Value) -> eyre::
     Ok(())
 }
 
-pub fn setup(project: &Path, base_url: &str, dry_run: bool) -> eyre::Result<String> {
+pub fn setup(
+    project: &Path,
+    base_url: &str,
+    dry_run: bool,
+    mut run: impl FnMut(&str, Command) -> eyre::Result<()>,
+) -> eyre::Result<String> {
     let (paths, config, original, doc) = setup_files(project, base_url, dry_run)?;
     if dry_run {
         return Ok(paths);
     }
-    let output = Command::new("npm")
-        .arg("install")
-        .current_dir(project.join(".opencode"))
-        .output()
-        .wrap_err("npm is required for RAG setup")?;
-    eyre::ensure!(
-        output.status.success(),
-        "npm install failed; setup files remain: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let output = Command::new("node")
-        .arg(".opencode/rag-cli.mjs")
-        .arg("index")
-        .current_dir(project)
-        .output()?;
-    eyre::ensure!(
-        output.status.success(),
-        "RAG indexing failed; setup files remain; retry with node .opencode/rag-cli.mjs index: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    let mut npm = Command::new("npm");
+    npm.arg("install").current_dir(project.join(".opencode"));
+    run("Installing RAG dependencies (npm install)", npm)
+        .wrap_err("RAG setup files remain; npm is required")?;
+    let mut node = Command::new("node");
+    node.args([".opencode/rag-cli.mjs", "index"])
+        .current_dir(project);
+    run("Indexing project (node .opencode/rag-cli.mjs index)", node)
+        .wrap_err("RAG setup files remain; retry with node .opencode/rag-cli.mjs index")?;
     activate_config(&config, original.as_deref(), &doc)?;
     Ok(format!("RAG indexed. Project files:\n{paths}"))
 }
@@ -210,12 +204,12 @@ mod tests {
     fn preview_is_read_only_and_preserves_conflicts() {
         let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-setup-test"));
         fs::create_dir(&root).unwrap();
-        let preview = setup(&root, "https://example.com", true).unwrap();
+        let preview = setup(&root, "https://example.com", true, |_, _| unreachable!()).unwrap();
         assert!(preview.contains(".opencode/rag.json"));
         assert!(!root.join(".opencode").exists());
         fs::create_dir(root.join(".opencode")).unwrap();
         fs::write(root.join(".opencode/rag.json"), "keep").unwrap();
-        assert!(setup(&root, "https://example.com", true).is_err());
+        assert!(setup(&root, "https://example.com", true, |_, _| unreachable!()).is_err());
         assert_eq!(
             fs::read_to_string(root.join(".opencode/rag.json")).unwrap(),
             "keep"

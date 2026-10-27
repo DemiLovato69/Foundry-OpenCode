@@ -4,8 +4,9 @@ mod rag;
 mod ui;
 
 use std::fs;
+use std::io::Read;
 use std::path::PathBuf;
-use std::process::Command as Process;
+use std::process::{Command as Process, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -51,6 +52,8 @@ enum Mode {
     InitRag,
     /// Update Homebrew packages and fast-forward the config checkout
     Update,
+    /// Stop OpenCode and OpenChamber and clear the OpenCode cache
+    Reset,
     /// Install tools and set up Foundry OpenCode (the default)
     Install,
     /// Print the installer version
@@ -68,7 +71,7 @@ fn main() -> eyre::Result<()> {
         }
         Some(Mode::Usage) => {
             println!(
-                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Re-run installation; back up existing configs\nfoundry-opencode update    Update installed tools and configs\nfoundry-opencode init      Create .envrc in the current stack directory\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run init-rag  Preview RAG setup\nfoundry-opencode --dry-run install  Preview without changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
+                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Re-run installation; back up existing configs\nfoundry-opencode update    Update installed tools and configs\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Create .envrc in the current stack directory\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run init-rag  Preview RAG setup\nfoundry-opencode --dry-run install  Preview without changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
             );
             return Ok(());
         }
@@ -77,7 +80,7 @@ fn main() -> eyre::Result<()> {
     color_eyre::install()?;
     if !cfg!(target_os = "macos")
         && !args.dry_run
-        && !matches!(args.command, Some(Mode::Init | Mode::InitRag))
+        && !matches!(args.command, Some(Mode::Init | Mode::InitRag | Mode::Reset))
     {
         eyre::bail!("Installation and updates require macOS and Homebrew");
     }
@@ -86,7 +89,8 @@ fn main() -> eyre::Result<()> {
         let result = match args.command.unwrap_or(Mode::Install) {
             Mode::Init => init(terminal, args.dry_run).map(|_| None),
             Mode::InitRag => init_rag(terminal, args.dry_run).map(|_| None),
-            Mode::Update => update(terminal, args.dry_run).map(|_| None),
+            Mode::Update => update(terminal, args.dry_run),
+            Mode::Reset => reset(terminal, args.dry_run).map(|_| None),
             Mode::Install => install(terminal, args.dry_run),
             _ => unreachable!(),
         };
@@ -111,7 +115,7 @@ fn init_rag(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     let cwd = std::env::current_dir()?;
     let url = std::env::var("OPENCODE_BASE_URL")
         .wrap_err("Set OPENCODE_BASE_URL (run from a direnv-enabled project)")?;
-    let preview = rag::setup(&cwd, &url, true)?;
+    let preview = rag::setup(&cwd, &url, true, |_, _| unreachable!())?;
     if ui::step_review(
         terminal,
         "Review RAG setup",
@@ -132,7 +136,15 @@ fn init_rag(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
             || std::env::var_os("OPENCODE_API_KEY").is_some(),
         "Load a Foundry token via direnv before indexing"
     );
-    let result = rag::setup(&cwd, &url, false)?;
+    let mut progress = Progress {
+        done: 0,
+        total: 2,
+        output: Vec::new(),
+    };
+    progress.show(terminal, "Preparing RAG files")?;
+    let result = rag::setup(&cwd, &url, false, |label, command| {
+        run(terminal, &mut progress, label, command)
+    })?;
     notice(terminal, "RAG — complete", &result)
 }
 
@@ -214,7 +226,10 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
         }
         eyre::bail!("{} already exists; it was not changed", envrc.display());
     }
-    let ignore = git_protection(&cwd)?;
+    let check_dir = cwd.clone();
+    let ignore = busy(terminal, "Checking Git protection", move || {
+        git_protection(&check_dir)
+    })?;
     let mut url = String::new();
     let mut key = String::new();
     let mut step = 0usize;
@@ -331,12 +346,32 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
 struct Progress {
     done: usize,
     total: usize,
+    output: Vec<String>,
 }
 
 impl Progress {
     fn show(&self, terminal: &mut DefaultTerminal, label: &str) -> eyre::Result<()> {
-        terminal.draw(|frame| ui::progress(frame, label, self.done, self.total))?;
+        terminal.draw(|frame| {
+            ui::progress_with_output(frame, label, self.done, self.total, &self.output)
+        })?;
         Ok(())
+    }
+
+    fn line(&mut self, bytes: &[u8]) -> bool {
+        let text = String::from_utf8_lossy(bytes);
+        let text: String = text
+            .chars()
+            .filter(|c| !c.is_control() || *c == '\t')
+            .take(500)
+            .collect();
+        if !text.trim().is_empty() {
+            self.output.push(text);
+            if self.output.len() > 200 {
+                self.output.remove(0);
+            }
+            return true;
+        }
+        false
     }
 }
 
@@ -367,40 +402,134 @@ fn simulate(terminal: &mut DefaultTerminal, steps: &[(String, u64)]) -> eyre::Re
     Ok(())
 }
 
-fn run(
+fn busy<T: Send + 'static>(
     terminal: &mut DefaultTerminal,
-    progress: &mut Progress,
     label: &str,
-    mut command: Process,
-) -> eyre::Result<()> {
+    work: impl FnOnce() -> eyre::Result<T> + Send + 'static,
+) -> eyre::Result<T> {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
-        let _ = tx.send(command.output());
+        let _ = tx.send(work());
     });
     let mut tick = 0;
     let spinner = ['|', '/', '-', '\\'];
     loop {
-        progress.show(
-            terminal,
-            &format!("{label}  {}", spinner[tick % spinner.len()]),
-        )?;
+        terminal
+            .draw(|frame| ui::progress(frame, &format!("{label} {}", spinner[tick % 4]), 0, 1))?;
         tick += 1;
         match rx.recv_timeout(Duration::from_millis(120)) {
-            Ok(Ok(output)) if output.status.success() => {
+            Ok(result) => return result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                eyre::bail!("{label} stopped unexpectedly")
+            }
+        }
+    }
+}
+
+fn run(
+    terminal: &mut DefaultTerminal,
+    progress: &mut Progress,
+    label: &str,
+    command: Process,
+) -> eyre::Result<()> {
+    run_limited(terminal, progress, label, command, None)
+}
+
+fn stream_output(mut stream: impl Read, tx: mpsc::Sender<Vec<u8>>) {
+    let mut buffer = [0; 2048];
+    let mut line = Vec::new();
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(0) | Err(_) => break,
+            Ok(count) => {
+                for byte in &buffer[..count] {
+                    if *byte == b'\r' || *byte == b'\n' {
+                        if tx.send(std::mem::take(&mut line)).is_err() {
+                            return;
+                        }
+                    } else if line.len() < 4096 {
+                        // shortcut: keep only 4096 bytes of a command line; raise for larger diagnostics.
+                        line.push(*byte);
+                    }
+                }
+            }
+        }
+    }
+    if !line.is_empty() {
+        let _ = tx.send(line);
+    }
+}
+
+fn run_limited(
+    terminal: &mut DefaultTerminal,
+    progress: &mut Progress,
+    label: &str,
+    mut command: Process,
+    timeout: Option<Duration>,
+) -> eyre::Result<()> {
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = command
+        .spawn()
+        .wrap_err(format!("{label} failed to start"))?;
+    let (tx, rx) = mpsc::channel::<Vec<u8>>();
+    let streams: [Box<dyn std::io::Read + Send>; 2] = [
+        Box::new(child.stdout.take().unwrap()),
+        Box::new(child.stderr.take().unwrap()),
+    ];
+    for stream in streams {
+        let tx = tx.clone();
+        std::thread::spawn(move || stream_output(stream, tx));
+    }
+    drop(tx);
+    let mut tick = 0;
+    let spinner = ['|', '/', '-', '\\'];
+    let mut status = None;
+    let started = Instant::now();
+    let mut last_draw = started - Duration::from_millis(120);
+    let mut recent = Vec::new();
+    loop {
+        if last_draw.elapsed() >= Duration::from_millis(120) {
+            progress.show(
+                terminal,
+                &format!("{label}  {}", spinner[tick % spinner.len()]),
+            )?;
+            tick += 1;
+            last_draw = Instant::now();
+        }
+        if status.is_none() {
+            status = child.try_wait()?;
+        }
+        if status.is_none() && timeout.is_some_and(|limit| started.elapsed() >= limit) {
+            child.kill()?;
+            child.wait()?;
+            eyre::bail!("{label} timed out");
+        }
+        match rx.recv_timeout(Duration::from_millis(120)) {
+            Ok(line) => {
+                if progress.line(&line)
+                    && let Some(line) = progress.output.last()
+                {
+                    recent.push(line.clone());
+                    if recent.len() > 8 {
+                        recent.remove(0);
+                    }
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                let status = match status {
+                    Some(status) => status,
+                    None => child.wait()?,
+                };
+                progress.show(terminal, label)?;
+                if !status.success() {
+                    eyre::bail!("{label} failed ({status}): {}", recent.join("\n"));
+                }
                 progress.done += 1;
                 progress.show(terminal, label)?;
                 return Ok(());
             }
-            Ok(Ok(output)) => eyre::bail!(
-                "{label} failed ({}): {}",
-                output.status,
-                String::from_utf8_lossy(&output.stderr).trim()
-            ),
-            Ok(Err(error)) => return Err(error).wrap_err(format!("{label} failed to start")),
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                eyre::bail!("{label} stopped unexpectedly")
-            }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
         }
     }
 }
@@ -410,7 +539,35 @@ fn run_interactive_git(
     progress: &mut Progress,
     label: &str,
     mut command: Process,
+    mut retry: Process,
+    retry_directory: Option<&std::path::Path>,
 ) -> eyre::Result<()> {
+    command.env("GIT_TERMINAL_PROMPT", "0");
+    match run(terminal, progress, label, command) {
+        Ok(()) => return Ok(()),
+        Err(error)
+            if [
+                "terminal prompts disabled",
+                "Authentication failed",
+                "could not read Username",
+                "could not read Password",
+            ]
+            .iter()
+            .any(|text| error.to_string().contains(text)) => {}
+        Err(error) => return Err(error),
+    }
+    if let Some(path) = retry_directory {
+        match fs::symlink_metadata(path) {
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
+                fs::remove_dir_all(path)?
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            _ => eyre::bail!(
+                "Cannot retry Git authentication; inspect {}",
+                path.display()
+            ),
+        }
+    }
     execute!(std::io::stdout(), DisableMouseCapture)?;
     ratatui::try_restore()?;
     eyre::ensure!(
@@ -418,7 +575,7 @@ fn run_interactive_git(
         "Cannot prompt for Git credentials while the terminal is in raw mode"
     );
     println!("{label}.");
-    let result = command.status();
+    let result = retry.status();
     *terminal = ratatui::try_init()?;
     execute!(std::io::stdout(), EnableMouseCapture)?;
     let status = result.wrap_err(format!("{label} failed to start"))?;
@@ -551,6 +708,140 @@ fn home() -> eyre::Result<PathBuf> {
     ))
 }
 
+fn reset_targets(list: &str, uid: u32) -> Vec<u32> {
+    list.lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let pid = parts.next()?.parse::<u32>().ok()?;
+            let owner = parts.next()?.parse::<u32>().ok()?;
+            let name = parts.collect::<Vec<_>>().join(" ");
+            let name = name.rsplit('/').next()?;
+            (owner == uid
+                && pid != std::process::id()
+                && (name == "opencode"
+                    || name == "OpenCode"
+                    || name.starts_with("OpenCode Helper")
+                    || name == "OpenChamber"
+                    || name == "openchamber"
+                    || name.starts_with("OpenChamber Helper")))
+            .then_some(pid)
+        })
+        .collect()
+}
+
+fn running_targets(uid: u32) -> eyre::Result<Vec<u32>> {
+    let output = Process::new("ps")
+        .args(["-axo", "pid=,uid=,comm="])
+        .output()?;
+    eyre::ensure!(
+        output.status.success(),
+        "Could not inspect running processes"
+    );
+    Ok(reset_targets(&String::from_utf8(output.stdout)?, uid))
+}
+
+fn signal_target(pid: u32, uid: u32, signal: &str) -> eyre::Result<()> {
+    if !running_targets(uid)?.contains(&pid) {
+        return Ok(());
+    }
+    let output = Process::new("kill")
+        .args([signal, &pid.to_string()])
+        .output()?;
+    eyre::ensure!(
+        output.status.success() || !running_targets(uid)?.contains(&pid),
+        "Could not stop process {pid}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(())
+}
+
+fn clear_cache(path: &std::path::Path) -> eyre::Result<bool> {
+    match fs::symlink_metadata(path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
+        Ok(metadata) => {
+            eyre::ensure!(
+                metadata.is_dir() && !metadata.file_type().is_symlink(),
+                "{} is not a real cache directory; not removing it",
+                path.display()
+            );
+            fs::remove_dir_all(path)?;
+            Ok(true)
+        }
+    }
+}
+
+fn reset(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
+    let cache = home()?.join(".cache/opencode");
+    let details = format!(
+        "Stop the current user's OpenCode service and OpenCode/OpenChamber processes, then remove {} if it exists. Active sessions will be interrupted. Configs, service registration, and session data are preserved.",
+        cache.display()
+    );
+    if ui::step_review(terminal, "Review reset", &details, dry_run, true, "Reset")? != ui::Nav::Next
+    {
+        return Err(Cancelled.into());
+    }
+    if dry_run {
+        return notice(terminal, "Dry-run complete", &details);
+    }
+    let mut progress = Progress {
+        done: 0,
+        total: 3,
+        output: Vec::new(),
+    };
+    let mut warning = String::new();
+    let mut stop = Process::new("opencode");
+    stop.args(["service", "stop"]);
+    if let Err(error) = run_limited(
+        terminal,
+        &mut progress,
+        "Stopping OpenCode service",
+        stop,
+        Some(Duration::from_secs(5)),
+    ) {
+        warning = format!("Service stop did not complete ({error}); stopping processes directly. ");
+        progress.line(warning.as_bytes());
+        progress.done += 1;
+    }
+    let id = Process::new("id").arg("-u").output()?;
+    eyre::ensure!(id.status.success(), "Could not determine current user");
+    let uid = String::from_utf8(id.stdout)?.trim().parse::<u32>()?;
+    progress.show(terminal, "Stopping OpenCode and OpenChamber processes")?;
+    let targets = running_targets(uid)?;
+    for pid in &targets {
+        signal_target(*pid, uid, "-TERM")?;
+        progress.line(format!("Sent TERM to {pid}").as_bytes());
+    }
+    if !targets.is_empty() {
+        std::thread::sleep(Duration::from_secs(1));
+    }
+    for pid in running_targets(uid)?
+        .into_iter()
+        .filter(|pid| targets.contains(pid))
+    {
+        signal_target(pid, uid, "-KILL")?;
+        progress.line(format!("Sent KILL to {pid}").as_bytes());
+    }
+    eyre::ensure!(
+        running_targets(uid)?.is_empty(),
+        "OpenCode or OpenChamber is still running; cache was not cleared"
+    );
+    progress.done += 1;
+    progress.show(terminal, "Clearing OpenCode cache")?;
+    let removed = clear_cache(&cache)?;
+    progress.done += 1;
+    progress.show(terminal, "Reset complete")?;
+    notice(
+        terminal,
+        "Reset — complete",
+        &format!(
+            "{warning}Stopped {} process(es). Cache {}.",
+            targets.len(),
+            if removed { "removed" } else { "not present" }
+        ),
+    )
+}
+
 fn direnv_config() -> eyre::Result<PathBuf> {
     let root = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
@@ -582,7 +873,6 @@ fn zshrc_path(home: &std::path::Path) -> eyre::Result<PathBuf> {
 #[derive(Clone)]
 enum InstallPage {
     Options,
-    Cli,
     Backup,
     Projects,
     Trust,
@@ -599,22 +889,16 @@ struct InstallPlan {
     projects: PathBuf,
     zshrc: PathBuf,
     with_chamber: bool,
-    install_cli: bool,
-    new_binary: bool,
     stacks: Vec<(PathBuf, String, String, Option<PathBuf>)>,
     cleanup: cleanup::Inventory,
 }
 
 fn install_pages(
     existing: bool,
-    new_binary: bool,
     projects: &std::path::Path,
     selected: &[String],
 ) -> Vec<InstallPage> {
     let mut pages = vec![InstallPage::Options];
-    if new_binary {
-        pages.push(InstallPage::Cli);
-    }
     if existing {
         pages.push(InstallPage::Backup);
     }
@@ -643,9 +927,7 @@ fn collect_install_plan(
     let hook_needed = ops::needs_zsh_hook(&zshrc)?;
     let existing = fs::symlink_metadata(&config).is_ok();
     let backup = ops::backup_path(&config);
-    let new_binary = ops::bin_is_missing(std::path::Path::new(ops::BIN_PATH))?;
     let mut with_chamber = false;
-    let mut install_cli = new_binary;
     let mut backup_ok = false;
     let mut trust = false;
     let mut projects_input = String::new();
@@ -658,7 +940,7 @@ fn collect_install_plan(
     let mut preview_summary = String::new();
     let mut cleanup_plan = None;
     loop {
-        let pages = install_pages(existing, new_binary, &projects, &selected);
+        let pages = install_pages(existing, &projects, &selected);
         let current = pages[page].clone();
         let nav = match current {
             InstallPage::Options => ui::step_checkbox(
@@ -668,17 +950,6 @@ fn collect_install_plan(
                 "Install OpenChamber",
                 &mut with_chamber,
                 true,
-            )?,
-            InstallPage::Cli => ui::step_checkbox(
-                terminal,
-                "Make installer available everywhere",
-                &format!(
-                    "After setup succeeds, copy this binary to {}. Administrator permission may be required after this wizard closes. An existing binary will never be overwritten.",
-                    ops::BIN_PATH
-                ),
-                "Copy installer to /usr/local/bin",
-                &mut install_cli,
-                false,
             )?,
             InstallPage::Backup => ui::step_checkbox(
                 terminal,
@@ -743,7 +1014,10 @@ fn collect_install_plan(
                 )?
             }
             InstallPage::Review => {
-                let inventory = cleanup::inspect(&user_home, with_chamber)?;
+                let home_for_check = user_home.clone();
+                let inventory = busy(terminal, "Inspecting installed tools", move || {
+                    cleanup::inspect(&home_for_check, with_chamber)
+                })?;
                 let mut preview = format!(
                     "Homebrew: update; install/upgrade OpenCode, direnv{}.\nClone {} to {}{}.\nTrust all .envrc files below {}.\nZsh hook in {}: {}.\nInstaller copy: {}.",
                     if with_chamber { ", OpenChamber" } else { "" },
@@ -761,11 +1035,7 @@ fn collect_install_plan(
                     } else {
                         "already configured (skip)".into()
                     },
-                    if install_cli && new_binary {
-                        ops::BIN_PATH
-                    } else {
-                        "skip"
-                    }
+                    ops::BIN_PATH
                 );
                 if inventory.brew_v2 {
                     preview.push_str(
@@ -800,7 +1070,12 @@ fn collect_install_plan(
                         preview.push_str(&format!("\nSkip existing {}", path.display()));
                     } else if let Some((url, _)) = credentials.get(name) {
                         preview.push_str(&format!("\n{}", preview_envrc(&path, url)));
-                        if let Some(ignore) = git_protection(&projects.join(name))? {
+                        let directory = projects.join(name);
+                        if let Some(ignore) =
+                            busy(terminal, "Checking Git protection", move || {
+                                git_protection(&directory)
+                            })?
+                        {
                             preview.push_str(&format!(
                                 "\nAdd .envrc to {} to protect your token from Git.",
                                 ignore.display()
@@ -973,9 +1248,7 @@ fn collect_install_plan(
                             };
                             steps.push((format!("{action} for {name}"), 170));
                         }
-                        if install_cli && new_binary {
-                            steps.push(("copy the installer to /usr/local/bin".to_string(), 220));
-                        }
+                        steps.push(("replace the installer in /usr/local/bin".to_string(), 220));
                         if !inventory.unknown.is_empty() {
                             steps.push((
                                 "skip unresolved OpenCode installations (manual removal required)"
@@ -993,7 +1266,10 @@ fn collect_install_plan(
                         if fs::symlink_metadata(path.join(".envrc")).is_ok() {
                             continue;
                         }
-                        let ignore = git_protection(&path)?;
+                        let check_dir = path.clone();
+                        let ignore = busy(terminal, "Checking Git protection", move || {
+                            git_protection(&check_dir)
+                        })?;
                         let (url, key) = credentials
                             .remove(&name)
                             .ok_or_else(|| eyre::eyre!("Missing stack credentials"))?;
@@ -1006,8 +1282,6 @@ fn collect_install_plan(
                         projects,
                         zshrc,
                         with_chamber,
-                        install_cli: install_cli && new_binary,
-                        new_binary,
                         stacks,
                         cleanup: inventory,
                     }));
@@ -1032,8 +1306,6 @@ fn install(
         projects,
         zshrc,
         with_chamber,
-        install_cli,
-        new_binary,
         stacks,
         cleanup: inventory,
     } = plan;
@@ -1047,11 +1319,19 @@ fn install(
             + inventory.files.len()
             + usize::from(inventory.brew_v2)
             + usize::from(inventory.chamber),
+        output: Vec::new(),
     };
     brew_update(terminal, &mut progress)?;
-    cleanup::latest_is_v2()?;
+    busy(
+        terminal,
+        "Verifying OpenCode formula",
+        cleanup::latest_is_v2,
+    )?;
+    let home_for_check = home()?;
     eyre::ensure!(
-        cleanup::inspect(&home()?, with_chamber)? == inventory,
+        busy(terminal, "Rechecking installed tools", move || {
+            cleanup::inspect(&home_for_check, with_chamber)
+        })? == inventory,
         "Install inventory changed after the Homebrew refresh; review the install again before removing anything"
     );
     // Decide before removing anything: a running optional app must never block required setup.
@@ -1145,24 +1425,36 @@ fn install(
     brew_package(terminal, &mut progress, "direnv", false)?;
     fs::create_dir_all(config.parent().expect("config has parent"))?;
     let staged = ops::backup_path(&config);
-    let mut clone = Process::new("git");
-    clone
-        .args(["clone", "--depth", "1", "--branch", "main", ops::REMOTE])
-        .arg(&staged);
-    if let Err(error) =
-        run_interactive_git(terminal, &mut progress, "Cloning latest configs", clone)
-    {
+    let make_clone = || {
+        let mut clone = Process::new("git");
+        clone
+            .args([
+                "clone",
+                "--progress",
+                "--depth",
+                "1",
+                "--branch",
+                "main",
+                ops::REMOTE,
+            ])
+            .arg(&staged);
+        clone
+    };
+    if let Err(error) = run_interactive_git(
+        terminal,
+        &mut progress,
+        "Cloning latest configs",
+        make_clone(),
+        make_clone(),
+        Some(&staged),
+    ) {
         if staged.exists() {
             fs::remove_dir_all(&staged)?;
         }
         return Err(error);
     }
     // Stage before moving ~/.config/opencode; the running binary may be inside it.
-    let binary = if install_cli {
-        Some(ops::stage_binary(&std::env::current_exe()?)?)
-    } else {
-        None
-    };
+    let binary = ops::stage_binary(&std::env::current_exe()?)?;
     ops::replace_config(&config, &staged, existing.then_some(backup.as_path()))?;
     progress.show(terminal, "Updating direnv whitelist...")?;
     ops::whitelist(&direnv_config()?, &projects)?;
@@ -1198,13 +1490,7 @@ fn install(
                 "already configured"
             },
             zshrc.display(),
-            if binary.is_some() {
-                "\nThe CLI will be copied to /usr/local/bin when you leave this screen."
-            } else if !new_binary {
-                "\n/usr/local/bin/foundry-opencode already exists and was not changed."
-            } else {
-                "\nCLI copy was skipped."
-            },
+            "\nThe CLI will replace /usr/local/bin/foundry-opencode when you leave this screen.",
             if trashed.is_empty() {
                 String::new()
             } else {
@@ -1219,14 +1505,20 @@ fn install(
             },
         ),
     )?;
-    Ok(binary)
+    Ok(Some(binary))
 }
 
-fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
+fn update(
+    terminal: &mut DefaultTerminal,
+    dry_run: bool,
+) -> eyre::Result<Option<ops::StagedBinary>> {
     let config = home()?.join(".config/opencode");
     let mut can_pull = true;
     let details = if dry_run {
-        let state = match ops::check_checkout(&config) {
+        let checkout = config.clone();
+        let state = match busy(terminal, "Checking config checkout", move || {
+            ops::check_checkout(&checkout)
+        }) {
             Ok(legacy) => format!(
                 "Checkout is clean and on main. {}",
                 if legacy {
@@ -1241,7 +1533,8 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
             }
         };
         format!(
-            "Would run brew update; install/upgrade opencode and direnv; upgrade OpenChamber if installed.\n{} in {}.\n{state}\n\nNo modifying commands ran or files changed.",
+            "Would run brew update; install/upgrade opencode and direnv; upgrade OpenChamber if installed; replace {}.\n{} in {}.\n{state}\n\nNo modifying commands ran or files changed.",
+            ops::BIN_PATH,
             if can_pull {
                 "Would run git pull --ff-only origin main"
             } else {
@@ -1250,10 +1543,14 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
             config.display()
         )
     } else {
-        let legacy = ops::check_checkout(&config)?;
+        let checkout = config.clone();
+        let legacy = busy(terminal, "Checking config checkout", move || {
+            ops::check_checkout(&checkout)
+        })?;
         format!(
-            "Upgrade OpenCode and direnv, upgrade OpenChamber if installed, and fast-forward the config checkout in {} from main?{}",
+            "Upgrade OpenCode and direnv, upgrade OpenChamber if installed, fast-forward the config checkout in {} from main, and replace {}?{}",
             config.display(),
+            ops::BIN_PATH,
             if legacy {
                 " The config origin will switch from SSH to HTTPS."
             } else {
@@ -1283,11 +1580,16 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
                     .to_string(),
                     if can_pull { 500 } else { 180 },
                 ),
+                ("replace the installer in /usr/local/bin".to_string(), 220),
             ],
         )?;
-        return notice(terminal, "Dry-run complete", &details);
+        notice(terminal, "Dry-run complete", &details)?;
+        return Ok(None);
     }
-    let inventory = cleanup::inspect(&home()?, false)?;
+    let home_for_check = home()?;
+    let inventory = busy(terminal, "Inspecting installed tools", move || {
+        cleanup::inspect(&home_for_check, false)
+    })?;
     eyre::ensure!(
         !inventory.brew_v2
             && inventory.brew_v1.is_empty()
@@ -1300,25 +1602,45 @@ fn update(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     let mut progress = Progress {
         done: 0,
         total: 4 + usize::from(chamber),
+        output: Vec::new(),
     };
     brew_update(terminal, &mut progress)?;
-    cleanup::latest_is_v2()?;
+    busy(
+        terminal,
+        "Verifying OpenCode formula",
+        cleanup::latest_is_v2,
+    )?;
     brew_package(terminal, &mut progress, "opencode", false)?;
     if chamber {
         let _ = optional_chamber(terminal, &mut progress);
     }
     brew_package(terminal, &mut progress, "direnv", false)?;
-    ops::migrate_remote(&config)?;
-    let mut git = Process::new("git");
-    git.arg("-C")
-        .arg(&config)
-        .args(["pull", "--ff-only", "origin", "main"]);
-    run_interactive_git(terminal, &mut progress, "Updating configs", git)?;
+    let binary = ops::stage_binary(&std::env::current_exe()?)?;
+    let checkout = config.clone();
+    busy(terminal, "Checking config remote", move || {
+        ops::migrate_remote(&checkout)
+    })?;
+    let make_pull = || {
+        let mut git = Process::new("git");
+        git.arg("-C")
+            .arg(&config)
+            .args(["pull", "--progress", "--ff-only", "origin", "main"]);
+        git
+    };
+    run_interactive_git(
+        terminal,
+        &mut progress,
+        "Updating configs",
+        make_pull(),
+        make_pull(),
+        None,
+    )?;
     notice(
         terminal,
         "Update — complete",
-        "Packages and configs are up to date.",
-    )
+        "Packages and configs are up to date. The CLI will be replaced in /usr/local/bin when you leave this screen.",
+    )?;
+    Ok(Some(binary))
 }
 
 #[cfg(test)]
@@ -1348,9 +1670,57 @@ mod tests {
             vec!["foundry-opencode", "init", "--dry-run"],
             vec!["foundry-opencode", "update", "--dry-run"],
             vec!["foundry-opencode", "init-rag", "--dry-run"],
+            vec!["foundry-opencode", "reset", "--dry-run"],
         ] {
             assert!(Args::try_parse_from(args).unwrap().dry_run);
         }
+    }
+
+    #[test]
+    fn reset_selects_only_current_users_named_processes_and_cache() {
+        let list = " 123 501 /usr/local/bin/opencode\n 124 502 opencode\n 125 501 /Applications/OpenChamber.app/Contents/MacOS/OpenChamber\n 126 501 OpenChamber Helper (Renderer)\n 127 501 unrelated-opencode\n 128 501 OpenCode Helper (GPU)\n";
+        assert_eq!(reset_targets(list, 501), [123, 125, 126, 128]);
+        let root = ops::backup_path(&std::env::temp_dir().join("reset-test"));
+        fs::create_dir(&root).unwrap();
+        let cache = root.join("opencode");
+        assert!(!clear_cache(&cache).unwrap());
+        fs::create_dir(&cache).unwrap();
+        fs::write(cache.join("tmp"), "cached").unwrap();
+        #[cfg(unix)]
+        {
+            let link = root.join("linked-cache");
+            std::os::unix::fs::symlink(&cache, &link).unwrap();
+            assert!(clear_cache(&link).is_err());
+            assert!(cache.join("tmp").exists());
+        }
+        assert!(clear_cache(&cache).unwrap());
+        assert!(!cache.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn terminal_output_is_bounded_and_strips_controls() {
+        let mut progress = Progress {
+            done: 0,
+            total: 1,
+            output: Vec::new(),
+        };
+        progress.line(b"first\x1b[31m\n");
+        assert_eq!(progress.output, ["first[31m"]);
+        for _ in 0..220 {
+            progress.line(b"next");
+        }
+        assert_eq!(progress.output.len(), 200);
+        let (tx, rx) = mpsc::channel();
+        stream_output(&b"git 10%\rgit 20%\nfinished"[..], tx);
+        assert_eq!(
+            rx.into_iter().collect::<Vec<_>>(),
+            [
+                b"git 10%".to_vec(),
+                b"git 20%".to_vec(),
+                b"finished".to_vec()
+            ]
+        );
     }
 
     #[test]
@@ -1399,7 +1769,7 @@ mod tests {
         fs::create_dir(root.join("existing")).unwrap();
         fs::write(root.join("existing/.envrc"), "preserve").unwrap();
         let selected = vec!["existing".into(), "new".into()];
-        let pages = install_pages(true, true, &root, &selected);
+        let pages = install_pages(true, &root, &selected);
         assert!(matches!(pages.first(), Some(InstallPage::Options)));
         assert!(
             pages
