@@ -57,20 +57,60 @@ fn setup_files(
             directory.display()
         );
     }
+    let mut reused = 0;
+    let mut package_owned = false;
+    let mut rag_owned = false;
+    let mut missing = Vec::new();
+    for (index, (path, expected)) in files.iter().enumerate() {
+        match fs::symlink_metadata(path) {
+            Ok(metadata) => {
+                eyre::ensure!(
+                    metadata.is_file()
+                        && !metadata.file_type().is_symlink()
+                        && fs::read_to_string(path)? == *expected,
+                    "{} differs from the installer RAG file; not changing it",
+                    path.display()
+                );
+                reused += 1;
+                if index == 0 {
+                    package_owned = true;
+                }
+                if index == 4 {
+                    rag_owned = true;
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => missing.push(path),
+            Err(error) => return Err(error.into()),
+        }
+    }
     for name in ["package-lock.json", "node_modules", "rag_db"] {
         let path = directory.join(name);
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
         eyre::ensure!(
-            fs::symlink_metadata(&path).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound),
-            "{} already exists; not replacing project data",
+            package_owned
+                && (name != "rag_db" || rag_owned)
+                && if name == "package-lock.json" {
+                    metadata.is_file() && !metadata.file_type().is_symlink()
+                } else {
+                    metadata.is_dir() && !metadata.file_type().is_symlink()
+                },
+            "{} already exists and is not verified installer RAG data; not changing it",
             path.display()
         );
-    }
-    for (path, _) in &files {
-        eyre::ensure!(
-            fs::symlink_metadata(path).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound),
-            "{} already exists; not changing the existing RAG setup",
-            path.display()
-        );
+        if name == "package-lock.json" {
+            let lock: Value = serde_json::from_slice(&fs::read(&path)?)
+                .wrap_err_with(|| format!("Invalid {}; not changing it", path.display()))?;
+            let package: Value = serde_json::from_str(PACKAGE)?;
+            eyre::ensure!(
+                lock["packages"][""]["dependencies"] == package["dependencies"],
+                "{} does not match the installer dependencies; not changing it",
+                path.display()
+            );
+        }
     }
     let jsonc = project.join(".opencode/opencode.jsonc");
     eyre::ensure!(
@@ -129,7 +169,12 @@ fn setup_files(
     if dry_run {
         return Ok((
             format!(
-                "Would create RAG files and add the MCP server to OpenCode config:\n{paths}\nWould run npm install in .opencode and index this project."
+                "Would {} RAG files and add the MCP server to OpenCode config:\n{paths}\nWould run npm install in .opencode and index this project.",
+                if reused > 0 {
+                    "reuse matching or create missing"
+                } else {
+                    "create"
+                }
             ),
             config,
             original,
@@ -140,6 +185,9 @@ fn setup_files(
     let mut created = Vec::new();
     let result = (|| -> eyre::Result<()> {
         for (path, text) in &files {
+            if !missing.contains(&path) {
+                continue;
+            }
             let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
             created.push(path.clone());
             file.write_all(text.as_bytes())?;
@@ -234,6 +282,89 @@ mod tests {
         assert_eq!(doc["mcp"]["servers"]["other"]["command"][0], "other");
         assert_eq!(doc["mcp"]["servers"]["rag"]["command"][2], "mcp");
         assert!(setup_files(&root, "https://example.com", false).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn retries_verified_partial_setup_without_discarding_index() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-retry-test"));
+        fs::create_dir(&root).unwrap();
+        setup_files(&root, "https://example.com", false).unwrap();
+        let directory = root.join(".opencode");
+        fs::create_dir(directory.join("node_modules")).unwrap();
+        fs::create_dir(directory.join("rag_db")).unwrap();
+        fs::write(directory.join("rag_db/existing"), "keep").unwrap();
+        let lock = json!({"packages": {"": {"dependencies": serde_json::from_str::<Value>(PACKAGE).unwrap()["dependencies"]}}});
+        fs::write(directory.join("package-lock.json"), lock.to_string()).unwrap();
+        fs::remove_file(directory.join("rag-cli.mjs")).unwrap();
+        let preview = setup(&root, "https://example.com", true, |_, _| unreachable!()).unwrap();
+        assert!(preview.contains("reuse matching"));
+        assert!(!directory.join("rag-cli.mjs").exists());
+        assert!(!directory.join("opencode.json").exists());
+        let mut commands = Vec::new();
+        assert!(
+            setup(&root, "https://example.com", false, |label, _| {
+                commands.push(label.to_string());
+                if commands.len() == 2 {
+                    eyre::bail!("index unavailable")
+                }
+                Ok(())
+            })
+            .is_err()
+        );
+        assert!(!directory.join("opencode.json").exists());
+        assert_eq!(
+            fs::read_to_string(directory.join("rag-cli.mjs")).unwrap(),
+            CLI
+        );
+        assert_eq!(
+            fs::read_to_string(directory.join("rag_db/existing")).unwrap(),
+            "keep"
+        );
+        commands.clear();
+        setup(&root, "https://example.com", false, |label, _| {
+            commands.push(label.to_string());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(commands.len(), 2);
+        assert_eq!(
+            fs::read_to_string(directory.join("rag_db/existing")).unwrap(),
+            "keep"
+        );
+        assert!(
+            fs::read_to_string(directory.join("opencode.json"))
+                .unwrap()
+                .contains("rag-cli.mjs")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn retry_rejects_unrelated_or_modified_artifacts() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-conflict-test"));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join(".opencode")).unwrap();
+        let directory = root.join(".opencode");
+        let lock = directory.join("package-lock.json");
+        fs::write(&lock, "not ours").unwrap();
+        assert!(setup_files(&root, "https://example.com", false).is_err());
+        assert!(!directory.join("package.json").exists());
+        fs::remove_file(&lock).unwrap();
+        setup_files(&root, "https://example.com", false).unwrap();
+        fs::write(&lock, r#"{"packages":{"":{"dependencies":{"other":"1"}}}}"#).unwrap();
+        assert!(setup_files(&root, "https://example.com", false).is_err());
+        assert_eq!(
+            fs::read_to_string(&lock).unwrap(),
+            r#"{"packages":{"":{"dependencies":{"other":"1"}}}}"#
+        );
+        fs::remove_file(&lock).unwrap();
+        fs::write(directory.join("rag.json"), "custom").unwrap();
+        assert!(setup_files(&root, "https://example.com", true).is_err());
+        assert_eq!(
+            fs::read_to_string(directory.join("rag.json")).unwrap(),
+            "custom"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }
