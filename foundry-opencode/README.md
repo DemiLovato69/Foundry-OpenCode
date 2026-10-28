@@ -46,8 +46,9 @@ Existing `.envrc` files are never overwritten. The installer adds
 `$ZDOTDIR`), or leaves an existing hook alone. Open a new Zsh shell to use it.
 
 `update` upgrades the installed tools (OpenChamber only when present) and pulls
-`main` with `--ff-only`; it refuses to pull over local config changes. Existing SSH
-config checkouts are switched to HTTPS before pulling. `init`
+`main` with `--ff-only`; it refuses to pull over local config changes. Existing
+checkouts using the old repository URL (SSH or HTTPS) are switched to the new
+HTTPS URL before pulling. `init`
 prompts for a Foundry HTTPS base URL. At the token step, select **Open Foundry
 token page** with Tab/Arrows and Enter (or click it) to open
 `https://<host>/workspace/settings/tokens`,
@@ -72,10 +73,14 @@ Load that project's stack `.envrc` first so `OPENCODE_BASE_URL` and
 It requires Node.js and npm. It creates `.opencode/rag.json`, pinned npm
 dependencies, compatibility patches, a CLI helper, local ignores, and a
 project-local V2 MCP server entry in `.opencode/opencode.json`, preserving
-other JSON settings. It refuses existing RAG files or a conflicting MCP entry
-instead of overwriting them. It installs the dependencies and indexes the
-project with Foundry's `text-embedding-3-large` endpoint; API credentials are
-read from the environment, not written to disk. Reindex after edits with
+other JSON settings. It refuses conflicting RAG files or MCP entries rather
+than overwriting them. If an earlier attempt stopped after creating the
+RAG files, rerun `init-rag` from the same project and Foundry host: it verifies
+those files and the npm lockfile before resuming, without deleting an existing
+index. Unrelated or edited files still require manual review. It installs the
+dependencies and indexes the project with Foundry's `text-embedding-3-large`
+endpoint; API credentials are read from the environment, not written to disk.
+Reindex after edits with
 `node .opencode/rag-cli.mjs index` from the project root. The underlying RAG
 package's automatic watcher is a V1 plugin and cannot run in OpenCode V2;
 indexing is manual after the initial setup. The OpenCode background service
