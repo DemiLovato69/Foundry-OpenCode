@@ -56,7 +56,10 @@ retained when possible. Tracked `.envrc` secrets still require Git cleanup and t
 `update` upgrades the installed tools (OpenChamber only when present), clones
 fresh configs from `main`, and backs up and replaces `~/.config/opencode` regardless
 of its previous Git remote or local edits. It preserves the optional global
-fallback. `init`
+fallback. It also offers separate, optional host/token changes for the global fallback
+and each selected stack with an existing config; unchecked scopes retain their credentials.
+Changed stack configs and private tokens are backed up. Run `update` again to change
+a legacy `.envrc` stack after its migration. `init`
 prompts for a Foundry HTTPS base URL. At the token step, select **Open Foundry
 token page** with Tab/Arrows and Enter (or click it) to open
 `https://<host>/workspace/settings/tokens`,
