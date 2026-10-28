@@ -42,6 +42,8 @@ available on that stack or set a stack-local `model` in `.opencode/opencode.json
 
 Update downloads the latest published macOS installer binary for your CPU, checks its release SHA-256 and version, and replaces `/usr/local/bin/foundry-opencode` after the wizard closes. Download or verification failures leave the existing binary untouched. The global config is cloned independently from `main`.
 
+Palantir MCP runs `npx` with a command-local `--registry=https://registry.npmjs.org` so project `.npmrc` files can continue to use their Foundry registry. Install/update generate this launcher for new stacks and the optional global fallback; they back up and upgrade only verified older stack launchers. Custom MCP commands and stack tokens are not changed. After deployment, use `/mcps` to reconnect `palantir` and verify a tool call from the affected repo.
+
 Host, token and path fields support mouse cursor positioning, arrows, Home/End, Delete/Backspace, and Ctrl+U or terminal-translated Cmd+Delete to delete to the beginning. Some terminals intercept Cmd shortcuts; use Ctrl+U there. Tokens stay masked.
 
 If an older project reports `.opencode/plugins/rag-plugin.js` is not a V2 plugin, run `foundry-opencode repair-plugins` from that project (or `--dry-run` first). It backs up only the exact known V1 wrapper without removing the RAG index; edited plugins are left alone. Reindex manually with `node .opencode/rag-cli.mjs index` where that helper exists. If it is missing, review the project config and run `init-rag` to set up V2 RAG MCP support.

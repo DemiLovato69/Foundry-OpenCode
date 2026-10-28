@@ -27,10 +27,16 @@ pub fn config(url: &str) -> Value {
         },
         "mcp": {"servers": {"palantir": {
             "type": "local",
-            "command": ["npx", "-y", "palantir-mcp", "--foundry-api-url", url],
+            "command": ["npx", "-y", "--registry=https://registry.npmjs.org", "palantir-mcp", "--foundry-api-url", url],
             "environment": {"FOUNDRY_TOKEN": token}
         }}}
     })
+}
+
+fn previous_mcp(url: &str) -> Value {
+    let mut server = config(url)["mcp"]["servers"]["palantir"].clone();
+    server["command"] = json!(["npx", "-y", "palantir-mcp", "--foundry-api-url", url]);
+    server
 }
 
 fn metadata(path: &Path) -> eyre::Result<Option<fs::Metadata>> {
@@ -149,7 +155,8 @@ pub fn inspect(stack: &Path, url: &str, key: &str) -> eyre::Result<bool> {
             );
         }
         eyre::ensure!(
-            current["mcp"]["servers"]["palantir"] == expected["mcp"]["servers"]["palantir"],
+            current["mcp"]["servers"]["palantir"] == expected["mcp"]["servers"]["palantir"]
+                || current["mcp"]["servers"]["palantir"] == previous_mcp(url),
             "{} has different Foundry MCP settings; not overwriting it",
             config_path.display()
         );
@@ -336,6 +343,76 @@ pub fn update_credentials(stack: &Path, url: &str, key: &str, dry_run: bool) -> 
         return Ok(());
     }
     replace_conflicting(stack, url, key, dry_run)
+}
+
+pub fn outdated_mcp(stack: &Path) -> eyre::Result<bool> {
+    let path = stack.join(CONFIG);
+    if metadata(&path)?.is_none() || metadata(&stack.join(".opencode/opencode.jsonc"))?.is_some() {
+        return Ok(false);
+    }
+    let doc = read_config(&path)?;
+    let command = &doc["mcp"]["servers"]["palantir"]["command"];
+    if command.as_array().is_none_or(|args| {
+        args.len() != 5
+            || args[0] != "npx"
+            || args[1] != "-y"
+            || args[2] != "palantir-mcp"
+            || args[3] != "--foundry-api-url"
+    }) {
+        return Ok(false);
+    }
+    let (url, key) = credentials(stack)?;
+    if doc["mcp"]["servers"]["palantir"] != previous_mcp(&url) {
+        return Ok(false);
+    }
+    inspect(stack, &url, &key)?;
+    Ok(true)
+}
+
+pub fn upgrade_mcp(stack: &Path) -> eyre::Result<bool> {
+    if !outdated_mcp(stack)? {
+        return Ok(false);
+    }
+    let path = stack.join(CONFIG);
+    let original = fs::read(&path)?;
+    let mut doc = read_config(&path)?;
+    let (url, _) = credentials(stack)?;
+    doc["mcp"]["servers"]["palantir"]["command"] =
+        config(&url)["mcp"]["servers"]["palantir"]["command"].clone();
+    let staged = ops::backup_path(&path);
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&staged)?;
+    let backup = ops::backup_path(&path);
+    let result = (|| -> eyre::Result<()> {
+        file.write_all(&serde_json::to_vec_pretty(&doc)?)?;
+        file.sync_all()?;
+        fs::set_permissions(&staged, fs::metadata(&path)?.permissions())?;
+        eyre::ensure!(
+            fs::read(&path)? == original,
+            "{} changed during MCP upgrade",
+            path.display()
+        );
+        fs::hard_link(&path, &backup)?;
+        eyre::ensure!(
+            fs::read(&path)? == original,
+            "{} changed during MCP upgrade; old config backed up at {}",
+            path.display(),
+            backup.display()
+        );
+        fs::rename(&staged, &path)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&staged);
+    }
+    result?;
+    Ok(true)
 }
 
 fn legacy_value(value: &str) -> Option<String> {
@@ -575,6 +652,10 @@ mod tests {
             "{file:./token}"
         );
         assert_eq!(doc["mcp"]["servers"]["palantir"]["command"][0], "npx");
+        assert_eq!(
+            doc["mcp"]["servers"]["palantir"]["command"][2],
+            "--registry=https://registry.npmjs.org"
+        );
         assert!(migrate(&root, false, None, false).is_ok());
         #[cfg(unix)]
         {
@@ -766,6 +847,95 @@ mod tests {
                 0o600
             );
         }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_mcp_upgrade_preserves_credentials_custom_settings_and_project_registry() {
+        let root = ops::backup_path(&std::env::temp_dir().join("stack-mcp-registry-test"));
+        fs::create_dir(&root).unwrap();
+        create(&root, "https://example.com", "private").unwrap();
+        let npmrc = root.join(".npmrc");
+        fs::write(&npmrc, "registry=https://foundry.example/npm\n").unwrap();
+        let path = root.join(CONFIG);
+        let mut doc = read_config(&path).unwrap();
+        doc["model"] = json!("palantir-openai/gpt-4.1");
+        doc["mcp"]["servers"]["other"] = json!({"type":"local","command":["other"]});
+        doc["mcp"]["servers"]["palantir"] = previous_mcp("https://example.com");
+        let old = serde_json::to_vec_pretty(&doc).unwrap();
+        fs::write(&path, &old).unwrap();
+        assert!(outdated_mcp(&root).unwrap());
+        assert!(inspect(&root, "https://example.com", "private").unwrap());
+        assert!(update_credentials(&root, "https://example.com", "private", true).is_ok());
+        assert_eq!(fs::read(&path).unwrap(), old); // preview is read-only
+        assert!(upgrade_mcp(&root).unwrap());
+        assert!(!upgrade_mcp(&root).unwrap());
+        let updated = read_config(&path).unwrap();
+        assert_eq!(
+            updated["mcp"]["servers"]["palantir"],
+            config("https://example.com")["mcp"]["servers"]["palantir"]
+        );
+        assert_eq!(
+            updated["mcp"]["servers"]["other"],
+            doc["mcp"]["servers"]["other"]
+        );
+        assert_eq!(updated["model"], doc["model"]);
+        assert_eq!(fs::read_to_string(root.join(TOKEN)).unwrap(), "private");
+        assert_eq!(
+            fs::read_to_string(npmrc).unwrap(),
+            "registry=https://foundry.example/npm\n"
+        );
+        assert!(
+            fs::read_dir(root.join(".opencode"))
+                .unwrap()
+                .map(Result::unwrap)
+                .any(|entry| entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("opencode.json.backup-")
+                    && fs::read(entry.path()).unwrap() == old)
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn custom_mcp_launcher_is_never_rewritten() {
+        let root = ops::backup_path(&std::env::temp_dir().join("stack-custom-mcp-test"));
+        fs::create_dir(&root).unwrap();
+        create(&root, "https://example.com", "private").unwrap();
+        let path = root.join(CONFIG);
+        let mut doc = read_config(&path).unwrap();
+        doc["mcp"]["servers"]["palantir"]["command"] = json!(["custom", "mcp"]);
+        fs::write(&path, serde_json::to_vec_pretty(&doc).unwrap()).unwrap();
+        assert!(!outdated_mcp(&root).unwrap());
+        assert!(!upgrade_mcp(&root).unwrap());
+        assert_eq!(read_config(&path).unwrap(), doc);
+        doc["mcp"]["servers"]["palantir"] = previous_mcp("https://example.com");
+        doc["mcp"]["servers"]["palantir"]["environment"]["CUSTOM"] = json!("keep");
+        fs::write(&path, serde_json::to_vec_pretty(&doc).unwrap()).unwrap();
+        assert!(!outdated_mcp(&root).unwrap());
+        assert!(!upgrade_mcp(&root).unwrap());
+        assert_eq!(read_config(&path).unwrap(), doc);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn changing_credentials_on_a_legacy_stack_writes_the_new_launcher() {
+        let root = ops::backup_path(&std::env::temp_dir().join("stack-mcp-credentials-test"));
+        fs::create_dir(&root).unwrap();
+        create(&root, "https://old.example.com", "old-key").unwrap();
+        let path = root.join(CONFIG);
+        let mut doc = read_config(&path).unwrap();
+        doc["mcp"]["servers"]["palantir"] = previous_mcp("https://old.example.com");
+        fs::write(&path, serde_json::to_vec_pretty(&doc).unwrap()).unwrap();
+        update_credentials(&root, "https://new.example.com", "new-key", true).unwrap();
+        assert!(outdated_mcp(&root).unwrap());
+        update_credentials(&root, "https://new.example.com", "new-key", false).unwrap();
+        assert_eq!(
+            read_config(&path).unwrap()["mcp"]["servers"]["palantir"],
+            config("https://new.example.com")["mcp"]["servers"]["palantir"]
+        );
+        assert_eq!(credentials(&root).unwrap().1, "new-key");
         fs::remove_dir_all(root).unwrap();
     }
 }

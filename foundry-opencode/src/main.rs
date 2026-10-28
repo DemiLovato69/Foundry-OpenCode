@@ -1696,6 +1696,9 @@ fn collect_install_plan(
                 }
                 for name in &selected {
                     let path = name.join(".envrc");
+                    if stack::outdated_mcp(name).unwrap_or(false) {
+                        preview.push_str(&format!("\nBack up and update verified Palantir MCP launcher in {} (npm registry override only)", name.display()));
+                    }
                     if fs::symlink_metadata(&path).is_ok() {
                         let pair = credentials
                             .get(name)
@@ -1860,6 +1863,7 @@ fn collect_install_plan(
                             };
                             steps.push((format!("{action} for {}", name.display()), 170));
                         }
+                        steps.push(("upgrade verified Palantir MCP launchers".to_string(), 220));
                         steps.push(("replace the installer in /usr/local/bin".to_string(), 220));
                         if !inventory.unknown.is_empty() {
                             steps.push((
@@ -2086,6 +2090,22 @@ fn install(
         }
         progress.done += 1;
     }
+    for path in &selected {
+        match stack::outdated_mcp(path) {
+            Ok(true) => {
+                stack::upgrade_mcp(path)?;
+                migration.push(format!(
+                    "Updated Palantir MCP registry for {} (old config backed up)",
+                    path.display()
+                ));
+            }
+            Ok(false) => {}
+            Err(error) => migration.push(format!(
+                "MCP launcher in {} was not upgraded: {error}",
+                path.display()
+            )),
+        }
+    }
     remove_direnv(terminal, false)?;
     progress.show(terminal, "Installation complete")?;
     notice(
@@ -2201,6 +2221,15 @@ fn update(
             stack_changes.push((path.clone(), url, key));
         }
     }
+    let mut mcp_upgrades = Vec::new();
+    for path in &selected {
+        if stack_changes.iter().any(|(changed, _, _)| changed == path) {
+            continue; // Credential replacement already writes the new launcher.
+        }
+        if stack::outdated_mcp(path)? {
+            mcp_upgrades.push(path.clone());
+        }
+    }
     let changes = format!(
         "\nCredential changes: global {}; stacks: {}. Tokens are redacted.{}",
         if global_change.is_some() {
@@ -2227,12 +2256,21 @@ fn update(
         }
     );
     let details = format!(
-        "Update Homebrew packages; clone latest config to {}{}; migrate selected stacks:\n{summary}{changes}\nDownload latest macOS release, verify SHA-256 and version, install to {} after closing the wizard.\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.{}",
+        "Update Homebrew packages; clone latest config to {}{}; migrate selected stacks:\n{summary}{changes}\nUse public npm registry for Palantir MCP in newly generated configs. Upgrade existing managed MCP launchers (backing up each config): {}. Custom launchers are preserved.\nDownload latest macOS release, verify SHA-256 and version, install to {} after closing the wizard.\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.{}",
         config.display(),
         if existing {
             format!(" (backup: {})", backup.display())
         } else {
             String::new()
+        },
+        if mcp_upgrades.is_empty() {
+            "none".to_owned()
+        } else {
+            mcp_upgrades
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         },
         ops::BIN_PATH,
         if dry_run {
@@ -2254,6 +2292,7 @@ fn update(
                 ("install or upgrade OpenCode".to_string(), 400),
                 ("upgrade OpenChamber if installed".to_string(), 300),
                 ("migrate selected stack .envrc files".to_string(), 300),
+                ("upgrade managed Palantir MCP launchers".to_string(), 220),
                 (
                     "clone latest config and back up existing checkout".to_string(),
                     500,
@@ -2334,6 +2373,19 @@ fn update(
             "Updated private credentials for {}",
             path.display()
         ));
+    }
+    for path in mcp_upgrades {
+        results.push(if stack::upgrade_mcp(&path)? {
+            format!(
+                "Updated Palantir MCP registry for {} (old config backed up)",
+                path.display()
+            )
+        } else {
+            format!(
+                "Skipped changed Palantir MCP config at {}; review it manually",
+                path.display()
+            )
+        });
     }
     remove_direnv(terminal, dry_run)?;
     notice(
