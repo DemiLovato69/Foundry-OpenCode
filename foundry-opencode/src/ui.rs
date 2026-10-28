@@ -413,64 +413,25 @@ pub fn step_checkbox(
     }
 }
 
-fn matches(names: &[String], query: &str) -> Vec<usize> {
-    let query = query.to_lowercase();
-    names
-        .iter()
-        .enumerate()
-        .filter(|(_, name)| name.to_lowercase().contains(&query))
-        .map(|(index, _)| index)
-        .collect()
-}
-
-fn stack_key(
-    key: KeyCode,
-    names: &[String],
-    checked: &mut Vec<String>,
-    query: &mut String,
-    selected: &mut usize,
-    scroll: &mut usize,
-) {
-    let filtered = matches(names, query);
-    match key {
-        KeyCode::Down | KeyCode::Tab => {
-            *selected = (*selected + 1).min(filtered.len().saturating_sub(1))
-        }
-        KeyCode::Up | KeyCode::BackTab => *selected = selected.saturating_sub(1),
-        KeyCode::Backspace => {
-            query.pop();
-            *selected = 0;
-            *scroll = 0;
-        }
-        // shortcut: Space selects immediately; search a word fragment for names containing spaces.
-        KeyCode::Char(' ') if !filtered.is_empty() => {
-            let name = &names[filtered[*selected]];
-            if checked.contains(name) {
-                checked.retain(|item| item != name);
-            } else {
-                checked.push(name.clone());
-            }
-        }
-        KeyCode::Char(c) if !c.is_control() && c != ' ' => {
-            query.push(c);
-            *selected = 0;
-            *scroll = 0;
-        }
-        _ => {}
-    }
-}
-
-pub fn step_stacks(
+pub fn step_explorer(
     terminal: &mut DefaultTerminal,
-    names: &[String],
-    checked: &mut Vec<String>,
-    query: &mut String,
+    home: &Path,
+    current: &mut PathBuf,
+    checked: &mut Vec<PathBuf>,
 ) -> Result<Nav> {
     let mut selected = 0usize;
     let mut scroll = 0usize;
     loop {
-        let filtered = matches(names, query);
-        selected = selected.min(filtered.len().saturating_sub(1));
+        let mut directories: Vec<PathBuf> = fs::read_dir(&*current)?
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                entry.file_type().ok()?.is_dir().then_some(entry.path())
+            })
+            .collect();
+        directories.sort_by_key(|path| path.file_name().unwrap().to_string_lossy().to_lowercase());
+        selected = selected.min(directories.len().saturating_sub(1));
+        let mut buttons = Vec::new();
+        let mut choices = Rect::default();
         let visible = terminal.size()?.height.saturating_sub(14).max(1) as usize;
         if selected < scroll {
             scroll = selected;
@@ -478,48 +439,74 @@ pub fn step_stacks(
         if selected >= scroll + visible {
             scroll = selected + 1 - visible;
         }
-        let mut buttons = Vec::new();
-        let mut choices = Rect::default();
         terminal.draw(|frame| {
-            buttons = screen(frame, "Choose stacks", &format!(
-                "Select stack directories. Recognizable .envrc files will be migrated; custom ones are left untouched.\n\nFilter: {query}  ({} match{}, {} selected)",
-                filtered.len(), if filtered.len() == 1 { "" } else { "es" }, checked.len()),
-                &[("Back", false), ("Continue", true)], 0,
-                "Type: filter   Up/Down: move   Space: select   Backspace: delete   Enter: continue");
+            buttons = screen(frame, "Choose stack directories", &format!(
+                "Browsing {}\n{} marked as stacks. Space marks a folder, Enter opens it. Go to path navigates elsewhere.",
+                current.display(), checked.len()),
+                &[("Back", false), ("Go to path", false), ("Continue", true)], 0,
+                "Up/Down: move   Enter: open   Space: mark   Left: parent   G: path   C: continue   Esc: back");
             let body = sections(frame.area())[1];
             choices = Rect::new(body.x + 1, body.y + 5, body.width.saturating_sub(2), body.height.saturating_sub(7));
-            let entries: Vec<String> = filtered.iter().skip(scroll).take(choices.height as usize)
-                .enumerate().map(|(visible_index, index)| format!("{} [{}] {}",
-                    if scroll + visible_index == selected { ">" } else { " " },
-                    if checked.contains(&names[*index]) { "x" } else { " " }, names[*index])).collect();
+            let entries: Vec<String> = directories.iter().skip(scroll).take(choices.height as usize)
+                .enumerate().map(|(index, path)| format!("{} [{}] {}/",
+                    if index + scroll == selected { ">" } else { " " },
+                    if checked.contains(path) { "x" } else { " " },
+                    path.file_name().unwrap().to_string_lossy())).collect();
             frame.render_widget(List::new(entries), choices);
-            if filtered.is_empty() { frame.render_widget(Paragraph::new("No matching directories"), choices); }
         })?;
         let event = event::read()?;
-        if let Some(index) = click(&event, &buttons) {
-            return Ok(if index == 0 { Nav::Back } else { Nav::Next });
+        let button = click(&event, &buttons);
+        if button == Some(0) {
+            return Ok(Nav::Back);
         }
-        if let Event::Mouse(mouse) = event {
-            match mouse.kind {
-                MouseEventKind::Down(MouseButton::Left)
-                    if choices.contains(Position::new(mouse.column, mouse.row)) =>
+        if button == Some(2) {
+            return Ok(Nav::Next);
+        }
+        let go = button == Some(1)
+            || matches!(event, Event::Key(ref key) if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('g'));
+        if go {
+            let mut input = current.display().to_string();
+            if step_text(
+                terminal,
+                "Go to directory",
+                "Enter an existing directory",
+                &mut input,
+                false,
+                Field::Directory(home),
+            )? == Nav::Next
+            {
+                let path = if let Some(rest) = input.strip_prefix("~/") {
+                    home.join(rest)
+                } else {
+                    PathBuf::from(input)
+                };
+                if let Ok(path) = path.canonicalize()
+                    && path.is_dir()
                 {
-                    let index = mouse.row.saturating_sub(choices.y) as usize + scroll;
-                    if let Some(original) = filtered.get(index) {
-                        selected = index;
-                        let name = &names[*original];
-                        if checked.contains(name) {
-                            checked.retain(|item| item != name);
-                        } else {
-                            checked.push(name.clone());
-                        }
-                    }
+                    *current = path;
+                    selected = 0;
+                    scroll = 0;
                 }
-                MouseEventKind::ScrollDown => {
-                    selected = (selected + 1).min(filtered.len().saturating_sub(1))
+            }
+            continue;
+        }
+        if let Event::Mouse(mouse) = &event {
+            if mouse.kind == MouseEventKind::Down(MouseButton::Left)
+                && choices.contains(Position::new(mouse.column, mouse.row))
+                && let Some(path) =
+                    directories.get(mouse.row.saturating_sub(choices.y) as usize + scroll)
+            {
+                if checked.contains(path) {
+                    checked.retain(|item| item != path);
+                } else {
+                    checked.push(path.clone());
                 }
-                MouseEventKind::ScrollUp => selected = selected.saturating_sub(1),
-                _ => {}
+            }
+            if mouse.kind == MouseEventKind::ScrollDown {
+                selected = (selected + 1).min(directories.len().saturating_sub(1));
+            }
+            if mouse.kind == MouseEventKind::ScrollUp {
+                selected = selected.saturating_sub(1);
             }
         }
         if let Event::Key(key) = event {
@@ -528,8 +515,33 @@ pub fn step_stacks(
             }
             match key.code {
                 KeyCode::Esc => return Ok(Nav::Back),
-                KeyCode::Enter => return Ok(Nav::Next),
-                other => stack_key(other, names, checked, query, &mut selected, &mut scroll),
+                KeyCode::Char('c') | KeyCode::Char('C') => return Ok(Nav::Next),
+                KeyCode::Down => selected = (selected + 1).min(directories.len().saturating_sub(1)),
+                KeyCode::Up => selected = selected.saturating_sub(1),
+                KeyCode::Left | KeyCode::Backspace => {
+                    if let Some(parent) = current.parent() {
+                        *current = parent.to_path_buf();
+                        selected = 0;
+                        scroll = 0;
+                    }
+                }
+                KeyCode::Enter => {
+                    if let Some(path) = directories.get(selected) {
+                        *current = path.clone();
+                        selected = 0;
+                        scroll = 0;
+                    }
+                }
+                KeyCode::Char(' ') => {
+                    if let Some(path) = directories.get(selected) {
+                        if checked.contains(path) {
+                            checked.retain(|item| item != path);
+                        } else {
+                            checked.push(path.clone());
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -815,50 +827,6 @@ mod tests {
             .collect::<String>();
         assert!(display.contains("Terminal output"));
         assert!(display.contains("indexing files"));
-    }
-
-    #[test]
-    fn stack_search_is_case_insensitive_and_does_not_change_selection() {
-        let names = vec!["Stack One".to_string(), "Other Stack".to_string()];
-        let selected = vec!["Other Stack".to_string()];
-        assert_eq!(matches(&names, "stack o"), vec![0]);
-        assert_eq!(matches(&names, "other"), vec![1]);
-        assert_eq!(selected, ["Other Stack"]);
-    }
-
-    #[test]
-    fn space_selects_immediately_after_typing_search() {
-        let names = vec!["Alpha Stack".into(), "Beta Stack".into()];
-        let (mut query, mut checked, mut selected, mut scroll) = (String::new(), vec![], 0, 0);
-        for key in "alpha".chars() {
-            stack_key(
-                KeyCode::Char(key),
-                &names,
-                &mut checked,
-                &mut query,
-                &mut selected,
-                &mut scroll,
-            );
-        }
-        stack_key(
-            KeyCode::Char(' '),
-            &names,
-            &mut checked,
-            &mut query,
-            &mut selected,
-            &mut scroll,
-        );
-        assert_eq!(query, "alpha");
-        assert_eq!(checked, ["Alpha Stack"]);
-        stack_key(
-            KeyCode::Backspace,
-            &names,
-            &mut checked,
-            &mut query,
-            &mut selected,
-            &mut scroll,
-        );
-        assert_eq!(checked, ["Alpha Stack"]); // Changing the filter keeps the selection.
     }
 
     #[test]

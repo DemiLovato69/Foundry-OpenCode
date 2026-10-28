@@ -89,8 +89,13 @@ fn npm_packages() -> eyre::Result<(Option<PathBuf>, Vec<String>)> {
         }
         _ => return Ok((None, Vec::new())),
     };
-    let json = output(Command::new("npm").args(["ls", "-g", "--depth=0", "--json"]))?;
-    let value: serde_json::Value = serde_json::from_str(&json)?;
+    let result = Command::new("npm")
+        .args(["ls", "-g", "--depth=0", "--json"])
+        .output()?;
+    let value: serde_json::Value = match serde_json::from_slice(&result.stdout) {
+        Ok(value) => value,
+        Err(_) => return Ok((root, Vec::new())),
+    };
     let packages = ["opencode", "opencode-ai"]
         .into_iter()
         .filter(|name| {
@@ -103,8 +108,31 @@ fn npm_packages() -> eyre::Result<(Option<PathBuf>, Vec<String>)> {
     Ok((root, packages))
 }
 
+pub fn npm_opencode() -> eyre::Result<Vec<String>> {
+    let output = match Command::new("npm")
+        .args(["ls", "-g", "--depth=0", "--json"])
+        .output()
+    {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+    let doc: serde_json::Value = match serde_json::from_slice(&output.stdout) {
+        Ok(doc) => doc,
+        Err(_) => return Ok(Vec::new()),
+    };
+    Ok(npm_names(&doc))
+}
+
+fn npm_names(doc: &serde_json::Value) -> Vec<String> {
+    ["opencode", "opencode-ai"]
+        .into_iter()
+        .filter(|name| doc["dependencies"][name]["version"].as_str().is_some())
+        .map(str::to_string)
+        .collect()
+}
+
 pub fn inspect(home: &Path, with_chamber: bool) -> eyre::Result<Inventory> {
-    latest_is_v2()?;
     let mut inventory = Inventory::default();
     for name in ["opencode-v1", "opencode-v2"] {
         if let Some(version) = brew_version(name)? {
@@ -239,6 +267,49 @@ pub fn move_to_trash(path: &Path, home: &Path) -> eyre::Result<PathBuf> {
     Ok(destination)
 }
 
+pub fn clean_direnv_text(path: &Path, toml: bool) -> eyre::Result<bool> {
+    let original = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error.into()),
+    };
+    eyre::ensure!(
+        fs::symlink_metadata(path)?.is_file()
+            && !fs::symlink_metadata(path)?.file_type().is_symlink(),
+        "Refusing to edit symlink {}",
+        path.display()
+    );
+    let mut whitelist = false;
+    let lines: Vec<_> = original
+        .lines()
+        .filter(|line| {
+            if toml {
+                let trimmed = line.trim();
+                if trimmed.starts_with('[') {
+                    whitelist = trimmed == "[whitelist]";
+                    return !whitelist;
+                }
+                !whitelist
+            } else {
+                !line.contains("direnv hook zsh")
+            }
+        })
+        .collect();
+    let updated = if lines.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", lines.join("\n"))
+    };
+    if updated == original {
+        return Ok(false);
+    }
+    let staged = crate::ops::backup_path(path);
+    fs::write(&staged, updated)?;
+    fs::set_permissions(&staged, fs::metadata(path)?.permissions())?;
+    fs::rename(staged, path)?;
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,6 +339,12 @@ mod tests {
     }
 
     #[test]
+    fn npm_uninstall_selects_only_opencode_packages() {
+        let doc = serde_json::json!({"dependencies": {"opencode-ai": {"version": "2.0.0"}, "unrelated": {"version": "1.0.0"}}});
+        assert_eq!(npm_names(&doc), ["opencode-ai"]);
+    }
+
+    #[test]
     fn cleanup_moves_only_the_requested_executable_to_trash() {
         let home = crate::ops::backup_path(&std::env::temp_dir().join("foundry-cleanup"));
         fs::create_dir(&home).unwrap();
@@ -280,5 +357,27 @@ mod tests {
         assert_eq!(fs::read_to_string(moved).unwrap(), "v1");
         assert_eq!(fs::read_to_string(data).unwrap(), "preserve");
         fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn direnv_cleanup_preserves_unrelated_shell_and_toml() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("direnv-cleanup"));
+        fs::create_dir(&root).unwrap();
+        let shell = root.join(".zshrc");
+        let toml = root.join("direnv.toml");
+        fs::write(&shell, "export KEEP=1\neval \"$(direnv hook zsh)\"\n").unwrap();
+        fs::write(
+            &toml,
+            "[global]\nkeep = true\n[whitelist]\nprefix = [\"~/Projects\"]\n[other]\nkeep = true\n",
+        )
+        .unwrap();
+        clean_direnv_text(&shell, false).unwrap();
+        clean_direnv_text(&toml, true).unwrap();
+        assert_eq!(fs::read_to_string(shell).unwrap(), "export KEEP=1\n");
+        assert_eq!(
+            fs::read_to_string(toml).unwrap(),
+            "[global]\nkeep = true\n[other]\nkeep = true\n"
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 }
