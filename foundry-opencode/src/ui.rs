@@ -482,7 +482,7 @@ pub fn step_stacks(
         let mut choices = Rect::default();
         terminal.draw(|frame| {
             buttons = screen(frame, "Choose stacks", &format!(
-                "Select directories inside the projects folder. Existing .envrc files will be skipped.\n\nFilter: {query}  ({} match{}, {} selected)",
+                "Select stack directories. Recognizable .envrc files will be migrated; custom ones are left untouched.\n\nFilter: {query}  ({} match{}, {} selected)",
                 filtered.len(), if filtered.len() == 1 { "" } else { "es" }, checked.len()),
                 &[("Back", false), ("Continue", true)], 0,
                 "Type: filter   Up/Down: move   Space: select   Backspace: delete   Enter: continue");
