@@ -46,8 +46,9 @@ Existing `.envrc` files are never overwritten. The installer adds
 `$ZDOTDIR`), or leaves an existing hook alone. Open a new Zsh shell to use it.
 
 `update` upgrades the installed tools (OpenChamber only when present) and pulls
-`main` with `--ff-only`; it refuses to pull over local config changes. Existing SSH
-config checkouts are switched to HTTPS before pulling. `init`
+`main` with `--ff-only`; it refuses to pull over local config changes. Existing
+checkouts using the old repository URL (SSH or HTTPS) are switched to the new
+HTTPS URL before pulling. `init`
 prompts for a Foundry HTTPS base URL. At the token step, select **Open Foundry
 token page** with Tab/Arrows and Enter (or click it) to open
 `https://<host>/workspace/settings/tokens`,
