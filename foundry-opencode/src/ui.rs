@@ -1,15 +1,123 @@
 use color_eyre::eyre::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, MouseButton, MouseEventKind};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
+};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Layout, Position, Rect},
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, Gauge, List, Paragraph, Wrap},
 };
+#[cfg(target_os = "macos")]
+use std::{ffi::CString, os::macos::fs::MetadataExt, os::unix::ffi::OsStrExt};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
+
+#[derive(Default)]
+struct Input {
+    cursor: usize, // graphemes, not bytes
+}
+
+impl Input {
+    fn edit(&mut self, value: &mut String, key: KeyEvent) -> bool {
+        let parts: Vec<&str> = value.graphemes(true).collect();
+        self.cursor = self.cursor.min(parts.len());
+        let start = parts[..self.cursor].concat().len();
+        let control = key.modifiers.contains(KeyModifiers::CONTROL);
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
+        let super_key = key.modifiers.contains(KeyModifiers::SUPER);
+        match key.code {
+            KeyCode::Left | KeyCode::Char('b') if key.code == KeyCode::Left || (control || alt) => {
+                self.cursor = self.cursor.saturating_sub(1)
+            }
+            KeyCode::Right | KeyCode::Char('f')
+                if key.code == KeyCode::Right || (control || alt) =>
+            {
+                self.cursor = (self.cursor + 1).min(parts.len())
+            }
+            KeyCode::Home | KeyCode::Char('a')
+                if key.code == KeyCode::Home || control || super_key =>
+            {
+                self.cursor = 0
+            }
+            KeyCode::End | KeyCode::Char('e')
+                if key.code == KeyCode::End || control || super_key =>
+            {
+                self.cursor = parts.len()
+            }
+            KeyCode::Char('u') if control => {
+                value.drain(..start);
+                self.cursor = 0;
+            }
+            KeyCode::Char('k') if control => {
+                value.truncate(start);
+            }
+            KeyCode::Backspace if super_key || control => {
+                value.drain(..start);
+                self.cursor = 0;
+            }
+            KeyCode::Backspace if self.cursor > 0 => {
+                value.drain(start - parts[self.cursor - 1].len()..start);
+                self.cursor -= 1;
+            }
+            KeyCode::Delete if self.cursor < parts.len() => {
+                value.drain(start..start + parts[self.cursor].len());
+            }
+            KeyCode::Char(c) if !c.is_control() && !control && !alt && !super_key => {
+                value.insert(start, c);
+                self.cursor = value[..start + c.len_utf8()].graphemes(true).count();
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    fn view(&self, value: &str, width: usize, secret: bool) -> (String, usize, usize) {
+        let parts: Vec<&str> = value.graphemes(true).collect();
+        let cursor = self.cursor.min(parts.len());
+        let width_of = |part: &str| if secret { 1 } else { part.width().max(1) };
+        let mut start = 0;
+        while start < cursor
+            && parts[start..cursor]
+                .iter()
+                .map(|p| width_of(p))
+                .sum::<usize>()
+                >= width
+        {
+            start += 1;
+        }
+        let mut end = start;
+        let mut used = 0;
+        while end < parts.len() && used + width_of(parts[end]) <= width {
+            used += width_of(parts[end]);
+            end += 1;
+        }
+        let text = if secret {
+            "•".repeat(end - start)
+        } else {
+            parts[start..end].concat()
+        };
+        let column = parts[start..cursor].iter().map(|p| width_of(p)).sum();
+        (text, start, column)
+    }
+
+    fn click(&mut self, value: &str, start: usize, column: usize, secret: bool) {
+        self.cursor = start;
+        let mut used = 0;
+        for part in value.graphemes(true).skip(start) {
+            let width = if secret { 1 } else { part.width().max(1) };
+            if used + width > column {
+                break;
+            }
+            used += width;
+            self.cursor += 1;
+        }
+    }
+}
 
 fn screen(
     frame: &mut Frame,
@@ -118,7 +226,12 @@ fn text_action(focus: usize, first: bool, open: bool) -> Nav {
     }
 }
 
-fn directory_suggestions(input: &str, home: &Path) -> Vec<String> {
+fn directory_suggestions(
+    input: &str,
+    home: &Path,
+    base: &Path,
+    warning: &mut String,
+) -> Vec<String> {
     if input == "~" {
         return vec!["~/".into()];
     }
@@ -130,23 +243,54 @@ fn directory_suggestions(input: &str, home: &Path) -> Vec<String> {
     } else if input.starts_with('/') && prefix.is_empty() {
         PathBuf::from("/")
     } else if prefix.is_empty() {
-        PathBuf::from(".")
+        base.to_path_buf()
     } else {
-        PathBuf::from(prefix)
+        base.join(prefix)
     };
-    let Ok(entries) = fs::read_dir(parent) else {
-        return Vec::new();
+    let entries = match fs::read_dir(&parent) {
+        Ok(entries) => entries,
+        Err(error) => {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                *warning = format!("Cannot browse {}: {error}", parent.display());
+            }
+            return Vec::new();
+        }
     };
     let mut suggestions: Vec<_> = entries
         .filter_map(|entry| {
-            let entry = entry.ok()?;
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    *warning = format!("Cannot read {}: {error}", parent.display());
+                    return None;
+                }
+            };
             let name = entry.file_name().into_string().ok()?;
-            if !entry.path().is_dir()
+            let kind = match entry.file_type() {
+                Ok(kind) => kind,
+                Err(error) => {
+                    *warning = format!("Cannot inspect {}: {error}", entry.path().display());
+                    return None;
+                }
+            };
+            if !kind.is_dir()
                 || name.chars().any(char::is_control)
-                || (!fragment.starts_with('.') && name.starts_with('.'))
                 || !name.to_lowercase().starts_with(&fragment.to_lowercase())
             {
                 return None;
+            }
+            match hidden(&entry) {
+                Ok(true)
+                    if !(fragment.starts_with('.') && name.starts_with('.'))
+                        && name != fragment =>
+                {
+                    return None;
+                }
+                Err(error) => {
+                    *warning = format!("Cannot inspect {}: {error}", entry.path().display());
+                    return None;
+                }
+                _ => {}
             }
             Some(if input.contains('/') {
                 if prefix.is_empty() {
@@ -165,10 +309,9 @@ fn directory_suggestions(input: &str, home: &Path) -> Vec<String> {
 }
 
 #[derive(Clone, Copy)]
-pub enum Field<'a> {
+pub enum Field {
     Plain,
     Token,
-    Directory(&'a Path),
 }
 
 pub fn step_text(
@@ -177,32 +320,16 @@ pub fn step_text(
     prompt: &str,
     value: &mut String,
     first: bool,
-    kind: Field<'_>,
+    kind: Field,
 ) -> Result<Nav> {
     let secret = matches!(kind, Field::Token);
     let open = matches!(kind, Field::Token);
-    let directory_home = if let Field::Directory(home) = kind {
-        Some(home)
-    } else {
-        None
-    };
     let mut focus = 0usize; // input, Back, optional Open, Continue
+    let mut input = Input {
+        cursor: value.graphemes(true).count(),
+    };
     let mut scroll = 0u16;
-    let mut selected = 0usize;
     loop {
-        let suggestions = directory_home
-            .map(|home| directory_suggestions(value, home))
-            .unwrap_or_default();
-        selected = selected.min(suggestions.len().saturating_sub(1));
-        let shown = if secret {
-            format!(
-                "{} ({} characters)",
-                "•".repeat(value.chars().count().min(24)),
-                value.chars().count()
-            )
-        } else {
-            value.clone()
-        };
         let actions = if open {
             vec![
                 (if first { "Cancel" } else { "Back" }, focus == 1),
@@ -217,19 +344,15 @@ pub fn step_text(
         };
         let mut buttons = Vec::new();
         let mut field = Rect::default();
-        let mut choices = Rect::default();
+        let mut view_start = 0;
         terminal.draw(|frame| {
             buttons = screen(
                 frame,
                 title,
-                if directory_home.is_some() { "" } else { prompt },
+                prompt,
                 &actions,
-                if directory_home.is_some() { 0 } else { scroll },
-                if directory_home.is_some() {
-                    "Type path  Up/Down: suggest  Tab: fill  Enter: continue  Esc: back"
-                } else {
-                    "Type: edit   Up/Down: scroll help   Tab: focus   Enter: activate   Esc: back"
-                },
+                scroll,
+                "Arrows: cursor  Ctrl+U/Cmd+Delete: clear  Tab: focus  Enter: continue  Esc: back",
             );
             let body = sections(frame.area())[1];
             field = Rect::new(
@@ -238,51 +361,23 @@ pub fn step_text(
                 body.width.saturating_sub(2),
                 3,
             );
-            if directory_home.is_some() {
-                let height = field.y.saturating_sub(body.y + 2).min(7);
-                choices = Rect::new(field.x, field.y.saturating_sub(height), field.width, height);
-                let explanation = Rect::new(
-                    field.x,
-                    body.y + 1,
-                    field.width,
-                    choices.y.saturating_sub(body.y + 1),
-                );
-                frame.render_widget(
-                    Paragraph::new(prompt)
-                        .wrap(Wrap { trim: false })
-                        .scroll((scroll, 0)),
-                    explanation,
-                );
-                let items = suggestions
-                    .iter()
-                    .enumerate()
-                    .map(|(index, path)| {
-                        format!("{} {path}", if index == selected { ">" } else { " " })
-                    })
-                    .collect::<Vec<_>>();
-                frame.render_widget(
-                    List::new(items).block(
-                        Block::default()
-                            .title("Directory suggestions")
-                            .borders(Borders::ALL),
-                    ),
-                    choices,
-                );
-            }
-            let max_chars = field.width.saturating_sub(5) as usize;
-            let visible: String = shown
-                .chars()
-                .rev()
-                .take(max_chars)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect();
+            let width = field.width.saturating_sub(2) as usize;
+            let (visible, start, column) = input.view(value, width, secret);
+            view_start = start;
             frame.render_widget(
-                Paragraph::new(format!("{visible}{}", if focus == 0 { "▏" } else { "" }))
-                    .block(Block::default().title("Input").borders(Borders::ALL)),
+                Paragraph::new(visible).block(
+                    Block::default()
+                        .title(if secret { "Token (masked)" } else { "Input" })
+                        .borders(Borders::ALL),
+                ),
                 field,
             );
+            if focus == 0 && width > 0 {
+                frame.set_cursor_position(Position::new(
+                    field.x + 1 + (column.min(width - 1) as u16),
+                    field.y + 1,
+                ));
+            }
         })?;
         let event = event::read()?;
         if let Some(index) = click(&event, &buttons) {
@@ -294,22 +389,15 @@ pub fn step_text(
         }
         if let Event::Mouse(mouse) = event
             && mouse.kind == MouseEventKind::Down(MouseButton::Left)
-            && directory_home.is_some()
-            && choices.contains(Position::new(mouse.column, mouse.row))
-        {
-            let index = mouse.row.saturating_sub(choices.y + 1) as usize;
-            if let Some(path) = suggestions.get(index) {
-                *value = path.clone();
-                selected = 0;
-                focus = 0;
-            }
-            continue;
-        }
-        if let Event::Mouse(mouse) = event
-            && mouse.kind == MouseEventKind::Down(MouseButton::Left)
             && field.contains(Position::new(mouse.column, mouse.row))
         {
             focus = 0;
+            input.click(
+                value,
+                view_start,
+                mouse.column.saturating_sub(field.x + 1) as usize,
+                secret,
+            );
         }
         if let Event::Key(key) = event {
             if key.kind != KeyEventKind::Press {
@@ -320,29 +408,14 @@ pub fn step_text(
                 KeyCode::Enter => {
                     return Ok(text_action(focus, first, open));
                 }
-                KeyCode::Tab
-                    if directory_home.is_some() && focus == 0 && !suggestions.is_empty() =>
-                {
-                    *value = suggestions[selected].clone();
-                    selected = 0;
-                }
                 KeyCode::Tab => focus = (focus + 1) % (actions.len() + 1),
                 KeyCode::BackTab => focus = (focus + actions.len()) % (actions.len() + 1),
-                KeyCode::Down if directory_home.is_some() => {
-                    selected = (selected + 1).min(suggestions.len().saturating_sub(1))
-                }
-                KeyCode::Up if directory_home.is_some() => selected = selected.saturating_sub(1),
-                KeyCode::PageDown if directory_home.is_some() => scroll = scroll.saturating_add(3),
-                KeyCode::PageUp if directory_home.is_some() => scroll = scroll.saturating_sub(3),
+                KeyCode::PageDown => scroll = scroll.saturating_add(3),
+                KeyCode::PageUp => scroll = scroll.saturating_sub(3),
                 KeyCode::Down => scroll = scroll.saturating_add(1),
                 KeyCode::Up => scroll = scroll.saturating_sub(1),
-                KeyCode::Backspace if focus == 0 => {
-                    value.pop();
-                    selected = 0;
-                }
-                KeyCode::Char(c) if focus == 0 && !c.is_control() => {
-                    value.push(c);
-                    selected = 0;
+                _ if focus == 0 => {
+                    input.edit(value, key);
                 }
                 _ => {}
             }
@@ -413,100 +486,373 @@ pub fn step_checkbox(
     }
 }
 
+fn matching_directories<'a>(directories: &'a [PathBuf], query: &str) -> Vec<&'a PathBuf> {
+    let query = query.to_lowercase();
+    directories
+        .iter()
+        .filter(|path| {
+            path.file_name()
+                .is_some_and(|name| name.to_string_lossy().to_lowercase().contains(&query))
+        })
+        .collect()
+}
+
+fn path_query(query: &str) -> bool {
+    query.contains('/') || query.starts_with('.') || query == "~"
+}
+
+fn resolve_path(query: &str, home: &Path, current: &Path) -> PathBuf {
+    if query == "~" {
+        home.to_path_buf()
+    } else if let Some(rest) = query.strip_prefix("~/") {
+        home.join(rest)
+    } else if Path::new(query).is_absolute() {
+        PathBuf::from(query)
+    } else {
+        current.join(query)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn finder_invisible(data: &[u8]) -> std::io::Result<bool> {
+    if data.len() != 32 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Invalid FinderInfo attribute",
+        ));
+    }
+    Ok(u16::from_be_bytes([data[8], data[9]]) & 0x4000 != 0)
+}
+
+#[cfg(target_os = "macos")]
+fn macos_invisible(flags: u32, finder_info: Option<&[u8]>) -> std::io::Result<bool> {
+    if flags & libc::UF_HIDDEN != 0 {
+        return Ok(true);
+    }
+    finder_info.map(finder_invisible).unwrap_or(Ok(false))
+}
+
+fn hidden(entry: &fs::DirEntry) -> std::io::Result<bool> {
+    #[cfg(target_os = "macos")]
+    {
+        if entry.file_name().as_os_str().as_bytes().starts_with(b".") {
+            return Ok(true);
+        }
+        let flags = entry.metadata()?.st_flags();
+        if flags & libc::UF_HIDDEN != 0 {
+            return Ok(true);
+        }
+        let path = CString::new(entry.path().as_os_str().as_bytes()).map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid directory path")
+        })?;
+        let mut data = [0u8; 32];
+        let size = unsafe {
+            libc::getxattr(
+                path.as_ptr(),
+                c"com.apple.FinderInfo".as_ptr(),
+                data.as_mut_ptr().cast(),
+                data.len(),
+                0,
+                libc::XATTR_NOFOLLOW,
+            )
+        };
+        if size < 0 {
+            let error = std::io::Error::last_os_error();
+            if matches!(error.raw_os_error(), Some(libc::ENOATTR | libc::ENOTSUP)) {
+                return Ok(false);
+            }
+            return Err(error);
+        }
+        macos_invisible(flags, Some(&data[..size as usize]))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(entry.file_name().to_string_lossy().starts_with('.'))
+    }
+}
+
+fn directories(path: &Path, warning: &mut String) -> std::io::Result<Vec<PathBuf>> {
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(path)? {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                *warning = format!("Cannot read {}: {error}", path.display());
+                continue;
+            }
+        };
+        match entry.file_type() {
+            Ok(kind) if kind.is_dir() => match hidden(&entry) {
+                Ok(false) => entries.push(entry.path()),
+                Ok(true) => {}
+                Err(error) => {
+                    *warning = format!("Cannot inspect {}: {error}", entry.path().display())
+                }
+            },
+            Ok(_) => {}
+            Err(error) => *warning = format!("Cannot inspect {}: {error}", entry.path().display()),
+        }
+    }
+    entries.sort_by_key(|path| path.file_name().unwrap().to_string_lossy().to_lowercase());
+    Ok(entries)
+}
+
+fn browse(current: &mut PathBuf, path: &Path) -> std::io::Result<()> {
+    // Check access before updating state so a failed open never strands the explorer.
+    fs::read_dir(path)?;
+    *current = path.canonicalize()?;
+    Ok(())
+}
+
+fn move_tree_selection(tree: &[(PathBuf, usize)], cursor: &mut PathBuf, delta: isize) {
+    let index = tree
+        .iter()
+        .position(|(path, _)| path == cursor)
+        .unwrap_or(0);
+    let next = index
+        .saturating_add_signed(delta)
+        .min(tree.len().saturating_sub(1));
+    if let Some((path, _)) = tree.get(next) {
+        *cursor = path.clone();
+    }
+}
+
+fn explorer_tab(focus: usize) -> usize {
+    1 - focus
+}
+
+fn toggle_folder(checked: &mut Vec<PathBuf>, path: &Path) {
+    if checked.iter().any(|item| item == path) {
+        checked.retain(|item| item != path);
+    } else {
+        checked.push(path.to_path_buf());
+    }
+}
+
+fn append_tree(
+    path: &Path,
+    depth: usize,
+    current: &Path,
+    expanded: &std::collections::BTreeSet<PathBuf>,
+    rows: &mut Vec<(PathBuf, usize)>,
+    warning: &mut String,
+) {
+    rows.push((path.to_path_buf(), depth));
+    if !expanded.contains(path) {
+        return;
+    }
+    match directories(path, warning) {
+        Ok(mut children) => {
+            if let Some(hidden_parent) = current
+                .ancestors()
+                .find(|ancestor| ancestor.parent() == Some(path))
+                && !children.iter().any(|child| child == hidden_parent)
+            {
+                children.push(hidden_parent.to_path_buf());
+                children.sort_by_key(|child| {
+                    child.file_name().unwrap().to_string_lossy().to_lowercase()
+                });
+            }
+            for child in children {
+                append_tree(&child, depth + 1, current, expanded, rows, warning);
+            }
+        }
+        Err(error) => *warning = format!("Cannot browse {}: {error}", path.display()),
+    }
+}
+
+fn filter_tree(rows: &mut Vec<(PathBuf, usize)>, current: &Path, query: &str) {
+    if query.is_empty() {
+        return;
+    }
+    let paths: Vec<PathBuf> = rows.iter().map(|(path, _)| path.clone()).collect();
+    let mut keep = std::collections::BTreeSet::new();
+    for (path, _) in rows.iter() {
+        if current.starts_with(path) {
+            keep.insert(path.clone());
+        }
+    }
+    for path in matching_directories(&paths, query) {
+        keep.extend(path.ancestors().map(Path::to_path_buf));
+    }
+    rows.retain(|(path, _)| keep.contains(path));
+}
+
+fn tree_rows(
+    current: &Path,
+    query: &str,
+    home: &Path,
+    expanded: &std::collections::BTreeSet<PathBuf>,
+    warning: &mut String,
+) -> (Vec<(PathBuf, usize)>, Vec<PathBuf>) {
+    if path_query(query) {
+        let suggestions: Vec<PathBuf> = directory_suggestions(query, home, current, warning)
+            .iter()
+            .map(|path| resolve_path(path, home, current))
+            .collect();
+        let mut paths = std::collections::BTreeSet::new();
+        for path in std::iter::once(current).chain(suggestions.iter().map(PathBuf::as_path)) {
+            paths.extend(path.ancestors().map(Path::to_path_buf));
+        }
+        return (
+            paths
+                .into_iter()
+                .map(|path| {
+                    let depth = path.components().count().saturating_sub(1);
+                    (path, depth)
+                })
+                .collect(),
+            suggestions,
+        );
+    }
+    let mut rows = Vec::new();
+    append_tree(Path::new("/"), 0, current, expanded, &mut rows, warning);
+    filter_tree(&mut rows, current, query);
+    (rows, Vec::new())
+}
+
 pub fn step_explorer(
     terminal: &mut DefaultTerminal,
     home: &Path,
     current: &mut PathBuf,
     checked: &mut Vec<PathBuf>,
 ) -> Result<Nav> {
-    let mut selected = 0usize;
     let mut scroll = 0usize;
+    let mut focus = 0usize; // tree, search
+    let mut query = String::new();
+    let mut search = Input::default();
+    let mut suggestion_selected = false;
+    let mut tree_cursor = current.clone();
+    let mut expanded: std::collections::BTreeSet<PathBuf> =
+        current.ancestors().map(Path::to_path_buf).collect();
+    let mut warning = String::new();
     loop {
-        let mut directories: Vec<PathBuf> = fs::read_dir(&*current)?
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                entry.file_type().ok()?.is_dir().then_some(entry.path())
-            })
-            .collect();
-        directories.sort_by_key(|path| path.file_name().unwrap().to_string_lossy().to_lowercase());
-        selected = selected.min(directories.len().saturating_sub(1));
-        let mut buttons = Vec::new();
-        let mut choices = Rect::default();
-        let visible = terminal.size()?.height.saturating_sub(14).max(1) as usize;
-        if selected < scroll {
-            scroll = selected;
+        loop {
+            match directories(current, &mut warning) {
+                Ok(_) => break,
+                Err(error) => {
+                    warning = format!("Cannot browse {}: {error}", current.display());
+                    let Some(parent) = current.parent() else {
+                        return Err(error.into());
+                    };
+                    *current = parent.to_path_buf();
+                    tree_cursor = current.clone();
+                }
+            }
         }
-        if selected >= scroll + visible {
-            scroll = selected + 1 - visible;
+        let is_path = path_query(&query);
+        let (tree, suggestions) = tree_rows(current, &query, home, &expanded, &mut warning);
+        if !tree.iter().any(|(path, _)| path == &tree_cursor) {
+            tree_cursor = current.clone();
+            suggestion_selected = false;
+        }
+        let tree_selected = tree
+            .iter()
+            .position(|(path, _)| path == &tree_cursor)
+            .unwrap_or_else(|| {
+                tree.iter()
+                    .position(|(path, _)| path == current)
+                    .unwrap_or(0)
+            });
+        let scroll_selected = if focus == 1 && is_path && !suggestion_selected {
+            suggestions
+                .first()
+                .and_then(|first| tree.iter().position(|(path, _)| path == first))
+                .unwrap_or(tree_selected)
+        } else {
+            tree_selected
+        };
+        let mut buttons = Vec::new();
+        let mut tree_area = Rect::default();
+        let mut search_area = Rect::default();
+        let mut search_start = 0;
+        let search_prefix = "Search / path: ";
+        let visible = terminal.size()?.height.saturating_sub(15).max(1) as usize;
+        if scroll_selected < scroll {
+            scroll = scroll_selected;
+        }
+        if scroll_selected >= scroll + visible {
+            scroll = scroll_selected.saturating_sub(visible / 2);
         }
         terminal.draw(|frame| {
             buttons = screen(frame, "Choose stack directories", &format!(
-                "Browsing {}\n{} marked as stacks. Space marks a folder, Enter opens it. Go to path navigates elsewhere.",
+                "Browsing {}\n{} marked as stacks. Hidden folders omitted; type a full path to open one.",
                 current.display(), checked.len()),
-                &[("Back", false), ("Go to path", false), ("Continue", true)], 0,
-                "Up/Down: move   Enter: open   Space: mark   Left: parent   G: path   C: continue   Esc: back");
+                &[("Back", false), ("Continue", true)], 0,
+                "Tab: tree/search  S: search  /: path  Enter/Right: expand  Left: collapse  Space: mark  C: continue");
             let body = sections(frame.area())[1];
-            choices = Rect::new(body.x + 1, body.y + 5, body.width.saturating_sub(2), body.height.saturating_sub(7));
-            let entries: Vec<String> = directories.iter().skip(scroll).take(choices.height as usize)
-                .enumerate().map(|(index, path)| format!("{} [{}] {}/",
-                    if index + scroll == selected { ">" } else { " " },
-                    if checked.contains(path) { "x" } else { " " },
-                    path.file_name().unwrap().to_string_lossy())).collect();
-            frame.render_widget(List::new(entries), choices);
+            search_area = Rect::new(body.x + 1, body.y + 3, body.width.saturating_sub(2), 1);
+            frame.render_widget(Paragraph::new(warning.as_str()).style(Style::default().fg(Color::Yellow)),
+                Rect::new(body.x + 1, body.y + 4, body.width.saturating_sub(2), 1));
+            tree_area = Rect::new(body.x + 1, body.y + 5, body.width.saturating_sub(2), body.height.saturating_sub(6));
+            let width = search_area.width.saturating_sub(search_prefix.len() as u16) as usize;
+            let (shown, start, column) = search.view(&query, width, false);
+            search_start = start;
+            frame.render_widget(Paragraph::new(format!("{search_prefix}{shown}")), search_area);
+            if focus == 1 && search_area.width > 0 {
+                let col = (search_prefix.len() + column).min(search_area.width.saturating_sub(1) as usize);
+                frame.set_cursor_position(Position::new(search_area.x + col as u16, search_area.y));
+            }
+            let tree_items = tree.iter().skip(scroll).take(tree_area.height.saturating_sub(2) as usize).enumerate().map(|(i, (path, depth))| {
+                let name = path.file_name().map(|s| format!("{}/", s.to_string_lossy())).unwrap_or_else(|| "/".into());
+                format!("{}{}{} [{}] {name}", if i + scroll == tree_selected && (focus == 0 || suggestion_selected) { ">" } else { " " },
+                    "  ".repeat((*depth).min(12)), if expanded.contains(path) || (is_path && tree.iter().any(|(child, _)| child != path && child.starts_with(path))) { "v" } else { ">" }, if checked.contains(path) { "x" } else { " " })
+            }).collect::<Vec<_>>();
+            frame.render_widget(List::new(tree_items).block(Block::default().title(if is_path { "Path matches" } else { "Directories" }).borders(Borders::ALL)), tree_area);
         })?;
         let event = event::read()?;
         let button = click(&event, &buttons);
         if button == Some(0) {
             return Ok(Nav::Back);
         }
-        if button == Some(2) {
+        if button == Some(1) {
             return Ok(Nav::Next);
         }
-        let go = button == Some(1)
-            || matches!(event, Event::Key(ref key) if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('g'));
-        if go {
-            let mut input = current.display().to_string();
-            if step_text(
-                terminal,
-                "Go to directory",
-                "Enter an existing directory",
-                &mut input,
-                false,
-                Field::Directory(home),
-            )? == Nav::Next
-            {
-                let path = if let Some(rest) = input.strip_prefix("~/") {
-                    home.join(rest)
-                } else {
-                    PathBuf::from(input)
-                };
-                if let Ok(path) = path.canonicalize()
-                    && path.is_dir()
-                {
-                    *current = path;
-                    selected = 0;
-                    scroll = 0;
-                }
-            }
-            continue;
-        }
+        let mut target = None;
         if let Event::Mouse(mouse) = &event {
             if mouse.kind == MouseEventKind::Down(MouseButton::Left)
-                && choices.contains(Position::new(mouse.column, mouse.row))
-                && let Some(path) =
-                    directories.get(mouse.row.saturating_sub(choices.y) as usize + scroll)
+                && search_area.contains(Position::new(mouse.column, mouse.row))
             {
-                if checked.contains(path) {
-                    checked.retain(|item| item != path);
-                } else {
-                    checked.push(path.clone());
+                focus = 1;
+                suggestion_selected = false;
+                search.click(
+                    &query,
+                    search_start,
+                    mouse
+                        .column
+                        .saturating_sub(search_area.x + search_prefix.len() as u16)
+                        as usize,
+                    false,
+                );
+            }
+            if mouse.kind == MouseEventKind::Down(MouseButton::Left)
+                && tree_area.contains(Position::new(mouse.column, mouse.row))
+                && let Some((path, depth)) =
+                    tree.get(mouse.row.saturating_sub(tree_area.y + 1) as usize + scroll)
+            {
+                tree_cursor = path.clone();
+                focus = 0;
+                let indent = ((*depth).min(12) * 2) as u16;
+                let arrow = tree_area.x + 2 + indent;
+                let checkbox = tree_area.x + 4 + indent;
+                if (checkbox..checkbox + 3).contains(&mouse.column) {
+                    if path == home || path == Path::new("/") {
+                        warning = "Home and the filesystem root cannot be marked as stacks".into();
+                    } else {
+                        toggle_folder(checked, path);
+                        warning.clear();
+                    }
+                } else if mouse.column == arrow {
+                    target = Some((path.clone(), true));
                 }
             }
             if mouse.kind == MouseEventKind::ScrollDown {
-                selected = (selected + 1).min(directories.len().saturating_sub(1));
+                move_tree_selection(&tree, &mut tree_cursor, 1);
+                suggestion_selected = is_path;
             }
             if mouse.kind == MouseEventKind::ScrollUp {
-                selected = selected.saturating_sub(1);
+                move_tree_selection(&tree, &mut tree_cursor, -1);
+                suggestion_selected = is_path;
             }
         }
         if let Event::Key(key) = event {
@@ -514,34 +860,129 @@ pub fn step_explorer(
                 continue;
             }
             match key.code {
+                KeyCode::Esc if focus == 1 => {
+                    query.clear();
+                    focus = 0;
+                    scroll = 0;
+                    suggestion_selected = false;
+                    warning.clear();
+                }
                 KeyCode::Esc => return Ok(Nav::Back),
-                KeyCode::Char('c') | KeyCode::Char('C') => return Ok(Nav::Next),
-                KeyCode::Down => selected = (selected + 1).min(directories.len().saturating_sub(1)),
-                KeyCode::Up => selected = selected.saturating_sub(1),
-                KeyCode::Left | KeyCode::Backspace => {
-                    if let Some(parent) = current.parent() {
-                        *current = parent.to_path_buf();
-                        selected = 0;
-                        scroll = 0;
+                KeyCode::Tab | KeyCode::BackTab => focus = explorer_tab(focus),
+                KeyCode::Char('s' | 'S') if focus == 0 => {
+                    focus = 1;
+                    search.cursor = query.graphemes(true).count();
+                }
+                KeyCode::Char('/') if focus == 0 => {
+                    focus = 1;
+                    query = "/".into();
+                    search.cursor = 1;
+                    scroll = 0;
+                    suggestion_selected = false;
+                }
+                KeyCode::Char('c') | KeyCode::Char('C')
+                    if focus == 0
+                        && key
+                            .modifiers
+                            .intersection(
+                                KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER,
+                            )
+                            .is_empty() =>
+                {
+                    return Ok(Nav::Next);
+                }
+                KeyCode::Down if focus == 0 => move_tree_selection(&tree, &mut tree_cursor, 1),
+                KeyCode::Up if focus == 0 => move_tree_selection(&tree, &mut tree_cursor, -1),
+                KeyCode::Down if focus == 1 && is_path => {
+                    if let Some(index) = suggestions.iter().position(|path| path == &tree_cursor) {
+                        tree_cursor = suggestions[(index + 1).min(suggestions.len() - 1)].clone();
+                    } else if let Some(first) = suggestions.first() {
+                        tree_cursor = first.clone();
+                    }
+                    suggestion_selected = suggestions.contains(&tree_cursor);
+                }
+                KeyCode::Up if focus == 1 && is_path => {
+                    if let Some(index) = suggestions.iter().position(|path| path == &tree_cursor) {
+                        tree_cursor = suggestions[index.saturating_sub(1)].clone();
+                    } else if let Some(first) = suggestions.first() {
+                        tree_cursor = first.clone();
+                    }
+                    suggestion_selected = suggestions.contains(&tree_cursor);
+                }
+                KeyCode::Enter if focus == 1 && is_path => {
+                    let path = if suggestion_selected && suggestions.contains(&tree_cursor) {
+                        tree_cursor.clone()
+                    } else {
+                        resolve_path(&query, home, current)
+                    };
+                    target = Some((path, false));
+                }
+                KeyCode::Enter if focus == 1 => focus = 0,
+                KeyCode::Left | KeyCode::Backspace
+                    if focus == 0
+                        && expanded.contains(&tree_cursor)
+                        && tree_cursor != Path::new("/") =>
+                {
+                    target = Some((tree_cursor.clone(), true));
+                }
+                KeyCode::Left | KeyCode::Backspace if focus == 0 => {
+                    if let Some(parent) = tree_cursor.parent() {
+                        tree_cursor = parent.to_path_buf();
                     }
                 }
-                KeyCode::Enter => {
-                    if let Some(path) = directories.get(selected) {
-                        *current = path.clone();
-                        selected = 0;
-                        scroll = 0;
+                KeyCode::Right if focus == 0 && expanded.contains(&tree_cursor) => {
+                    if let Some((child, _)) = tree
+                        .get(tree_selected + 1)
+                        .filter(|(_, depth)| *depth > tree[tree_selected].1)
+                    {
+                        tree_cursor = child.clone();
                     }
                 }
-                KeyCode::Char(' ') => {
-                    if let Some(path) = directories.get(selected) {
-                        if checked.contains(path) {
-                            checked.retain(|item| item != path);
-                        } else {
-                            checked.push(path.clone());
-                        }
+                KeyCode::Enter if focus == 0 => target = Some((tree_cursor.clone(), true)),
+                KeyCode::Right if focus == 0 => target = Some((tree_cursor.clone(), false)),
+                KeyCode::Char(' ') if focus == 0 => {
+                    if tree_cursor == home || tree_cursor == Path::new("/") {
+                        warning = "Home and the filesystem root cannot be marked as stacks".into();
+                    } else {
+                        toggle_folder(checked, &tree_cursor);
+                        warning.clear();
                     }
+                }
+                _ if focus == 1 && search.edit(&mut query, key) => {
+                    scroll = 0;
+                    suggestion_selected = false;
+                    warning.clear();
                 }
                 _ => {}
+            }
+        }
+        if let Some((path, toggle)) = target {
+            if toggle && expanded.contains(&path) {
+                if path != Path::new("/") {
+                    expanded.remove(&path);
+                    if current.starts_with(&path) {
+                        *current = path.parent().unwrap().to_path_buf();
+                    }
+                    query.clear();
+                    search.cursor = 0;
+                    suggestion_selected = false;
+                    focus = 0;
+                    warning.clear();
+                }
+            } else {
+                match browse(current, &path) {
+                    Ok(()) => {
+                        expanded.extend(current.ancestors().map(Path::to_path_buf));
+                        tree_cursor = current.clone();
+                        scroll = 0;
+                        query.clear();
+                        search.cursor = 0;
+                        suggestion_selected = false;
+                        focus = 0;
+                        warning.clear();
+                    }
+                    Err(error) => warning = format!("Cannot open {}: {error}", path.display()),
+                }
             }
         }
     }
@@ -776,6 +1217,301 @@ mod tests {
     use ratatui::{Terminal, backend::TestBackend};
 
     #[test]
+    fn input_edits_at_cursor_and_keeps_tokens_masked() {
+        let key = |code, modifiers| KeyEvent::new(code, modifiers);
+        let mut value = "a👩‍💻c".to_string();
+        let mut input = Input { cursor: 2 };
+        input.edit(&mut value, key(KeyCode::Left, KeyModifiers::NONE));
+        input.edit(&mut value, key(KeyCode::Char('b'), KeyModifiers::NONE));
+        assert_eq!(value, "ab👩‍💻c");
+        input.edit(&mut value, key(KeyCode::Delete, KeyModifiers::NONE));
+        assert_eq!(value, "abc");
+        input.click(&value, 0, 2, false);
+        input.edit(&mut value, key(KeyCode::Backspace, KeyModifiers::NONE));
+        assert_eq!(value, "ac");
+        input.edit(&mut value, key(KeyCode::Backspace, KeyModifiers::SUPER));
+        assert_eq!(value, "c");
+        input.edit(&mut value, key(KeyCode::End, KeyModifiers::NONE));
+        input.edit(&mut value, key(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(value.is_empty());
+        let (shown, _, _) = input.view("sensitive", 20, true);
+        assert_eq!(shown, "•••••••••");
+    }
+
+    #[test]
+    fn long_input_scrolls_without_losing_cursor_position() {
+        let mut input = Input { cursor: 10 };
+        let (text, start, column) = input.view("0123456789", 5, false);
+        assert_eq!((text.as_str(), start, column), ("6789", 6, 4));
+        input.click("0123456789", start, 2, false);
+        assert_eq!(input.cursor, 8);
+    }
+
+    #[test]
+    fn explorer_search_filters_only_the_current_directory_list() {
+        let paths = [
+            PathBuf::from("/project/Alpha"),
+            PathBuf::from("/project/Other"),
+        ];
+        assert_eq!(matching_directories(&paths, "alp"), [&paths[0]]);
+        assert_eq!(matching_directories(&paths, ""), [&paths[0], &paths[1]]);
+        assert!(matching_directories(&[PathBuf::from("/")], "missing").is_empty());
+    }
+
+    #[test]
+    fn tab_switches_explorer_panes_without_completing_a_path() {
+        let home = crate::ops::backup_path(&std::env::temp_dir().join("explorer-tab"));
+        fs::create_dir_all(home.join("Projects")).unwrap();
+        let query = "./Pro".to_string();
+        assert_eq!(
+            directory_suggestions(&query, &home, &home, &mut String::new()),
+            ["./Projects"]
+        );
+        assert_eq!(explorer_tab(1), 0); // search -> tree
+        assert_eq!(explorer_tab(0), 1); // tree -> search (also Shift+Tab)
+        assert_eq!(query, "./Pro");
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn a_single_tree_expands_and_collapses_without_losing_marks() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("explorer-tree"));
+        fs::create_dir_all(root.join("Alpha/Child")).unwrap();
+        fs::create_dir(root.join("Beta")).unwrap();
+        let alpha = root.join("Alpha");
+        let child = alpha.join("Child");
+        let mut expanded = std::collections::BTreeSet::from([root.clone()]);
+        let mut rows = Vec::new();
+        let mut warning = String::new();
+        let mut checked = vec![child.clone()];
+        append_tree(&root, 0, &root, &expanded, &mut rows, &mut warning);
+        assert_eq!(
+            rows.iter().map(|(path, _)| path).collect::<Vec<_>>(),
+            [&root, &alpha, &root.join("Beta")]
+        );
+        let mut cursor = root.clone();
+        move_tree_selection(&rows, &mut cursor, 1);
+        assert_eq!(cursor, alpha); // highlighting does not open the child
+        assert!(!rows.iter().any(|(path, _)| path == &child));
+        expanded.insert(alpha.clone());
+        rows.clear();
+        append_tree(&root, 0, &root, &expanded, &mut rows, &mut warning);
+        assert!(
+            rows.iter()
+                .any(|(path, depth)| path == &child && *depth == 2)
+        );
+        filter_tree(&mut rows, &root, "Child");
+        assert_eq!(
+            rows.iter().map(|(path, _)| path).collect::<Vec<_>>(),
+            [&root, &alpha, &child]
+        );
+        expanded.remove(&alpha);
+        rows.clear();
+        append_tree(&root, 0, &root, &expanded, &mut rows, &mut warning);
+        assert!(!rows.iter().any(|(path, _)| path == &child));
+        assert_eq!(checked.len(), 1);
+        assert_eq!(checked[0], child);
+        toggle_folder(&mut checked, &child);
+        assert!(checked.is_empty());
+        assert!(warning.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn hidden_folders_are_omitted_but_explicit_paths_and_marks_remain() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("explorer-hidden"));
+        fs::create_dir_all(root.join(".private")).unwrap();
+        fs::create_dir(root.join(".other")).unwrap();
+        fs::create_dir(root.join("Visible")).unwrap();
+        let root = root.canonicalize().unwrap();
+        let mut warning = String::new();
+        let listed = directories(&root, &mut warning).unwrap();
+        assert_eq!(listed, [root.join("Visible")]);
+        assert!(
+            directory_suggestions("~/.", &root, &root, &mut warning).contains(&"~/.private".into())
+        );
+        assert!(directory_suggestions("~/p", &root, &root, &mut warning).is_empty());
+        let hidden_path = resolve_path("~/.private", &root, &root);
+        let mut current = root.clone();
+        browse(&mut current, &hidden_path).unwrap();
+        let mut rows = Vec::new();
+        append_tree(
+            &root,
+            0,
+            &current,
+            &std::collections::BTreeSet::from([root.clone(), current.clone()]),
+            &mut rows,
+            &mut warning,
+        );
+        assert!(rows.iter().any(|(path, _)| path == &current));
+        assert!(!rows.iter().any(|(path, _)| path == &root.join(".other")));
+        let checked = vec![current.clone()];
+        assert_eq!(checked, [hidden_path.canonicalize().unwrap()]);
+        assert!(warning.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn finder_and_bsd_invisible_flags_are_checked_independently() {
+        let mut info = [0u8; 32];
+        assert!(!macos_invisible(0, None).unwrap());
+        assert!(macos_invisible(libc::UF_HIDDEN, None).unwrap());
+        info[8..10].copy_from_slice(&0x0400u16.to_be_bytes()); // unrelated Finder flag
+        assert!(!macos_invisible(0, Some(&info)).unwrap());
+        info[8..10].copy_from_slice(&0x4000u16.to_be_bytes());
+        assert!(macos_invisible(0, Some(&info)).unwrap());
+        assert!(macos_invisible(0, Some(&info[..8])).is_err());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn finder_invisible_attribute_is_hidden_from_tree_but_exact_path_works() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("explorer-finder"));
+        fs::create_dir(&root).unwrap();
+        let root = root.canonicalize().unwrap();
+        let finder = root.join("FinderInvisible");
+        let flagged = root.join("FlagInvisible");
+        fs::create_dir(&finder).unwrap();
+        fs::create_dir(&flagged).unwrap();
+        let finder_path = CString::new(finder.as_os_str().as_bytes()).unwrap();
+        let flag_path = CString::new(flagged.as_os_str().as_bytes()).unwrap();
+        let mut info = [0u8; 32];
+        info[8..10].copy_from_slice(&0x4000u16.to_be_bytes());
+        assert_eq!(
+            unsafe {
+                libc::setxattr(
+                    finder_path.as_ptr(),
+                    c"com.apple.FinderInfo".as_ptr(),
+                    info.as_ptr().cast(),
+                    info.len(),
+                    0,
+                    0,
+                )
+            },
+            0
+        );
+        let flags_set = unsafe { libc::chflags(flag_path.as_ptr(), libc::UF_HIDDEN) } == 0;
+        let mut warning = String::new();
+        let listed = directories(&root, &mut warning).unwrap();
+        assert!(!listed.contains(&finder));
+        if flags_set {
+            assert!(!listed.contains(&flagged));
+        }
+        assert!(directory_suggestions("~/Fin", &root, &root, &mut warning).is_empty());
+        assert_eq!(
+            directory_suggestions("~/FinderInvisible", &root, &root, &mut warning),
+            ["~/FinderInvisible"]
+        );
+        let mut current = root.clone();
+        browse(&mut current, &finder).unwrap();
+        assert_eq!(current, finder.canonicalize().unwrap());
+        let mut rows = Vec::new();
+        let expanded = std::collections::BTreeSet::from([root.clone(), current.clone()]);
+        append_tree(&root, 0, &current, &expanded, &mut rows, &mut warning);
+        assert!(rows.iter().any(|(path, _)| path == &current));
+        if flags_set {
+            assert!(!rows.iter().any(|(path, _)| path == &flagged));
+        }
+        assert!(warning.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn tree_highlight_does_not_open_or_change_marks() {
+        let home = PathBuf::from("/home/test");
+        let child = home.join("Projects");
+        let tree = vec![(home.clone(), 0), (child.clone(), 1)];
+        let current = home.clone();
+        let mut cursor = home.clone();
+        let mut checked = Vec::new();
+        move_tree_selection(&tree, &mut cursor, 1);
+        assert_eq!(cursor, child);
+        assert_eq!(current, home);
+        assert!(checked.is_empty());
+        toggle_folder(&mut checked, &cursor);
+        assert_eq!(checked, [child]);
+        assert_eq!(current, home);
+        move_tree_selection(&tree, &mut cursor, -1);
+        assert_eq!(cursor, current);
+        assert_eq!(current, home);
+        assert_eq!(checked.len(), 1);
+    }
+
+    #[test]
+    fn paths_complete_relative_to_the_current_folder_and_open_only_if_accessible() {
+        let home = crate::ops::backup_path(&std::env::temp_dir().join("explorer-paths"));
+        let current_dir = home.join("Current");
+        fs::create_dir_all(current_dir.join("Project With Space")).unwrap();
+        fs::create_dir(home.join("Other")).unwrap();
+        assert!(path_query("~/Ot"));
+        assert!(path_query("../Other"));
+        assert!(!path_query("Project"));
+        assert_eq!(
+            directory_suggestions("./Proj", &home, &current_dir, &mut String::new()),
+            ["./Project With Space"]
+        );
+        assert_eq!(
+            directory_suggestions("~/Ot", &home, &current_dir, &mut String::new()),
+            ["~/Other"]
+        );
+        let (rows, suggested) = tree_rows(
+            &current_dir,
+            "~/Ot",
+            &home,
+            &Default::default(),
+            &mut String::new(),
+        );
+        assert_eq!(suggested, [home.join("Other")]);
+        assert!(rows.iter().any(|(path, _)| path == &home.join("Other")));
+        assert_eq!(
+            directory_suggestions("../Ot", &home, &current_dir, &mut String::new()),
+            ["../Other"]
+        );
+        assert_eq!(
+            directory_suggestions(
+                &format!("{}/Ot", home.display()),
+                &home,
+                &current_dir,
+                &mut String::new()
+            ),
+            [format!("{}/Other", home.display())]
+        );
+        assert_eq!(
+            resolve_path("../Other", &home, &current_dir),
+            current_dir.join("../Other")
+        );
+        let mut browsing = current_dir.clone();
+        let missing = resolve_path("~/missing", &home, &browsing);
+        assert!(browse(&mut browsing, &missing).is_err());
+        assert_eq!(browsing, current_dir);
+        browse(&mut browsing, &resolve_path("~/Other", &home, &current_dir)).unwrap();
+        assert_eq!(browsing, home.join("Other").canonicalize().unwrap());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unreadable_directory_does_not_replace_the_current_directory() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("explorer-permissions"));
+        let locked = root.join("private");
+        fs::create_dir_all(&locked).unwrap();
+        let mut current = root.clone();
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read_dir(&locked).is_err() {
+            // root-run test environments may bypass permissions
+            assert_eq!(
+                browse(&mut current, &locked).unwrap_err().kind(),
+                std::io::ErrorKind::PermissionDenied
+            );
+            assert_eq!(current, root);
+        }
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o700)).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn buttons_are_clickable_in_their_own_areas() {
         let mut terminal = Terminal::new(TestBackend::new(70, 20)).unwrap();
         let mut areas = Vec::new();
@@ -844,14 +1580,20 @@ mod tests {
         fs::create_dir(home.join("Project With Space")).unwrap();
         fs::write(home.join("Pro-file"), "not a directory").unwrap();
         assert_eq!(
-            directory_suggestions("~/Pro", &home),
+            directory_suggestions("~/Pro", &home, &home, &mut String::new()),
             ["~/Project With Space", "~/Projects"]
         );
         assert_eq!(
-            directory_suggestions(&format!("{}/Proj", home.display()), &home).len(),
+            directory_suggestions(
+                &format!("{}/Proj", home.display()),
+                &home,
+                &home,
+                &mut String::new()
+            )
+            .len(),
             2
         );
-        assert!(directory_suggestions("~/Missing", &home).is_empty());
+        assert!(directory_suggestions("~/Missing", &home, &home, &mut String::new()).is_empty());
         fs::remove_dir_all(home).unwrap();
     }
 }
