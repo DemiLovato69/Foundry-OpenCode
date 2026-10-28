@@ -10,6 +10,7 @@ use color_eyre::eyre::{self, Context};
 pub const REMOTE: &str = "https://github.com/DemiLovato69/Foundry-OpenCode.git";
 static NEXT_PATH: AtomicU64 = AtomicU64::new(0);
 pub const BIN_PATH: &str = "/usr/local/bin/foundry-opencode";
+const RELEASES: &str = "https://api.github.com/repos/DemiLovato69/Foundry-OpenCode/releases/latest";
 
 pub struct StagedBinary(PathBuf);
 
@@ -34,6 +35,158 @@ pub fn stage_binary(source: &Path) -> io::Result<StagedBinary> {
         fs::set_permissions(&staged.0, fs::Permissions::from_mode(0o755))?;
     }
     Ok(staged)
+}
+
+fn release_asset() -> eyre::Result<&'static str> {
+    match std::env::consts::ARCH {
+        "aarch64" => Ok("aarch64-apple-darwin"),
+        "x86_64" => Ok("x86_64-apple-darwin"),
+        arch => eyre::bail!("No macOS release binary for {arch}"),
+    }
+}
+
+fn curl(url: &str, destination: Option<&Path>) -> eyre::Result<Vec<u8>> {
+    let mut command = Command::new("curl");
+    command.args([
+        "--fail",
+        "--location",
+        "--silent",
+        "--show-error",
+        "--proto",
+        "=https",
+        "--proto-redir",
+        "=https",
+        "--retry",
+        "2",
+        "--max-time",
+        "120",
+    ]);
+    if let Some(path) = destination {
+        command.arg("--output").arg(path);
+    }
+    let output = command.arg(url).output()?;
+    eyre::ensure!(
+        output.status.success(),
+        "Could not download {url}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(output.stdout)
+}
+
+fn release_version(value: &str) -> eyre::Result<&str> {
+    let version = value
+        .strip_prefix('v')
+        .ok_or_else(|| eyre::eyre!("Unexpected release tag"))?;
+    eyre::ensure!(
+        version.split('.').count() == 3
+            && version
+                .split('.')
+                .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit())),
+        "Unexpected release tag"
+    );
+    Ok(version)
+}
+
+fn checksum(contents: &str, asset: &str) -> eyre::Result<String> {
+    let matches: Vec<_> = contents
+        .lines()
+        .filter_map(|line| {
+            let (hash, name) = line.split_once("  ")?;
+            (name == asset && hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit()))
+                .then_some(hash.to_ascii_lowercase())
+        })
+        .collect();
+    eyre::ensure!(
+        matches.len() == 1,
+        "Release checksum is missing or ambiguous for {asset}"
+    );
+    Ok(matches[0].clone())
+}
+
+struct ReleaseDirectory(PathBuf);
+
+impl Drop for ReleaseDirectory {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+pub fn stage_latest_binary() -> eyre::Result<(StagedBinary, String)> {
+    eyre::ensure!(
+        cfg!(target_os = "macos"),
+        "Release binaries are for macOS only"
+    );
+    let release: serde_json::Value = serde_json::from_slice(&curl(RELEASES, None)?)?;
+    let tag = release["tag_name"]
+        .as_str()
+        .ok_or_else(|| eyre::eyre!("Latest release has no tag"))?;
+    let version = release_version(tag)?;
+    let asset = format!("foundry-opencode-{}.tar.gz", release_asset()?);
+    let base = format!("https://github.com/DemiLovato69/Foundry-OpenCode/releases/download/{tag}");
+    let directory = ReleaseDirectory(backup_path(
+        &std::env::temp_dir().join("foundry-opencode-release"),
+    ));
+    fs::create_dir(&directory.0)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&directory.0, fs::Permissions::from_mode(0o700))?;
+    }
+    let archive = directory.0.join(&asset);
+    curl(&format!("{base}/{asset}"), Some(&archive))?;
+    let sums = String::from_utf8(curl(&format!("{base}/SHA256SUMS"), None)?)?;
+    let expected = checksum(&sums, &asset)?;
+    let hash = Command::new("shasum")
+        .args(["-a", "256"])
+        .arg(&archive)
+        .output()?;
+    eyre::ensure!(
+        hash.status.success()
+            && String::from_utf8_lossy(&hash.stdout)
+                .split_whitespace()
+                .next()
+                == Some(expected.as_str()),
+        "Release archive checksum mismatch; installed binary was not changed"
+    );
+    // Stream only the named member; never extract archive paths into the filesystem.
+    let extracted = directory.0.join("foundry-opencode");
+    let output = Command::new("tar")
+        .arg("-xOf")
+        .arg(&archive)
+        .arg("foundry-opencode")
+        .output()?;
+    eyre::ensure!(
+        output.status.success() && !output.stdout.is_empty(),
+        "Invalid release archive"
+    );
+    fs::write(&extracted, output.stdout)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&extracted, fs::Permissions::from_mode(0o700))?;
+    }
+    let archs = Command::new("/usr/bin/lipo")
+        .arg("-archs")
+        .arg(&extracted)
+        .output()?;
+    let arch = if std::env::consts::ARCH == "aarch64" {
+        "arm64"
+    } else {
+        "x86_64"
+    };
+    eyre::ensure!(
+        archs.status.success()
+            && String::from_utf8_lossy(&archs.stdout)
+                .split_whitespace()
+                .any(|a| a == arch),
+        "Release binary has the wrong architecture"
+    );
+    let actual = Command::new(&extracted).arg("version").output()?;
+    eyre::ensure!(
+        actual.status.success() && String::from_utf8_lossy(&actual.stdout).trim() == version,
+        "Release binary version does not match its tag"
+    );
+    Ok((stage_binary(&extracted)?, version.to_owned()))
 }
 
 fn copy_binary(source: &StagedBinary, destination: &Path) -> io::Result<()> {
@@ -257,6 +410,38 @@ mod tests {
     }
 
     #[test]
+    fn release_metadata_is_strict() {
+        assert_eq!(release_version("v0.1.42").unwrap(), "0.1.42");
+        for tag in ["main", "v0.1.1/../../x", "v0.1.1-rc1"] {
+            assert!(release_version(tag).is_err());
+        }
+        let hash = "a".repeat(64);
+        assert_eq!(
+            checksum(
+                &format!("{hash}  foundry-opencode-aarch64-apple-darwin.tar.gz\n"),
+                "foundry-opencode-aarch64-apple-darwin.tar.gz"
+            )
+            .unwrap(),
+            hash
+        );
+        assert!(
+            checksum(
+                &format!("{hash}  other.tar.gz\n"),
+                "foundry-opencode-aarch64-apple-darwin.tar.gz"
+            )
+            .is_err()
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "requires GitHub network access; stages but does not install the release"]
+    fn published_release_can_be_staged_safely() {
+        let (_binary, version) = stage_latest_binary().unwrap();
+        assert_eq!(release_version(&format!("v{version}")).unwrap(), version);
+    }
+
+    #[test]
     fn config_replacement_keeps_a_backup() {
         let root = sandbox();
         let dest = root.join("opencode");
@@ -328,6 +513,30 @@ mod tests {
             fs::read_to_string(backup.join("plugins/local/index.js")).unwrap(),
             "old"
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn plugin_remains_readable_during_config_swap() {
+        let root = sandbox();
+        let dest = root.join("opencode");
+        let plugin = dest.join("plugins/local/index.js");
+        let stage = root.join("stage");
+        fs::create_dir_all(plugin.parent().unwrap()).unwrap();
+        fs::create_dir_all(stage.join("plugins/local")).unwrap();
+        fs::write(&plugin, "old").unwrap();
+        fs::write(stage.join("plugins/local/index.js"), "new").unwrap();
+        let reader = std::thread::spawn(move || {
+            for _ in 0..1000 {
+                assert!(matches!(
+                    fs::read_to_string(&plugin).as_deref(),
+                    Ok("old" | "new")
+                ));
+            }
+        });
+        replace_config(&dest, &stage, Some(&root.join("backup"))).unwrap();
+        reader.join().unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 

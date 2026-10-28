@@ -564,8 +564,11 @@ dependencies = [
  "color-eyre",
  "crossterm",
  "jsonc-parser",
+ "libc",
  "ratatui",
  "serde_json",
+ "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]

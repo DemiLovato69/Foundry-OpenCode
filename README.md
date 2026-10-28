@@ -12,7 +12,7 @@ Download the [latest macOS release](https://github.com/DemiLovato69/Foundry-Open
 
 **macOS security:** The release binaries are not signed or notarized. Check your downloaded archive with `shasum -a 256 foundry-opencode-<arch>.tar.gz` and compare it to the matching line in the release's `SHA256SUMS`. macOS may block the first launch; after attempting to run the binary, go to **System Settings → Privacy & Security → Open Anyway** only if you trust the release. Do not disable Gatekeeper or remove the quarantine attribute globally.
 
-Run `foundry-opencode` (equivalent to `foundry-opencode install`). In the file explorer, mark stack folders anywhere on disk with Space, open folders with Enter, move up with Left, jump to a path with G, and continue with C. No central projects directory or direnv is required. Existing direnv Zsh hooks, whitelist settings and installation are removed.
+Run `foundry-opencode` (equivalent to `foundry-opencode install`). The explorer is a single expandable directory tree. Arrows or a single click highlight without opening; Enter expands or collapses, Right expands, Left collapses or selects the parent, Space marks a folder, and C continues. Tab switches between the tree and its search/path field. Press S to filter visible directory names, or `/` to enter an absolute path; `~/`, `./`, and `../` paths also work. Path matches appear in the same tree; Enter opens a complete or arrow-highlighted path. Dot-prefixed and macOS Finder-invisible folders are hidden by default; type their full path to open them. Previously marked folders remain marked even when hidden. Inaccessible directories show an error without losing selections. No central projects directory or direnv is required. Existing direnv Zsh hooks, whitelist settings and installation are removed.
 
 Before uninstalling a legacy OpenCode installation, the installer verifies that the standard Homebrew `opencode` formula targets V2. Unrecognized executables are reported but not deleted or allowed to block config setup. A Homebrew-managed `opencode-v2` is migrated to the standard V2 formula after confirmation.
 
@@ -37,8 +37,15 @@ The update wizard can optionally change the global Foundry fallback and each sel
 stack's host and token independently. Leave a scope unchecked to retain its credentials;
 changed stack configs and private tokens are backed up. Child projects inherit their
 stack's credentials, but still use the globally configured default model unless the
-stack specifies one. If Foundry rejects a model with `INVALID_ARGUMENT`, select a model
+ stack specifies one. If Foundry rejects a model with `INVALID_ARGUMENT`, select a model
 available on that stack or set a stack-local `model` in `.opencode/opencode.json`.
+
+Update downloads the latest published macOS installer binary for your CPU, checks its release SHA-256 and version, and replaces `/usr/local/bin/foundry-opencode` after the wizard closes. Download or verification failures leave the existing binary untouched. The global config is cloned independently from `main`.
+
+Host, token and path fields support mouse cursor positioning, arrows, Home/End, Delete/Backspace, and Ctrl+U or terminal-translated Cmd+Delete to delete to the beginning. Some terminals intercept Cmd shortcuts; use Ctrl+U there. Tokens stay masked.
+
+If an older project reports `.opencode/plugins/rag-plugin.js` is not a V2 plugin, run `foundry-opencode repair-plugins` from that project (or `--dry-run` first). It backs up only the exact known V1 wrapper without removing the RAG index; edited plugins are left alone. Reindex manually with `node .opencode/rag-cli.mjs index` where that helper exists. If it is missing, review the project config and run `init-rag` to set up V2 RAG MCP support.
+The incompatible `context-mode` plugin is disabled by the global config. A missing `palantir-mcp` executable under npm's cache is a separate npm/MCP installation failure; inspect `opencode mcp list` and repair that package's installation rather than deleting OpenCode sessions or configuration.
 
 - Remove installed tools, configs, credentials and session data permanently
 `foundry-opencode uninstall` (review first with `foundry-opencode uninstall --dry-run`)

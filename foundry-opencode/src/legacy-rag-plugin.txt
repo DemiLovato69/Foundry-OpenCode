@@ -1,0 +1,24 @@
+process.env.LANCEDB_LOG ??= "warn,lance::index::vector::builder=error";
+process.env.OPENCODE_RAG_DISABLE_ANN ??= "1";
+
+const ragPluginPromise = import(
+  "../node_modules/opencode-rag-plugin/dist/plugin-entry.js"
+).then((module) => module.default);
+
+export const id = "opencode-rag-plugin";
+export const server = async (input) => {
+  if (process.env.FOUNDRY_TOKEN) {
+    process.env.OPENAI_API_KEY = process.env.FOUNDRY_TOKEN;
+  } else if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.OPENCODE_API_KEY) {
+      throw new Error(
+        "OpenCodeRAG requires OPENCODE_API_KEY from the parent direnv environment",
+      );
+    }
+    process.env.OPENAI_API_KEY = process.env.OPENCODE_API_KEY;
+  }
+  const ragPlugin = await ragPluginPromise;
+  return ragPlugin.server(input);
+};
+
+export default { id, server };

@@ -7,9 +7,36 @@ use color_eyre::eyre::{self, Context};
 use serde_json::{Value, json};
 
 const PACKAGE: &str = r#"{"private":true,"type":"module","scripts":{"postinstall":"node patch-opencode-rag.mjs"},"dependencies":{"@opencode-ai/plugin":"1.17.10","opencode-rag-plugin":"1.22.1"}}"#;
+const LEGACY_PLUGIN: &str = include_str!("legacy-rag-plugin.txt");
 const PATCH: &str = include_str!("rag-patch.mjs");
 const CLI: &str = include_str!("rag-cli.mjs");
 const IGNORE: &str = "node_modules/\nrag_db/\nrag_db.backup-*/\nrag_db_tmp/\nopencode-rag.log\nruntime-overrides.json\n";
+
+pub fn legacy_plugin(project: &Path) -> eyre::Result<Option<PathBuf>> {
+    let open = project.join(".opencode");
+    let dir = open.join("plugins");
+    let path = dir.join("rag-plugin.js");
+    let metadata = match fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    eyre::ensure!(
+        fs::symlink_metadata(&open)?.is_dir()
+            && !fs::symlink_metadata(&open)?.file_type().is_symlink()
+            && fs::symlink_metadata(&dir)?.is_dir()
+            && !fs::symlink_metadata(&dir)?.file_type().is_symlink()
+            && metadata.is_file()
+            && !metadata.file_type().is_symlink(),
+        "Unsafe legacy RAG plugin path"
+    );
+    eyre::ensure!(
+        fs::read_to_string(&path)? == LEGACY_PLUGIN,
+        "{} is not the known V1 RAG wrapper; leave it untouched and migrate it manually",
+        path.display()
+    );
+    Ok(Some(path))
+}
 
 fn files(project: &Path, base_url: &str) -> Vec<(std::path::PathBuf, String)> {
     vec![
@@ -280,6 +307,18 @@ pub fn setup(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_the_known_legacy_plugin_can_be_retired() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("legacy-rag-test"));
+        fs::create_dir_all(root.join(".opencode/plugins")).unwrap();
+        let path = root.join(".opencode/plugins/rag-plugin.js");
+        fs::write(&path, LEGACY_PLUGIN).unwrap();
+        assert_eq!(legacy_plugin(&root).unwrap(), Some(path.clone()));
+        fs::write(&path, "custom plugin").unwrap();
+        assert!(legacy_plugin(&root).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "custom plugin");
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn preview_is_read_only_and_preserves_conflicts() {
         let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-setup-test"));

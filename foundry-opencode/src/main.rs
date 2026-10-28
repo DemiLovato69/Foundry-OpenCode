@@ -51,6 +51,8 @@ enum Mode {
     Init,
     /// Configure and index RAG in the current project
     InitRag,
+    /// Retire a verified V1 RAG plugin in the current project
+    RepairPlugins,
     /// Update Homebrew packages and fast-forward the config checkout
     Update,
     /// Remove installed programs, configs, stack credentials and user data
@@ -74,7 +76,7 @@ fn main() -> eyre::Result<()> {
         }
         Some(Mode::Usage) => {
             println!(
-                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and select stack folders\nfoundry-opencode update    Replace backed-up configs; optionally change global and stack credentials\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Create per-stack OpenCode config\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode --dry-run update  Preview credential and config changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
+                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and select stack folders\nfoundry-opencode update    Update tools, configs and installer release\nfoundry-opencode repair-plugins Retire verified V1 RAG plugin in current project\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Create per-stack OpenCode config\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode --dry-run update  Preview credential and config changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
             );
             return Ok(());
         }
@@ -83,7 +85,10 @@ fn main() -> eyre::Result<()> {
     color_eyre::install()?;
     if !cfg!(target_os = "macos")
         && !args.dry_run
-        && !matches!(args.command, Some(Mode::Init | Mode::InitRag | Mode::Reset))
+        && !matches!(
+            args.command,
+            Some(Mode::Init | Mode::InitRag | Mode::RepairPlugins | Mode::Reset)
+        )
     {
         eyre::bail!("Installation and updates require macOS and Homebrew");
     }
@@ -92,6 +97,7 @@ fn main() -> eyre::Result<()> {
         let result = match args.command.unwrap_or(Mode::Install) {
             Mode::Init => init(terminal, args.dry_run).map(|_| None),
             Mode::InitRag => init_rag(terminal, args.dry_run).map(|_| None),
+            Mode::RepairPlugins => repair_plugins(terminal, args.dry_run).map(|_| None),
             Mode::Update => update(terminal, args.dry_run),
             Mode::Uninstall => uninstall(terminal, args.dry_run).map(|_| None),
             Mode::Reset => reset(terminal, args.dry_run).map(|_| None),
@@ -178,6 +184,50 @@ fn init_rag(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
         run(terminal, &mut progress, label, command)
     })?;
     notice(terminal, "RAG — complete", &result)
+}
+
+fn repair_plugins(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
+    let project = std::env::current_dir()?;
+    let Some(path) = rag::legacy_plugin(&project)? else {
+        return notice(
+            terminal,
+            "No known V1 RAG plugin",
+            "No installer-known V1 RAG plugin was found in this project. Other plugins were not changed.",
+        );
+    };
+    let backup = ops::backup_path(&project.join(".opencode/rag-plugin.js"));
+    let detail = format!(
+        "The known V1 RAG watcher at {} fails to load in OpenCode V2. Move it out of the auto-loaded plugins folder to {}. Existing index and RAG MCP configuration will be preserved. Reindex manually with node .opencode/rag-cli.mjs index if that helper exists.",
+        path.display(),
+        backup.display()
+    );
+    if ui::step_review(
+        terminal,
+        "Repair V1 RAG plugin",
+        &detail,
+        dry_run,
+        true,
+        "Retire V1 plugin",
+    )? != ui::Nav::Next
+    {
+        return Err(Cancelled.into());
+    }
+    if dry_run {
+        return notice(terminal, "Dry-run complete", &detail);
+    }
+    eyre::ensure!(
+        rag::legacy_plugin(&project)?.as_ref() == Some(&path),
+        "RAG plugin changed during review; not moving it"
+    );
+    fs::rename(&path, &backup)?;
+    notice(
+        terminal,
+        "Plugin repair — complete",
+        &format!(
+            "V1 RAG plugin backed up at {}. Restart only if OpenCode does not reload automatically. If this project has no RAG MCP helper, run init-rag from the project root to configure it.",
+            backup.display()
+        ),
+    )
 }
 
 fn token_page(url: &str) -> String {
@@ -1602,7 +1652,7 @@ fn collect_install_plan(
                     cleanup::inspect(&home_for_check, with_chamber)
                 })?;
                 let mut preview = format!(
-                    "Homebrew: update; install/upgrade OpenCode{}.\nClone {} to {}{}.\nConfigure {} selected stacks.\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.\nInstaller copy: {}.",
+                    "Homebrew: update; install/upgrade OpenCode{}.\nClone {} to {}{}.\nConfigure {} selected stacks.\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.\nDownload latest macOS release, verify SHA-256 and version, install to {}.",
                     if with_chamber { ", OpenChamber" } else { "" },
                     ops::REMOTE,
                     config.display(),
@@ -1860,6 +1910,11 @@ fn install(
         global,
         cleanup: inventory,
     } = plan;
+    let (binary, release_version) = busy(
+        terminal,
+        "Downloading and verifying latest installer",
+        ops::stage_latest_binary,
+    )?;
     let mut progress = Progress {
         done: 0,
         total: 4
@@ -2013,8 +2068,6 @@ fn install(
         fs::remove_dir_all(&staged)?;
         return Err(error);
     }
-    // Stage before moving ~/.config/opencode; the running binary may be inside it.
-    let binary = ops::stage_binary(&std::env::current_exe()?)?;
     ops::replace_config(&config, &staged, existing.then_some(backup.as_path()))?;
     let mut migration = Vec::new();
     let selected: Vec<PathBuf> = stacks.iter().map(|(path, _, _)| path.clone()).collect();
@@ -2039,7 +2092,7 @@ fn install(
         terminal,
         "Install — complete",
         &format!(
-            "Installation finished.{}\nStack configs are inherited by their child projects.{}{}{}",
+            "Installation finished.{}\nStack configs are inherited by their child projects.{}\nRelease {release_version} will replace /usr/local/bin/foundry-opencode when you leave this screen.{}",
             if existing {
                 format!(" Backup: {}", backup.display())
             } else {
@@ -2050,7 +2103,6 @@ fn install(
             } else {
                 format!("\n{}", migration.join("\n"))
             },
-            "\nThe CLI will replace /usr/local/bin/foundry-opencode when you leave this screen.",
             if trashed.is_empty() {
                 String::new()
             } else {
@@ -2175,13 +2227,14 @@ fn update(
         }
     );
     let details = format!(
-        "Update Homebrew packages; clone latest config to {}{}; migrate selected stacks:\n{summary}{changes}\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.{}",
+        "Update Homebrew packages; clone latest config to {}{}; migrate selected stacks:\n{summary}{changes}\nDownload latest macOS release, verify SHA-256 and version, install to {} after closing the wizard.\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.{}",
         config.display(),
         if existing {
             format!(" (backup: {})", backup.display())
         } else {
             String::new()
         },
+        ops::BIN_PATH,
         if dry_run {
             "\nDry run: no changes."
         } else {
@@ -2211,6 +2264,11 @@ fn update(
         notice(terminal, "Dry-run complete", &details)?;
         return Ok(None);
     }
+    let (binary, release_version) = busy(
+        terminal,
+        "Downloading and verifying latest installer",
+        ops::stage_latest_binary,
+    )?;
     let chamber = installed("openchamber", true)?;
     let mut progress = Progress {
         done: 0,
@@ -2222,7 +2280,6 @@ fn update(
     if chamber {
         let _ = optional_chamber(terminal, &mut progress);
     }
-    let binary = ops::stage_binary(&std::env::current_exe()?)?;
     let staged = ops::backup_path(&config);
     let make_pull = || {
         let mut git = Process::new("git");
@@ -2283,7 +2340,7 @@ fn update(
         terminal,
         "Update — complete",
         &format!(
-            "Packages and configs are up to date. The CLI will be replaced in /usr/local/bin when you leave this screen.{}",
+            "Packages and configs are up to date. Release {release_version} will replace the CLI in /usr/local/bin when you leave this screen.{}",
             if results.is_empty() {
                 String::new()
             } else {
