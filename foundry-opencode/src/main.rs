@@ -1,6 +1,7 @@
 mod cleanup;
 mod ops;
 mod rag;
+mod stack;
 mod ui;
 
 use std::fs;
@@ -46,7 +47,7 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Mode {
-    /// Generate .envrc in the current stack directory
+    /// Generate per-stack OpenCode configuration
     Init,
     /// Configure and index RAG in the current project
     InitRag,
@@ -71,7 +72,7 @@ fn main() -> eyre::Result<()> {
         }
         Some(Mode::Usage) => {
             println!(
-                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Re-run installation; back up existing configs\nfoundry-opencode update    Update installed tools and configs\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Create .envrc in the current stack directory\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run init-rag  Preview RAG setup\nfoundry-opencode --dry-run install  Preview without changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
+                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Re-run installation; back up existing configs\nfoundry-opencode update    Update installed tools and configs; migrate stacks\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Create per-stack OpenCode config\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run init-rag  Preview RAG setup\nfoundry-opencode --dry-run install  Preview without changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
             );
             return Ok(());
         }
@@ -113,8 +114,7 @@ fn main() -> eyre::Result<()> {
 
 fn init_rag(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     let cwd = std::env::current_dir()?;
-    let url = std::env::var("OPENCODE_BASE_URL")
-        .wrap_err("Set OPENCODE_BASE_URL (run from a direnv-enabled project)")?;
+    let (url, token) = stack::credentials(&cwd)?;
     let preview = rag::setup(&cwd, &url, true, |_, _| unreachable!())?;
     if ui::step_review(
         terminal,
@@ -130,19 +130,14 @@ fn init_rag(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     if dry_run {
         return notice(terminal, "Dry-run complete", &preview);
     }
-    eyre::ensure!(
-        std::env::var_os("FOUNDRY_TOKEN").is_some()
-            || std::env::var_os("OPENAI_API_KEY").is_some()
-            || std::env::var_os("OPENCODE_API_KEY").is_some(),
-        "Load a Foundry token via direnv before indexing"
-    );
     let mut progress = Progress {
         done: 0,
         total: 2,
         output: Vec::new(),
     };
     progress.show(terminal, "Preparing RAG files")?;
-    let result = rag::setup(&cwd, &url, false, |label, command| {
+    let result = rag::setup(&cwd, &url, false, |label, mut command| {
+        command.env("OPENAI_API_KEY", &token);
         run(terminal, &mut progress, label, command)
     })?;
     notice(terminal, "RAG — complete", &result)
@@ -152,45 +147,11 @@ fn token_page(url: &str) -> String {
     format!("{url}/workspace/settings/tokens")
 }
 
-fn preview_envrc(path: &std::path::Path, url: &str) -> String {
+fn preview_stack(path: &std::path::Path, url: &str) -> String {
     format!(
-        "Would create {} (mode 0600):\nexport OPENCODE_API_KEY='[REDACTED]'\nexport OPENCODE_BASE_URL='{url}'\nopencode service restart",
-        path.display()
+        "Would create {}/.opencode/opencode.json for {url} and private, Git-ignored .opencode/token (mode 0600, token redacted)",
+        path.display(),
     )
-}
-
-fn git_protection(cwd: &std::path::Path) -> eyre::Result<Option<PathBuf>> {
-    let repo = Process::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .env("GIT_OPTIONAL_LOCKS", "0")
-        .current_dir(cwd)
-        .output();
-    let git_root = repo
-        .ok()
-        .filter(|output| output.status.success())
-        .map(|output| PathBuf::from(String::from_utf8_lossy(&output.stdout).trim()));
-    if let Some(root) = git_root {
-        let tracked = Process::new("git")
-            .args(["ls-files", "--error-unmatch", "--", ".envrc"])
-            .env("GIT_OPTIONAL_LOCKS", "0")
-            .current_dir(cwd)
-            .output()?;
-        eyre::ensure!(
-            !tracked.status.success(),
-            ".envrc is already tracked by Git; untrack it before creating a secret file"
-        );
-        let ignored = Process::new("git")
-            .args(["check-ignore", "--quiet", "--no-index", "--", ".envrc"])
-            .env("GIT_OPTIONAL_LOCKS", "0")
-            .current_dir(cwd)
-            .status()?
-            .success();
-        if !ignored {
-            let path = root.join(".gitignore");
-            return Ok(Some(path));
-        }
-    }
-    Ok(None)
 }
 
 fn open_token_page(terminal: &mut DefaultTerminal, url: &str, dry_run: bool) -> eyre::Result<()> {
@@ -212,24 +173,48 @@ fn open_token_page(terminal: &mut DefaultTerminal, url: &str, dry_run: bool) -> 
 
 fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     let cwd = std::env::current_dir()?;
-    let envrc = cwd.join(".envrc");
-    if fs::symlink_metadata(&envrc).is_ok() {
+    if fs::symlink_metadata(cwd.join(".envrc")).is_ok() {
+        let preview = stack::migrate(&cwd, true)?;
+        if ui::step_review(
+            terminal,
+            "Migrate stack",
+            &preview,
+            dry_run,
+            false,
+            "Migrate",
+        )? != ui::Nav::Next
+        {
+            return Err(Cancelled.into());
+        }
+        return notice(
+            terminal,
+            if dry_run {
+                "Dry-run complete"
+            } else {
+                "init — complete"
+            },
+            &stack::migrate(&cwd, dry_run)?,
+        );
+    }
+    let config = cwd.join(".opencode/opencode.json");
+    if fs::symlink_metadata(&config).is_ok()
+        || fs::symlink_metadata(cwd.join(".opencode/opencode.jsonc")).is_ok()
+    {
         if dry_run {
             return notice(
                 terminal,
                 "init — dry run",
                 &format!(
                     "{} already exists; would not overwrite it.",
-                    envrc.display()
+                    config.display()
                 ),
             );
         }
-        eyre::bail!("{} already exists; it was not changed", envrc.display());
+        eyre::bail!(
+            "{} already has OpenCode configuration; it was not changed",
+            cwd.display()
+        );
     }
-    let check_dir = cwd.clone();
-    let ignore = busy(terminal, "Checking Git protection", move || {
-        git_protection(&check_dir)
-    })?;
     let mut url = String::new();
     let mut key = String::new();
     let mut step = 0usize;
@@ -238,7 +223,7 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
             0 => ui::step_text(
                 terminal,
                 "Foundry host",
-                "Enter your stack's HTTPS Foundry host (for example https://your-stack.palantirfoundry.com). Run init from the stack directory where .envrc belongs.",
+                "Enter your stack's HTTPS Foundry host (for example https://your-stack.palantirfoundry.com). Run init from the stack directory whose child projects should inherit this configuration.",
                 &mut url,
                 true,
                 ui::Field::Plain,
@@ -259,13 +244,7 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
                 ui::Field::Token,
             )?,
             _ => {
-                let mut review = preview_envrc(&envrc, &url);
-                if let Some(ignore) = &ignore {
-                    review.push_str(&format!(
-                        "\nAdd .envrc to {} to protect your token from Git.",
-                        ignore.display()
-                    ));
-                }
+                let mut review = preview_stack(&cwd, &url);
                 if dry_run {
                     review.push_str("\n\nDry run: no browser or files changed.");
                 }
@@ -274,12 +253,12 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
                     if dry_run {
                         "Review preview"
                     } else {
-                        "Review .envrc"
+                        "Review stack config"
                     },
                     &review,
                     dry_run,
                     false,
-                    "Create .envrc",
+                    "Create stack config",
                 )?
             }
         };
@@ -312,33 +291,22 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
         }
     }
     if dry_run {
-        let mut steps = Vec::new();
-        if ignore.is_some() {
-            steps.push(("add .envrc to .gitignore".to_string(), 220));
-        }
-        steps.push(("create .envrc in the stack directory".to_string(), 350));
+        let steps = vec![("create per-stack config and private token".to_string(), 350)];
         simulate(terminal, &steps)?;
         return notice(
             terminal,
             "Dry-run complete",
             &format!(
-                "{}{}\n\nSimulation only: no file was created.",
-                preview_envrc(&envrc, &url),
-                ignore
-                    .as_ref()
-                    .map(|p| format!("\nWould add .envrc to {}", p.display()))
-                    .unwrap_or_default()
+                "{}\n\nSimulation only: no file was created.",
+                preview_stack(&cwd, &url),
             ),
         );
     }
-    if let Some(path) = ignore {
-        ops::add_gitignore(&path)?;
-    }
-    ops::write_envrc(&envrc, &url, &key)?;
+    stack::create(&cwd, &url, &key)?;
     notice(
         terminal,
         "init — complete",
-        "Created .envrc. Review it, then run direnv allow unless its projects directory is whitelisted.",
+        "Created per-stack OpenCode config and private token. OpenCode projects beneath this directory inherit the stack settings.",
     )
 }
 
@@ -842,40 +810,11 @@ fn reset(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     )
 }
 
-fn direnv_config() -> eyre::Result<PathBuf> {
-    let root = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .filter(|path| path.is_absolute())
-        .unwrap_or(home()?.join(".config"));
-    Ok(root.join("direnv/direnv.toml"))
-}
-
-fn zshrc_path(home: &std::path::Path) -> eyre::Result<PathBuf> {
-    let directory = match std::env::var_os("ZDOTDIR") {
-        Some(value) if !value.is_empty() => {
-            let path = PathBuf::from(value);
-            eyre::ensure!(
-                path.is_absolute(),
-                "ZDOTDIR must be an absolute path to update its .zshrc safely"
-            );
-            path
-        }
-        _ => home.to_path_buf(),
-    };
-    eyre::ensure!(
-        directory.is_dir(),
-        "Zsh configuration directory {} does not exist",
-        directory.display()
-    );
-    Ok(directory.join(".zshrc"))
-}
-
 #[derive(Clone)]
 enum InstallPage {
     Options,
     Backup,
     Projects,
-    Trust,
     Stacks,
     Host(String),
     Token(String),
@@ -886,10 +825,8 @@ struct InstallPlan {
     config: PathBuf,
     backup: PathBuf,
     existing: bool,
-    projects: PathBuf,
-    zshrc: PathBuf,
     with_chamber: bool,
-    stacks: Vec<(PathBuf, String, String, Option<PathBuf>)>,
+    stacks: Vec<(PathBuf, Option<(String, String)>)>,
     cleanup: cleanup::Inventory,
 }
 
@@ -902,13 +839,12 @@ fn install_pages(
     if existing {
         pages.push(InstallPage::Backup);
     }
-    pages.extend([
-        InstallPage::Projects,
-        InstallPage::Trust,
-        InstallPage::Stacks,
-    ]);
+    pages.extend([InstallPage::Projects, InstallPage::Stacks]);
     for name in selected {
-        if fs::symlink_metadata(projects.join(name).join(".envrc")).is_err() {
+        if fs::symlink_metadata(projects.join(name).join(".envrc")).is_err()
+            && fs::symlink_metadata(projects.join(name).join(".opencode/opencode.json")).is_err()
+            && fs::symlink_metadata(projects.join(name).join(".opencode/opencode.jsonc")).is_err()
+        {
             pages.push(InstallPage::Host(name.clone()));
             pages.push(InstallPage::Token(name.clone()));
         }
@@ -923,13 +859,10 @@ fn collect_install_plan(
 ) -> eyre::Result<Option<InstallPlan>> {
     let user_home = home()?;
     let config = user_home.join(".config/opencode");
-    let zshrc = zshrc_path(&user_home)?;
-    let hook_needed = ops::needs_zsh_hook(&zshrc)?;
     let existing = fs::symlink_metadata(&config).is_ok();
     let backup = ops::backup_path(&config);
     let mut with_chamber = false;
     let mut backup_ok = false;
-    let mut trust = false;
     let mut projects_input = String::new();
     let mut projects = PathBuf::new();
     let mut names = Vec::new();
@@ -946,7 +879,7 @@ fn collect_install_plan(
             InstallPage::Options => ui::step_checkbox(
                 terminal,
                 "Optional application",
-                "OpenCode and direnv are required. OpenChamber is optional and uses the Homebrew cask.",
+                "OpenCode is required. OpenChamber is optional and uses the Homebrew cask.",
                 "Install OpenChamber",
                 &mut with_chamber,
                 true,
@@ -966,21 +899,10 @@ fn collect_install_plan(
             InstallPage::Projects => ui::step_text(
                 terminal,
                 "Main projects directory",
-                "Choose the EXISTING parent directory that contains one folder per Foundry stack.\n\nExample:\n~/Projects/\n  Stack1/  ← .envrc will be created here\n    Functions Repo/\n  Stack2/  ← another .envrc\n    OSDK React App Repo/\n\nThis parent directory will be broadly trusted by direnv. Keeping each .envrc at a stack root lets you switch stacks automatically. Repositories inside stacks need no .envrc. Enter an absolute path or ~/Projects:",
+                "Choose the EXISTING parent directory that contains one folder per Foundry stack.\n\nExample:\n~/Projects/\n  Stack1/  ← .opencode config and private token live here\n    Functions Repo/\n  Stack2/\n    OSDK React App Repo/\n\nRepositories inside stacks inherit their stack's OpenCode configuration. Enter an absolute path or ~/Projects:",
                 &mut projects_input,
                 false,
                 ui::Field::Directory(user_home.as_path()),
-            )?,
-            InstallPage::Trust => ui::step_checkbox(
-                terminal,
-                "Trust projects directory",
-                &format!(
-                    "Direnv will trust ALL .envrc files below {} without individual approval. Anyone able to write in that folder, including a Git checkout, could run code automatically.",
-                    projects.display()
-                ),
-                "I understand and trust this entire directory",
-                &mut trust,
-                false,
             )?,
             InstallPage::Stacks => ui::step_stacks(terminal, &names, &mut selected, &mut query)?,
             InstallPage::Host(name) => {
@@ -988,7 +910,7 @@ fn collect_install_plan(
                 ui::step_text(
                     terminal,
                     &format!("{name} — Foundry host"),
-                    "Enter this stack's Foundry base URL (https://host). The .envrc will be created in the selected stack directory, not its nested repositories.",
+                    "Enter this stack's Foundry base URL (https://host). The config will be created in the selected stack directory, not its nested repositories.",
                     &mut fields.0,
                     false,
                     ui::Field::Plain,
@@ -1019,7 +941,7 @@ fn collect_install_plan(
                     cleanup::inspect(&home_for_check, with_chamber)
                 })?;
                 let mut preview = format!(
-                    "Homebrew: update; install/upgrade OpenCode, direnv{}.\nClone {} to {}{}.\nTrust all .envrc files below {}.\nZsh hook in {}: {}.\nInstaller copy: {}.",
+                    "Homebrew: update; install/upgrade OpenCode{}.\nClone {} to {}{}.\nCreate or migrate selected stacks below {}.\nInstaller copy: {}.",
                     if with_chamber { ", OpenChamber" } else { "" },
                     ops::REMOTE,
                     config.display(),
@@ -1029,12 +951,6 @@ fn collect_install_plan(
                         String::new()
                     },
                     projects.display(),
-                    zshrc.display(),
-                    if hook_needed {
-                        format!("add {}", ops::ZSH_HOOK)
-                    } else {
-                        "already configured (skip)".into()
-                    },
                     ops::BIN_PATH
                 );
                 if inventory.brew_v2 {
@@ -1067,20 +983,22 @@ fn collect_install_plan(
                 for name in &selected {
                     let path = projects.join(name).join(".envrc");
                     if fs::symlink_metadata(&path).is_ok() {
-                        preview.push_str(&format!("\nSkip existing {}", path.display()));
-                    } else if let Some((url, _)) = credentials.get(name) {
-                        preview.push_str(&format!("\n{}", preview_envrc(&path, url)));
-                        let directory = projects.join(name);
-                        if let Some(ignore) =
-                            busy(terminal, "Checking Git protection", move || {
-                                git_protection(&directory)
-                            })?
-                        {
-                            preview.push_str(&format!(
-                                "\nAdd .envrc to {} to protect your token from Git.",
-                                ignore.display()
-                            ));
+                        match stack::migrate(&projects.join(name), true) {
+                            Ok(result) => preview.push_str(&format!("\n{result}")),
+                            Err(error) => {
+                                preview.push_str(&format!("\nSkip {}: {error}", path.display()))
+                            }
                         }
+                    } else if projects.join(name).join(".opencode/opencode.json").exists()
+                        || projects
+                            .join(name)
+                            .join(".opencode/opencode.jsonc")
+                            .exists()
+                    {
+                        preview.push_str(&format!("\nSkip existing stack config for {name}"));
+                    } else if let Some((url, _)) = credentials.get(name) {
+                        preview
+                            .push_str(&format!("\n{}", preview_stack(&projects.join(name), url)));
                     }
                 }
                 if dry_run {
@@ -1120,14 +1038,6 @@ fn collect_install_plan(
                         )?;
                         continue;
                     }
-                    InstallPage::Trust if !trust => {
-                        notice(
-                            terminal,
-                            "Confirmation required",
-                            "Please acknowledge the broad direnv trust before continuing.",
-                        )?;
-                        continue;
-                    }
                     InstallPage::Projects => {
                         let expanded = if let Some(rest) = projects_input.strip_prefix("~/") {
                             user_home.join(rest)
@@ -1163,7 +1073,6 @@ fn collect_install_plan(
                             selected.clear();
                             query.clear();
                             credentials.clear();
-                            trust = false;
                         }
                     }
                     InstallPage::Host(name) => {
@@ -1223,28 +1132,17 @@ fn collect_install_plan(
                             steps
                                 .push(("install or upgrade optional OpenChamber".to_string(), 350));
                         }
-                        steps.push(("install or upgrade direnv".to_string(), 300));
                         steps.push((
                             "clone config repository to ~/.config/opencode".to_string(),
                             500,
-                        ));
-                        steps.push(("whitelist the projects directory".to_string(), 200));
-                        steps.push((
-                            if hook_needed {
-                                "add direnv hook to .zshrc"
-                            } else {
-                                "skip existing direnv shell hook"
-                            }
-                            .to_string(),
-                            if hook_needed { 200 } else { 100 },
                         ));
                         for name in &selected {
                             let action = if fs::symlink_metadata(projects.join(name).join(".envrc"))
                                 .is_ok()
                             {
-                                "skip existing .envrc"
+                                "migrate existing .envrc if supported"
                             } else {
-                                "create .envrc"
+                                "create or reuse stack config"
                             };
                             steps.push((format!("{action} for {name}"), 170));
                         }
@@ -1263,24 +1161,13 @@ fn collect_install_plan(
                     let mut stacks = Vec::new();
                     for name in selected {
                         let path = projects.join(&name);
-                        if fs::symlink_metadata(path.join(".envrc")).is_ok() {
-                            continue;
-                        }
-                        let check_dir = path.clone();
-                        let ignore = busy(terminal, "Checking Git protection", move || {
-                            git_protection(&check_dir)
-                        })?;
-                        let (url, key) = credentials
-                            .remove(&name)
-                            .ok_or_else(|| eyre::eyre!("Missing stack credentials"))?;
-                        stacks.push((path, url, key, ignore));
+                        let pair = credentials.remove(&name);
+                        stacks.push((path, pair));
                     }
                     return Ok(Some(InstallPlan {
                         config,
                         backup,
                         existing,
-                        projects,
-                        zshrc,
                         with_chamber,
                         stacks,
                         cleanup: inventory,
@@ -1303,15 +1190,13 @@ fn install(
         config,
         backup,
         existing,
-        projects,
-        zshrc,
         with_chamber,
         stacks,
         cleanup: inventory,
     } = plan;
     let mut progress = Progress {
         done: 0,
-        total: 6
+        total: 4
             + usize::from(with_chamber)
             + stacks.len()
             + inventory.brew_v1.len()
@@ -1422,7 +1307,6 @@ fn install(
     } else if plan_with_chamber {
         progress.done += 1;
     }
-    brew_package(terminal, &mut progress, "direnv", false)?;
     fs::create_dir_all(config.parent().expect("config has parent"))?;
     let staged = ops::backup_path(&config);
     let make_clone = || {
@@ -1456,21 +1340,17 @@ fn install(
     // Stage before moving ~/.config/opencode; the running binary may be inside it.
     let binary = ops::stage_binary(&std::env::current_exe()?)?;
     ops::replace_config(&config, &staged, existing.then_some(backup.as_path()))?;
-    progress.show(terminal, "Updating direnv whitelist...")?;
-    ops::whitelist(&direnv_config()?, &projects)?;
-    progress.done += 1;
-    progress.show(terminal, "Configuring direnv Zsh hook...")?;
-    let hook_added = ops::add_zsh_hook(&zshrc)?;
-    progress.done += 1;
-    for (path, url, key, ignore) in stacks {
-        progress.show(
-            terminal,
-            &format!("Creating {}", path.join(".envrc").display()),
-        )?;
-        if let Some(ignore) = ignore {
-            ops::add_gitignore(&ignore)?;
+    let mut migration = Vec::new();
+    for (path, pair) in stacks {
+        progress.show(terminal, &format!("Configuring stack {}", path.display()))?;
+        if fs::symlink_metadata(path.join(".envrc")).is_ok() {
+            migration.push(match stack::migrate(&path, false) {
+                Ok(result) => result,
+                Err(error) => format!("Skipped {}: {error}", path.display()),
+            });
+        } else if let Some((url, key)) = pair {
+            stack::create(&path, &url, &key)?;
         }
-        ops::write_envrc(&path.join(".envrc"), &url, &key)?;
         progress.done += 1;
     }
     progress.show(terminal, "Installation complete")?;
@@ -1478,18 +1358,17 @@ fn install(
         terminal,
         "Install — complete",
         &format!(
-            "Installation finished.{}\nDirenv hook {} in {}. Open a new Zsh shell to activate it.{}{}",
+            "Installation finished.{}\nStack configs are inherited by their child projects.{}{}{}",
             if existing {
                 format!(" Backup: {}", backup.display())
             } else {
                 String::new()
             },
-            if hook_added {
-                "added"
+            if migration.is_empty() {
+                String::new()
             } else {
-                "already configured"
+                format!("\n{}", migration.join("\n"))
             },
-            zshrc.display(),
             "\nThe CLI will replace /usr/local/bin/foundry-opencode when you leave this screen.",
             if trashed.is_empty() {
                 String::new()
@@ -1513,6 +1392,54 @@ fn update(
     dry_run: bool,
 ) -> eyre::Result<Option<ops::StagedBinary>> {
     let config = home()?.join(".config/opencode");
+    let mut input = String::new();
+    let projects = loop {
+        match ui::step_text(
+            terminal,
+            "Projects directory",
+            "Choose the existing parent of your stack folders. Update will migrate recognizable .envrc files in its immediate child directories; custom files stay unchanged.",
+            &mut input,
+            false,
+            ui::Field::Directory(home()?.as_path()),
+        )? {
+            ui::Nav::Cancel | ui::Nav::Back => return Err(Cancelled.into()),
+            ui::Nav::Next => {
+                let path = if let Some(rest) = input.strip_prefix("~/") {
+                    home()?.join(rest)
+                } else {
+                    PathBuf::from(&input)
+                };
+                if let Ok(path) = path.canonicalize()
+                    && path.is_dir()
+                    && !path.starts_with(config.canonicalize().unwrap_or(config.clone()))
+                {
+                    break path;
+                }
+                notice(
+                    terminal,
+                    "Invalid directory",
+                    "Select an existing projects parent outside the OpenCode config checkout.",
+                )?;
+            }
+            ui::Nav::Open => {}
+        }
+    };
+    let mut migration = Vec::new();
+    for entry in fs::read_dir(&projects)? {
+        let entry = entry?;
+        if entry.file_type()?.is_dir() && fs::symlink_metadata(entry.path().join(".envrc")).is_ok()
+        {
+            migration.push((entry.path(), stack::migrate(&entry.path(), true)));
+        }
+    }
+    let summary = migration
+        .iter()
+        .map(|(path, result)| match result {
+            Ok(message) => message.clone(),
+            Err(error) => format!("Skip {}: {error}", path.display()),
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
     let mut can_pull = true;
     let details = if dry_run {
         let checkout = config.clone();
@@ -1533,14 +1460,15 @@ fn update(
             }
         };
         format!(
-            "Would run brew update; install/upgrade opencode and direnv; upgrade OpenChamber if installed; replace {}.\n{} in {}.\n{state}\n\nNo modifying commands ran or files changed.",
+            "Would run brew update; install/upgrade opencode; upgrade OpenChamber if installed; replace {}.\n{} in {}.\n{state}\nMigrate stacks under {}:\n{summary}\n\nNo modifying commands ran or files changed.",
             ops::BIN_PATH,
             if can_pull {
                 "Would run git pull --ff-only origin main"
             } else {
                 "Would skip git pull"
             },
-            config.display()
+            config.display(),
+            projects.display()
         )
     } else {
         let checkout = config.clone();
@@ -1548,14 +1476,15 @@ fn update(
             ops::check_checkout(&checkout)
         })?;
         format!(
-            "Upgrade OpenCode and direnv, upgrade OpenChamber if installed, fast-forward the config checkout in {} from main, and replace {}?{}",
+            "Upgrade OpenCode and OpenChamber if installed, fast-forward the config checkout in {} from main, and replace {}?{}\nMigrate stacks under {}:\n{summary}",
             config.display(),
             ops::BIN_PATH,
             if legacy {
                 " The config origin will switch from SSH to HTTPS."
             } else {
                 ""
-            }
+            },
+            projects.display()
         )
     };
     if ui::step_review(terminal, "Review update", &details, dry_run, true, "Update")?
@@ -1570,7 +1499,7 @@ fn update(
                 ("refresh Homebrew metadata".to_string(), 300),
                 ("install or upgrade OpenCode".to_string(), 400),
                 ("upgrade OpenChamber if installed".to_string(), 300),
-                ("install or upgrade direnv".to_string(), 300),
+                ("migrate recognizable stack .envrc files".to_string(), 300),
                 (
                     if can_pull {
                         "fast-forward the config checkout from main"
@@ -1601,7 +1530,7 @@ fn update(
     let chamber = installed("openchamber", true)?;
     let mut progress = Progress {
         done: 0,
-        total: 4 + usize::from(chamber),
+        total: 3 + usize::from(chamber),
         output: Vec::new(),
     };
     brew_update(terminal, &mut progress)?;
@@ -1614,7 +1543,6 @@ fn update(
     if chamber {
         let _ = optional_chamber(terminal, &mut progress);
     }
-    brew_package(terminal, &mut progress, "direnv", false)?;
     let binary = ops::stage_binary(&std::env::current_exe()?)?;
     let checkout = config.clone();
     busy(terminal, "Checking config remote", move || {
@@ -1635,10 +1563,24 @@ fn update(
         make_pull(),
         None,
     )?;
+    let mut results = Vec::new();
+    for (path, _) in migration {
+        results.push(match stack::migrate(&path, false) {
+            Ok(message) => message,
+            Err(error) => format!("Skipped {}: {error}", path.display()),
+        });
+    }
     notice(
         terminal,
         "Update — complete",
-        "Packages and configs are up to date. The CLI will be replaced in /usr/local/bin when you leave this screen.",
+        &format!(
+            "Packages and configs are up to date. The CLI will be replaced in /usr/local/bin when you leave this screen.{}",
+            if results.is_empty() {
+                String::new()
+            } else {
+                format!("\n{}", results.join("\n"))
+            }
+        ),
     )?;
     Ok(Some(binary))
 }
@@ -1754,12 +1696,12 @@ mod tests {
             "https://example.palantirfoundry.com/workspace/settings/tokens"
         );
         assert!(!ops::valid_url("https://example.palantirfoundry.com/other"));
-        let preview = preview_envrc(
-            std::path::Path::new("/stack/.envrc"),
+        let preview = preview_stack(
+            std::path::Path::new("/stack"),
             "https://example.palantirfoundry.com",
         );
-        assert!(preview.contains("export OPENCODE_API_KEY='[REDACTED]'"));
-        assert!(preview.contains("export OPENCODE_BASE_URL='https://example.palantirfoundry.com'"));
+        assert!(preview.contains("token redacted"));
+        assert!(preview.contains("https://example.palantirfoundry.com"));
     }
 
     #[test]
