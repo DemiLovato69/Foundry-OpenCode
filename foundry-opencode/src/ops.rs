@@ -8,8 +8,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use color_eyre::eyre::{self, Context};
 
 pub const REMOTE: &str = "https://github.com/DemiLovato69/Foundry-OpenCode.git";
-const OLD_REMOTE: &str = "https://github.com/DemiLovato69/Foundry-OpenCode-Configs.git";
-const LEGACY_REMOTE: &str = "git@github.com:DemiLovato69/Foundry-OpenCode-Configs.git";
 static NEXT_PATH: AtomicU64 = AtomicU64::new(0);
 pub const BIN_PATH: &str = "/usr/local/bin/foundry-opencode";
 
@@ -141,48 +139,83 @@ pub fn replace_config(
     Ok(())
 }
 
-pub fn check_checkout(path: &Path) -> eyre::Result<bool> {
+pub fn global_credentials(config: &Path) -> eyre::Result<Option<(String, String)>> {
+    let token = config.join("token");
+    if !token.exists() {
+        return Ok(None);
+    }
+    let meta = fs::symlink_metadata(&token)?;
     eyre::ensure!(
-        path.join(".git").exists(),
-        "{} is not a Git checkout; run install instead",
-        path.display()
+        meta.is_file() && !meta.file_type().is_symlink(),
+        "Unsafe global token file"
     );
-    let run = |args: &[&str]| -> eyre::Result<String> {
-        let output = Command::new("git")
-            .arg("-C")
-            .arg(path)
-            .args(args)
-            .env("GIT_OPTIONAL_LOCKS", "0")
-            .output()?;
-        eyre::ensure!(output.status.success(), "Could not inspect config checkout");
-        Ok(String::from_utf8(output.stdout)?.trim().to_owned())
-    };
-    let origin = run(&["remote", "get-url", "origin"])?;
-    eyre::ensure!(
-        origin == REMOTE || origin == OLD_REMOTE || origin == LEGACY_REMOTE,
-        "Config origin does not match {}; not pulling",
-        REMOTE
-    );
-    eyre::ensure!(
-        run(&["branch", "--show-current"])? == "main",
-        "Config checkout is not on main; not pulling"
-    );
-    eyre::ensure!(
-        run(&["status", "--porcelain"])?.is_empty(),
-        "Config checkout has local changes; commit or back them up before updating"
-    );
-    Ok(origin != REMOTE)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        eyre::ensure!(
+            meta.permissions().mode() & 0o077 == 0,
+            "Global token is not private"
+        );
+    }
+    let doc = crate::stack::read_config(&config.join("opencode.jsonc"))?;
+    let url = doc["providers"]["palantir-openai"]["settings"]["baseURL"]
+        .as_str()
+        .and_then(|value| value.strip_suffix("/language-model-service/api/proxy/openai/v1"))
+        .ok_or_else(|| eyre::eyre!("Cannot recover global Foundry host"))?;
+    eyre::ensure!(valid_url(url), "Invalid global Foundry host");
+    let key = fs::read_to_string(token)?;
+    eyre::ensure!(!key.is_empty(), "Empty global Foundry token");
+    Ok(Some((url.to_owned(), key)))
 }
 
-pub fn migrate_remote(path: &Path) -> eyre::Result<()> {
-    if check_checkout(path)? {
-        let status = Command::new("git")
-            .arg("-C")
-            .arg(path)
-            .args(["remote", "set-url", "origin", REMOTE])
-            .status()?;
-        eyre::ensure!(status.success(), "Could not switch config origin to HTTPS");
+pub fn prepare_global(config: &Path, url: &str, key: &str) -> eyre::Result<()> {
+    eyre::ensure!(
+        valid_url(url) && !key.is_empty() && !key.chars().any(char::is_control),
+        "Invalid global credentials"
+    );
+    let path = config.join("opencode.jsonc");
+    let mut doc = crate::stack::read_config(&path)?;
+    let mut overrides = crate::stack::config(url);
+    // The token reference is relative to the global config, not a stack's .opencode directory.
+    for provider in ["palantir-openai", "palantir-anthropic"] {
+        let existing = doc["providers"][provider]
+            .as_object_mut()
+            .ok_or_else(|| eyre::eyre!("Missing {provider} provider in bundled config"))?;
+        let settings = existing
+            .entry("settings")
+            .or_insert_with(|| serde_json::json!({}));
+        let values = overrides["providers"][provider]["settings"]
+            .as_object()
+            .unwrap();
+        for (name, value) in values {
+            settings[name] = value.clone();
+        }
+        existing.insert(
+            "headers".into(),
+            overrides["providers"][provider]["headers"].clone(),
+        );
     }
+    doc["mcp"]["servers"]["palantir"] = overrides["mcp"]["servers"]["palantir"].take();
+    let token = config.join("token");
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&token)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&token, fs::Permissions::from_mode(0o600))?;
+    }
+    use std::io::Write;
+    file.write_all(key.as_bytes())?;
+    file.sync_all()?;
+    writeln!(
+        OpenOptions::new()
+            .append(true)
+            .open(config.join(".git/info/exclude"))?,
+        "token"
+    )?;
+    fs::write(path, serde_json::to_string_pretty(&doc)?)?;
     Ok(())
 }
 
@@ -212,6 +245,31 @@ mod tests {
     }
 
     #[test]
+    fn global_fallback_survives_fresh_config_replacement() {
+        let root = sandbox();
+        let config = root.join("opencode");
+        fs::create_dir_all(config.join(".git/info")).unwrap();
+        fs::write(config.join(".git/info/exclude"), "keep\n").unwrap();
+        fs::write(config.join("opencode.jsonc"), r#"{"providers":{"palantir-openai":{"settings":{"transport":"http"}},"palantir-anthropic":{"settings":{}}},"mcp":{"servers":{}}}"#).unwrap();
+        prepare_global(&config, "https://example.com", "private").unwrap();
+        assert_eq!(
+            global_credentials(&config).unwrap().unwrap(),
+            ("https://example.com".into(), "private".into())
+        );
+        assert!(
+            fs::read_to_string(config.join(".git/info/exclude"))
+                .unwrap()
+                .contains("keep")
+        );
+        assert_eq!(
+            crate::stack::read_config(&config.join("opencode.jsonc")).unwrap()["providers"]["palantir-openai"]
+                ["settings"]["transport"],
+            "http"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn replacement_failure_restores_original() {
         let root = sandbox();
         let dest = root.join("opencode");
@@ -224,78 +282,26 @@ mod tests {
     }
 
     #[test]
-    fn update_rejects_dirty_checkout() {
+    fn replacement_does_not_depend_on_old_git_remote_or_local_edits() {
         let root = sandbox();
-        assert!(
-            Command::new("git")
-                .args(["init", "-q", "-b", "main"])
-                .arg(&root)
-                .status()
-                .unwrap()
-                .success()
+        let dest = root.join("opencode");
+        let stage = root.join("stage");
+        let backup = root.join("backup");
+        fs::create_dir_all(dest.join(".git")).unwrap();
+        fs::write(
+            dest.join(".git/config"),
+            "[remote \"origin\"]\nurl = unfamiliar\n",
+        )
+        .unwrap();
+        fs::write(dest.join("local-edit"), "keep").unwrap();
+        fs::create_dir(&stage).unwrap();
+        fs::write(stage.join("new"), "latest").unwrap();
+        replace_config(&dest, &stage, Some(&backup)).unwrap();
+        assert_eq!(fs::read_to_string(dest.join("new")).unwrap(), "latest");
+        assert_eq!(
+            fs::read_to_string(backup.join("local-edit")).unwrap(),
+            "keep"
         );
-        assert!(
-            Command::new("git")
-                .arg("-C")
-                .arg(&root)
-                .args(["remote", "add", "origin", REMOTE])
-                .status()
-                .unwrap()
-                .success()
-        );
-        fs::write(root.join("mine"), "local work").unwrap();
-        assert!(check_checkout(&root).is_err());
-        fs::remove_file(root.join("mine")).unwrap();
-        assert!(check_checkout(&root).is_ok());
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn update_migrates_only_clean_old_origins() {
-        let root = sandbox();
-        let git = |args: &[&str]| {
-            Command::new("git")
-                .arg("-C")
-                .arg(&root)
-                .args(args)
-                .output()
-                .unwrap()
-        };
-        assert!(git(&["init", "-q", "-b", "main"]).status.success());
-        assert!(
-            git(&["remote", "add", "origin", LEGACY_REMOTE])
-                .status
-                .success()
-        );
-        let origin = || String::from_utf8(git(&["remote", "get-url", "origin"]).stdout).unwrap();
-        assert!(check_checkout(&root).unwrap());
-        fs::write(root.join("mine"), "local work").unwrap();
-        assert!(migrate_remote(&root).is_err());
-        assert_eq!(origin().trim(), LEGACY_REMOTE);
-        fs::remove_file(root.join("mine")).unwrap();
-        migrate_remote(&root).unwrap();
-        assert!(!check_checkout(&root).unwrap());
-        migrate_remote(&root).unwrap();
-        assert_eq!(origin().trim(), REMOTE);
-        assert!(
-            git(&["remote", "set-url", "origin", OLD_REMOTE])
-                .status
-                .success()
-        );
-        assert!(check_checkout(&root).unwrap());
-        migrate_remote(&root).unwrap();
-        assert_eq!(origin().trim(), REMOTE);
-        assert!(
-            git(&[
-                "remote",
-                "set-url",
-                "origin",
-                "https://example.com/other.git"
-            ])
-            .status
-            .success()
-        );
-        assert!(migrate_remote(&root).is_err());
         fs::remove_dir_all(root).unwrap();
     }
 

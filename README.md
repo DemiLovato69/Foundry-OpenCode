@@ -12,19 +12,19 @@ Download the [latest macOS release](https://github.com/DemiLovato69/Foundry-Open
 
 **macOS security:** The release binaries are not signed or notarized. Check your downloaded archive with `shasum -a 256 foundry-opencode-<arch>.tar.gz` and compare it to the matching line in the release's `SHA256SUMS`. macOS may block the first launch; after attempting to run the binary, go to **System Settings → Privacy & Security → Open Anyway** only if you trust the release. Do not disable Gatekeeper or remove the quarantine attribute globally.
 
-Run `foundry-opencode` (equivalent to `foundry-opencode install`). It will walk you through the entire installation setup. The selected projects directory is broadly whitelisted by direnv, so any `.envrc` within it can execute automatically. The installer adds `eval "$(direnv hook zsh)"` to your active `.zshrc` if it is not already present (using `$ZDOTDIR/.zshrc` when configured). Open a new Zsh shell afterward to activate the hook.
+Run `foundry-opencode` (equivalent to `foundry-opencode install`). In the file explorer, mark stack folders anywhere on disk with Space, open folders with Enter, move up with Left, jump to a path with G, and continue with C. No central projects directory or direnv is required. Existing direnv Zsh hooks, whitelist settings and installation are removed.
 
-Before uninstalling any OpenCode installation, the installer verifies that the standard Homebrew `opencode` formula targets V2. Its review and dry-run list every package and executable it proposes to remove. An unrecognized executable blocks installation rather than risking a wrong deletion. A Homebrew-managed `opencode-v2` is migrated to the standard V2 formula after confirmation.
+Before uninstalling a legacy OpenCode installation, the installer verifies that the standard Homebrew `opencode` formula targets V2. Unrecognized executables are reported but not deleted or allowed to block config setup. A Homebrew-managed `opencode-v2` is migrated to the standard V2 formula after confirmation.
 
-Use the mouse or keyboard in the wizard: Space toggles checkboxes, arrows navigate stacks, and Enter activates the focused button. Type to filter stack names; Space immediately selects the highlighted match, and choices stay checked when the filter changes. Cancel is on the first page, Back preserves your answers, and Continue is on the right. On first installation the wizard offers to copy itself to `/usr/local/bin/foundry-opencode` so it can be run from anywhere. It will ask before doing so, may request an administrator password after closing the TUI, and will not overwrite an existing binary.
+Use the mouse or keyboard in the wizard. Selected stack folders are saved for updates. Installing the CLI to `/usr/local/bin/foundry-opencode` may request an administrator password after closing the TUI.
 
-When entering the main projects directory, suggestions show existing folders as you type. Use Up/Down to choose a suggestion and Tab or a mouse click to fill the field; Enter continues after validating the directory. For the recommended layout, choose the parent `~/Projects`, not `~/Projects/Stack1`.
+You may optionally enter a global Foundry host/token as a fallback outside marked stacks. Each marked stack's `.opencode/opencode.json` overrides that fallback. Existing `.envrc` files are migrated without execution; if a file is unrecognized, enter its host/token and choose whether to archive or delete it after the new config is verified. Tracked `.envrc` secrets still require Git cleanup and token rotation.
 
 ## After Install
 
 The installer provides many commands to make developer experience better.
 
-- Generate .envrc
+- Generate per-stack OpenCode configuration
 *Run this command from your stack directory*
 `foundry-opencode init`
 
@@ -33,6 +33,9 @@ At the token prompt, select **Open Foundry token page** to open `https://<host>/
 - Update everything
 `foundry-opencode update`
 
+- Remove installed tools, configs, credentials and session data permanently
+`foundry-opencode uninstall` (review first with `foundry-opencode uninstall --dry-run`)
+
 - Re-run the install process
 *This backs up and replaces previous configs after confirmation*
 `foundry-opencode install`
@@ -40,63 +43,17 @@ At the token prompt, select **Open Foundry token page** to open `https://<host>/
 - Show the binary version or example commands
 `foundry-opencode version` / `foundry-opencode usage`
 
-Preview any operation without writing files, opening a browser, or requesting a token: `foundry-opencode init --dry-run`, `foundry-opencode update --dry-run`, or `foundry-opencode --dry-run install` (also `foundry-opencode --dry-run` for the default install). After review, dry-run animates a mock progress bar with illustrative times for each planned step; it never performs those steps.
+Preview operations without writing files or opening a browser: `foundry-opencode init --dry-run`, `foundry-opencode update --dry-run`, `foundry-opencode uninstall --dry-run`, or `foundry-opencode --dry-run install`. After review, install/update dry-runs animate illustrative progress.
 
 Releases are created automatically from successful merges to `main` (including changes to these configs); each release contains macOS Apple Silicon and Intel binaries and checksums.
 
 
-# Futher Reading
-<details>
-<summary>
-Expand the section for more information of what happens behind the scenes.
-</summary>
+## Configuration layout
 
-## Project Setup
-
-### Directories
-
-Its recommended that projects are stored under a centeralized directory on your system.
-
-For example
-`$HOME/Projects/`
-
-For the cleanest results use:
-
-```text
-$HOME/Projects/
-├── Stack1/
-│   ├── .envrc                   # Stack1 host and API key
-│   ├── Functions Repo/
-│   └── OSDK React App Repo/
-├── Stack2/
-│   ├── .envrc                   # Stack2 host and API key
-│   ├── Functions Repo/
-│   ├── Pipeline Repo/
-│   └── OSDK React App Repo/
-└── ...
-```
-
-With that directory topology whenever you switch between stacks your system will always load the most appropriate envirnment variables for that stack.
-
-This is not required but provides the best results.
-
-### Direnv
-
-#### !IMPORTANT!
-If you don't follow the recomended topology and put your .envrc in Git tracked repositories, absolutely ensure that you do not commit that file. It contains your secrets.
-
-If you work on multiple stacks direnv is required to swap between workspaces.
-*It is recommended to use this direnv setup even if you work on a singlular stack*
-
-direnv allows the hotswapping of environment variables and automatically restarting the opencode service.
-*In Opencode-v2 a background service is started which loads the last known environment variables for the host and api key*
-
-Each stack directory will have a `.envrc` file. This file will contain:
-```sh
-export OPENCODE_API_KEY=<YOUR_FOUNDRY_TOKEN>
-export OPENCODE_BASE_URL=https://xyz.palantirfoundry.com
-opencode service restart
-```
-
-The `.envrc` file can be generated using the installer command.
-</details>
+OpenCode loads `~/.config/opencode/opencode.jsonc` as a global base and each
+stack's `.opencode/opencode.json` as a more specific override. The installer
+stores stack credentials in private `.opencode/token` files, not in `.envrc`.
+Update clones a fresh global config and backs up the old checkout, even when
+its Git remote or working tree has changed. Uninstall removes registered
+stack configs, generated RAG files and OpenCode/OpenChamber user data; it does
+not delete project directories or discover unregistered stacks automatically.

@@ -5,7 +5,8 @@ macOS Ratatui installer for Foundry OpenCode setup. Requires Homebrew, Git, and 
 ```sh
 foundry-opencode          # install (same as install)
 foundry-opencode install  # guided installation; optional OpenChamber
-foundry-opencode update   # update Homebrew packages and configs
+foundry-opencode update   # replace backed-up configs, update tools and migrate stacks
+foundry-opencode uninstall # remove tools, configs and user data (irreversible)
 foundry-opencode reset    # stop OpenCode/OpenChamber and clear OpenCode cache
 foundry-opencode init     # from your stack directory: create per-stack config
 foundry-opencode init-rag # from a project directory: install and index RAG
@@ -27,32 +28,35 @@ only after confirming you trust the release; do not disable Gatekeeper.
 `install` updates Homebrew, installs or upgrades OpenCode, and optionally
 OpenChamber. It verifies the standard OpenCode formula is V2 before removing
 confirmed V1 packages/executables or migrating the Homebrew `opencode-v2` formula.
-Unrecognized installations stop the process for manual review. A non-Homebrew
+Unrecognized installations are reported, not deleted or used to block config setup. A non-Homebrew
 `/Applications/OpenChamber.app` is moved to Trash only if OpenChamber was selected;
 its application data is untouched. Confirmed global npm-owned V1 packages are
 removed with `npm uninstall -g`; the installer never runs `npm install` for these
 configs. After confirmation the installer clones the configs, then backs up any
 existing `~/.config/opencode` and replaces it
-with the new checkout. It creates `.opencode/opencode.json` and a private
+with the new checkout. Choose any number of stack folders in the file explorer;
+the selection is saved in `~/.config/foundry-opencode/stacks.json` for future updates.
+Use Space to mark/unmark, Enter to open a folder, Left to go up, G to jump to
+another directory, and C to continue. It creates `.opencode/opencode.json` and a private
 `.opencode/token` in selected stack directories. Child projects inherit their
 stack's providers and Foundry MCP connection. The token file is mode `0600`
-and Git-ignored if the stack is in a repository. Fresh installs do not install
-direnv, add a Zsh hook, or trust `.envrc` files.
+and Git-ignored if the stack is in a repository. Optionally configure a private
+global Foundry fallback for projects outside marked stacks; stack-local settings
+override it. Existing direnv Zsh hooks, whitelist config and installations are removed.
 The installer replaces `/usr/local/bin/foundry-opencode` after a successful
 install or update, even if an older copy exists. This may require an administrator
 password in the restored terminal. Installation commands show live output in the
 installer's Terminal pane; Git credential prompts use the native terminal.
-For selected stacks, install converts recognizable legacy `.envrc` files without
-executing them; update asks for the parent projects directory and converts
-recognizable `.envrc` files in its immediate child directories. Conversion
-verifies the new config and private token before removing the old `.envrc`.
-Custom `.envrc` files and conflicting configs are left untouched and reported.
-Existing direnv installations and shell hooks are not removed.
+Install, update and `init` migrate `.envrc` in selected stack folders without
+executing shell content. Unrecognized files prompt for credentials and a choice
+to archive (private, Git-ignored) or delete them after verifying the new config.
+Conflicting stack configs are backed up and replaced; unrelated JSON settings are
+retained when possible. Tracked `.envrc` secrets still require Git cleanup and token rotation.
 
-`update` upgrades the installed tools (OpenChamber only when present) and pulls
-`main` with `--ff-only`; it refuses to pull over local config changes. Existing
-checkouts using the old repository URL (SSH or HTTPS) are switched to the new
-HTTPS URL before pulling. `init`
+`update` upgrades the installed tools (OpenChamber only when present), clones
+fresh configs from `main`, and backs up and replaces `~/.config/opencode` regardless
+of its previous Git remote or local edits. It preserves the optional global
+fallback. `init`
 prompts for a Foundry HTTPS base URL. At the token step, select **Open Foundry
 token page** with Tab/Arrows and Enter (or click it) to open
 `https://<host>/workspace/settings/tokens`,
@@ -67,13 +71,23 @@ OpenCode/OpenChamber processes, then deletes `~/.cache/opencode` if present.
 It interrupts active sessions but preserves configs and the session database.
 `reset --dry-run` previews the operation without stopping anything.
 
+`uninstall` lets you mark additional legacy stack folders, then reviews the
+registered stack folders and RAG projects before a
+permanent wipe. It removes OpenCode/OpenChamber Homebrew packages, direnv,
+the installer binary, registered stack credentials/configs, generated RAG files,
+the global config and its backups, session data and caches. Project folders and
+unrelated files inside them are preserved. Use `uninstall --dry-run` to review
+paths without changing anything. Unregistered projects and programs installed
+by other package managers cannot be discovered reliably; register them first
+or remove them manually.
+
 If OpenChamber is running, `install` and `update` skip its optional installation
 or upgrade and continue with the required setup. Quit OpenChamber and rerun the
 command to upgrade it.
 
 `init-rag` runs separately from installation, from the root of **one project**.
-Run `init` first from its stack directory so its private token and host can be
-found without direnv.
+Run `init` first from its stack directory, or configure the optional global
+fallback, so its private token and host can be found without direnv.
 It requires Node.js and npm. It creates `.opencode/rag.json`, pinned npm
 dependencies, compatibility patches, a CLI helper, local ignores, and a
 project-local V2 MCP server entry in `.opencode/opencode.json` (or an existing
@@ -91,19 +105,14 @@ package's automatic watcher is a V1 plugin and cannot run in OpenCode V2;
 indexing is manual after the initial setup. The RAG MCP process reads the
 same private stack token when it starts.
 
-`--dry-run` works with `init`, `init-rag`, `install` (including the no-argument default), and
-`update` and `reset`, before or after the command. It previews paths, commands, and redacted
+`--dry-run` works with `init`, `init-rag`, `install` (including the no-argument default),
+`update`, `reset`, and `uninstall`, before or after the command. It previews paths, commands, and redacted
 credentials; installation and update also animate the progress-bar layout with short,
 illustrative times for each step. It does not change files, run installation commands,
 request a token, or open a browser. The review lists stack migrations and skips.
-The wizard supports mouse clicks as well as keyboard input; use Space to toggle
-checkboxes, arrows to navigate stack choices, and Enter to continue. Type a
-partial stack name to filter the list; Space immediately toggles the highlighted
-match. Back keeps your previous choices. Instructions stay at the
-bottom of each screen, with Continue on the right.
-On the main projects directory page, existing folder suggestions appear as you
-type `~/`, absolute, or relative paths. Use Up/Down to highlight one and Tab
-or a mouse click to fill the field; Enter validates the resulting directory.
+The wizard supports mouse clicks as well as keyboard input. The file explorer
+selects multiple stack directories anywhere accessible; no common parent is
+required. Other text fields still offer existing directory suggestions.
 
 ## License
 

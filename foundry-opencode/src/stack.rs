@@ -87,11 +87,11 @@ fn ignored_token(stack: &Path) -> eyre::Result<Option<PathBuf>> {
     Ok((!ignored.success()).then(|| root.join(".gitignore")))
 }
 
-fn add_ignore(path: &Path, stack: &Path) -> eyre::Result<()> {
+fn add_ignore(path: &Path, stack: &Path, name: &Path) -> eyre::Result<()> {
     let root = path.parent().unwrap();
     let relative = stack
         .canonicalize()?
-        .join(TOKEN)
+        .join(name)
         .strip_prefix(root.canonicalize()?)?
         .to_string_lossy()
         .to_string();
@@ -189,7 +189,7 @@ pub fn create(stack: &Path, url: &str, key: &str) -> eyre::Result<()> {
     let ignore = ignored_token(stack)?;
     fs::create_dir_all(stack.join(".opencode"))?;
     if let Some(path) = ignore {
-        add_ignore(&path, stack)?;
+        add_ignore(&path, stack, Path::new(TOKEN))?;
     }
     eyre::ensure!(
         ignored_token(stack)?.is_none(),
@@ -223,6 +223,101 @@ pub fn create(stack: &Path, url: &str, key: &str) -> eyre::Result<()> {
         let _ = fs::remove_file(token_path);
     }
     result
+}
+
+fn replace_conflicting(stack: &Path, url: &str, key: &str, dry_run: bool) -> eyre::Result<()> {
+    let directory = stack.join(".opencode");
+    eyre::ensure!(
+        metadata(&directory)?.is_some_and(|m| m.is_dir()),
+        "Unsafe stack config directory"
+    );
+    let mut backups = Vec::new();
+    let mut old = None;
+    for name in ["opencode.json", "opencode.jsonc", "token"] {
+        let path = directory.join(name);
+        if let Some(meta) = metadata(&path)? {
+            eyre::ensure!(
+                meta.is_file(),
+                "Unsafe stack config file {}",
+                path.display()
+            );
+            if name == "token" {
+                // Do not replace a tracked secret without an explicit Git cleanup.
+                ignored_token(stack)?;
+            } else if old.is_none() {
+                old = read_config(&path).ok().filter(|doc| doc.is_object());
+            }
+            backups.push((path.clone(), ops::backup_path(&path)));
+        }
+    }
+    if dry_run {
+        return Ok(());
+    }
+    if let Some((_, backup)) = backups.iter().find(|(path, _)| path.ends_with("token")) {
+        let repo = Command::new("git")
+            .args(["rev-parse", "--show-toplevel"])
+            .current_dir(stack)
+            .output()?;
+        if repo.status.success() {
+            let root = PathBuf::from(String::from_utf8(repo.stdout)?.trim());
+            add_ignore(
+                &root.join(".gitignore"),
+                stack,
+                &Path::new(".opencode").join(backup.file_name().unwrap()),
+            )?;
+        }
+    }
+    let moved = (|| -> eyre::Result<()> {
+        for (original, backup) in &backups {
+            fs::rename(original, backup)?;
+            if original.ends_with("token") {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    fs::set_permissions(backup, fs::Permissions::from_mode(0o600))?;
+                }
+            }
+        }
+        Ok(())
+    })();
+    if let Err(error) = moved {
+        for (original, backup) in backups {
+            if backup.exists() {
+                fs::rename(backup, original)?;
+            }
+        }
+        return Err(error);
+    }
+    let result = (|| -> eyre::Result<()> {
+        create(stack, url, key)?;
+        if let Some(mut old) = old {
+            let fresh = config(url);
+            if old["providers"].is_null() || old["providers"].is_object() {
+                for provider in ["palantir-openai", "palantir-anthropic"] {
+                    old["providers"][provider] = fresh["providers"][provider].clone();
+                }
+                if (old["mcp"].is_null() || old["mcp"].is_object())
+                    && (old["mcp"]["servers"].is_null() || old["mcp"]["servers"].is_object())
+                {
+                    old["mcp"]["servers"]["palantir"] = fresh["mcp"]["servers"]["palantir"].clone();
+                    fs::write(stack.join(CONFIG), serde_json::to_string_pretty(&old)?)?;
+                }
+            }
+        }
+        inspect(stack, url, key)?;
+        Ok(())
+    })();
+    if let Err(error) = result {
+        let _ = fs::remove_file(stack.join(CONFIG));
+        let _ = fs::remove_file(stack.join(TOKEN));
+        for (original, backup) in backups {
+            if backup.exists() {
+                fs::rename(backup, original)?;
+            }
+        }
+        return Err(error);
+    }
+    Ok(())
 }
 
 fn legacy_value(value: &str) -> Option<String> {
@@ -291,36 +386,93 @@ fn legacy(stack: &Path) -> eyre::Result<Option<(String, String, String)>> {
     Ok(Some((url, key, original)))
 }
 
-pub fn migrate(stack: &Path, dry_run: bool) -> eyre::Result<String> {
-    let Some((url, key, original)) = legacy(stack)? else {
+pub fn legacy_credentials(stack: &Path) -> eyre::Result<Option<(String, String)>> {
+    Ok(legacy(stack)?.map(|(url, key, _)| (url, key)))
+}
+
+pub fn migrate(
+    stack: &Path,
+    dry_run: bool,
+    supplied: Option<(&str, &str)>,
+    archive: bool,
+) -> eyre::Result<String> {
+    let path = stack.join(".envrc");
+    let Some(meta) = metadata(&path)? else {
         return Ok(format!("No legacy .envrc in {}", stack.display()));
+    };
+    eyre::ensure!(meta.is_file(), "{} is not a regular file", path.display());
+    let (url, key, original) = if let Some((url, key)) = supplied {
+        eyre::ensure!(
+            ops::valid_url(url) && !key.is_empty() && !key.chars().any(char::is_control),
+            "Invalid Foundry credentials"
+        );
+        (url.to_owned(), key.to_owned(), fs::read(&path)?)
+    } else {
+        let (url, key, original) = legacy(stack)?.expect(".envrc exists");
+        (url, key, original.into_bytes())
     };
     let tracked = Command::new("git")
         .args(["ls-files", "--error-unmatch", "--", ".envrc"])
         .env("GIT_OPTIONAL_LOCKS", "0")
         .current_dir(stack)
         .output()?;
-    eyre::ensure!(
-        !tracked.status.success(),
-        "{} is tracked by Git; untrack it and rotate its token before migrating",
-        stack.join(".envrc").display()
-    );
-    inspect(stack, &url, &key)?;
+    // A tracked secret must be rotated, but it need not block moving the local file.
+    let warning = if tracked.status.success() {
+        " (tracked in Git: untrack it and rotate its token)"
+    } else {
+        ""
+    };
+    let conflict = inspect(stack, &url, &key).err();
+    if conflict.is_some() {
+        replace_conflicting(stack, &url, &key, true)?;
+    }
     if !dry_run {
-        create(stack, &url, &key)?;
+        if conflict.is_some() {
+            replace_conflicting(stack, &url, &key, false)?;
+        } else {
+            create(stack, &url, &key)?;
+        }
         // Keep the original intact until the new credential and config are verified.
         inspect(stack, &url, &key)?;
         eyre::ensure!(
-            original == fs::read_to_string(stack.join(".envrc"))?,
+            original == fs::read(stack.join(".envrc"))?,
             "{} changed during migration; not removing it",
             stack.join(".envrc").display()
         );
-        fs::remove_file(stack.join(".envrc"))?;
+        if archive {
+            let archived = ops::backup_path(&path);
+            let repo = Command::new("git")
+                .args(["rev-parse", "--show-toplevel"])
+                .current_dir(stack)
+                .output()?;
+            if repo.status.success() {
+                let root = PathBuf::from(String::from_utf8(repo.stdout)?.trim());
+                add_ignore(
+                    &root.join(".gitignore"),
+                    stack,
+                    Path::new(archived.file_name().unwrap()),
+                )?;
+            }
+            fs::rename(&path, &archived)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&archived, fs::Permissions::from_mode(0o600))?;
+            }
+        } else {
+            fs::remove_file(&path)?;
+        }
     }
     Ok(format!(
-        "{} {} to .opencode config",
+        "{} {} to .opencode config{}{}",
         if dry_run { "Would migrate" } else { "Migrated" },
-        stack.display()
+        stack.display(),
+        if conflict.is_some() {
+            " (existing stack config backed up)"
+        } else {
+            ""
+        },
+        warning
     ))
 }
 
@@ -361,7 +513,13 @@ pub fn credentials(project: &Path) -> eyre::Result<(String, String)> {
         );
         return Ok((base.to_owned(), key));
     }
-    eyre::bail!("Run foundry-opencode init from the stack directory first")
+    if let Some(home) = std::env::var_os("HOME")
+        && let Some(global) =
+            ops::global_credentials(&PathBuf::from(home).join(".config/opencode"))?
+    {
+        return Ok(global);
+    }
+    eyre::bail!("Run foundry-opencode init from the stack directory or configure a global fallback")
 }
 
 #[cfg(test)]
@@ -373,9 +531,13 @@ mod tests {
         let root = ops::backup_path(&std::env::temp_dir().join("stack-migrate-test"));
         fs::create_dir(&root).unwrap();
         fs::write(root.join(".envrc"), "export OPENCODE_API_KEY='a'\\''b'\nexport OPENCODE_BASE_URL='https://example.com'\nopencode service restart\n").unwrap();
-        assert!(migrate(&root, true).unwrap().starts_with("Would migrate"));
+        assert!(
+            migrate(&root, true, None, false)
+                .unwrap()
+                .starts_with("Would migrate")
+        );
         assert!(!root.join(TOKEN).exists());
-        migrate(&root, false).unwrap();
+        migrate(&root, false, None, false).unwrap();
         assert!(!root.join(".envrc").exists());
         assert_eq!(
             credentials(&root).unwrap(),
@@ -395,7 +557,7 @@ mod tests {
             "{file:./token}"
         );
         assert_eq!(doc["mcp"]["servers"]["palantir"]["command"][0], "npx");
-        assert!(migrate(&root, false).is_ok());
+        assert!(migrate(&root, false, None, false).is_ok());
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -408,11 +570,11 @@ mod tests {
     }
 
     #[test]
-    fn custom_shell_and_conflicting_config_are_preserved() {
+    fn custom_shell_requires_credentials_and_conflicting_config_is_backed_up() {
         let root = ops::backup_path(&std::env::temp_dir().join("stack-migrate-test"));
         fs::create_dir(&root).unwrap();
         fs::write(root.join(".envrc"), "export OPENCODE_API_KEY='key'\nexport OPENCODE_BASE_URL='https://example.com'\necho custom\n").unwrap();
-        assert!(migrate(&root, false).is_err());
+        assert!(migrate(&root, false, None, false).is_err());
         assert!(!root.join(TOKEN).exists());
         fs::write(
             root.join(".envrc"),
@@ -421,12 +583,46 @@ mod tests {
         .unwrap();
         fs::create_dir(root.join(".opencode")).unwrap();
         fs::write(root.join(CONFIG), "{\"model\":\"other\"}").unwrap();
-        assert!(migrate(&root, false).is_err());
-        assert!(root.join(".envrc").exists());
-        assert_eq!(
-            fs::read_to_string(root.join(CONFIG)).unwrap(),
-            "{\"model\":\"other\"}"
-        );
+        migrate(&root, false, None, false).unwrap();
+        assert!(!root.join(".envrc").exists());
+        assert_eq!(read_config(&root.join(CONFIG)).unwrap()["model"], "other");
+        assert!(fs::read_dir(root.join(".opencode")).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("opencode.json.backup-")
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn unknown_envrc_can_be_migrated_without_executing_it() {
+        let root = ops::backup_path(&std::env::temp_dir().join("stack-unknown-test"));
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join(".envrc"), "echo never-run\n").unwrap();
+        assert!(legacy_credentials(&root).is_err());
+        migrate(&root, false, Some(("https://example.com", "secret")), true).unwrap();
+        assert!(!root.join(".envrc").exists());
+        assert!(fs::read_dir(&root).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".envrc.backup-")
+        }));
+        assert_eq!(credentials(&root).unwrap().1, "secret");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn non_utf8_envrc_is_retired_after_supplied_credentials() {
+        let root = ops::backup_path(&std::env::temp_dir().join("stack-bytes-test"));
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join(".envrc"), [0xff, 0xfe]).unwrap();
+        migrate(&root, false, Some(("https://example.com", "secret")), false).unwrap();
+        assert!(!root.join(".envrc").exists());
+        assert_eq!(credentials(&root).unwrap().1, "secret");
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -456,6 +652,36 @@ mod tests {
         fs::create_dir(project.join(".opencode")).unwrap();
         fs::write(project.join(CONFIG), r#"{"mcp":{"servers":{"rag":{"type":"local","command":["node",".opencode/rag-cli.mjs","mcp"]}}}}"#).unwrap();
         assert_eq!(credentials(&project).unwrap().1, "private");
+        fs::write(root.join(".envrc"), "echo never-run\n").unwrap();
+        migrate(&root, false, Some(("https://example.com", "private")), true).unwrap();
+        let archive = fs::read_dir(&root)
+            .unwrap()
+            .map(Result::unwrap)
+            .find(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".envrc.backup-")
+            })
+            .unwrap()
+            .path();
+        assert!(
+            Command::new("git")
+                .args(["check-ignore", "--quiet", "--"])
+                .arg(&archive)
+                .current_dir(&root)
+                .status()
+                .unwrap()
+                .success()
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&archive).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -468,7 +694,7 @@ mod tests {
         doc["mcp"]["servers"]["rag"] = json!({"type":"local","command":["node","rag-cli.mjs"]});
         fs::write(root.join(CONFIG), serde_json::to_string(&doc).unwrap()).unwrap();
         fs::write(root.join(".envrc"), "export OPENCODE_API_KEY='private'\nexport OPENCODE_BASE_URL='https://example.com'\nopencode service restart\n").unwrap();
-        migrate(&root, false).unwrap();
+        migrate(&root, false, None, false).unwrap();
         assert_eq!(
             read_config(&root.join(CONFIG)).unwrap()["mcp"]["servers"]["rag"],
             doc["mcp"]["servers"]["rag"]
