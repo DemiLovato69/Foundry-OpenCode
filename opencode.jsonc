@@ -54,6 +54,14 @@
                     },
                     "modelID": "ri.language-model-service..language-model.gpt-6-sol"
                 },
+                "gpt-6-1-terra": {
+                    "name": "Foundry GPT-6.1 Terra",
+                    "limit": {
+                        "context": 1050000,
+                        "output": 128000
+                    },
+                    "modelID": "ri.language-model-service..language-model.gpt-6-1-terra"
+                },
                 "gpt-6-luna": {
                     "name": "Foundry GPT-6 Luna",
                     "limit": {
