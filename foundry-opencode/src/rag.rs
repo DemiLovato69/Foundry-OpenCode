@@ -46,7 +46,7 @@ fn setup_files(
 ) -> eyre::Result<(String, PathBuf, Option<String>, Value)> {
     eyre::ensure!(
         crate::ops::valid_url(base_url),
-        "Set OPENCODE_BASE_URL to an HTTPS Foundry host"
+        "Initialize a stack with an HTTPS Foundry host first"
     );
     let files = files(project, base_url);
     let directory = project.join(".opencode");
@@ -113,12 +113,13 @@ fn setup_files(
         }
     }
     let jsonc = project.join(".opencode/opencode.jsonc");
+    let json = project.join(".opencode/opencode.json");
     eyre::ensure!(
-        !jsonc.exists(),
-        "{} exists; configure its mcp.servers.rag entry manually rather than overriding it",
-        jsonc.display()
+        !(json.exists() && jsonc.exists()),
+        "Both OpenCode config formats exist in {}; review them manually",
+        directory.display()
     );
-    let config = project.join(".opencode/opencode.json");
+    let config = if jsonc.exists() { jsonc } else { json };
     if let Ok(metadata) = fs::symlink_metadata(&config) {
         eyre::ensure!(
             metadata.is_file() && !metadata.file_type().is_symlink(),
@@ -132,9 +133,8 @@ fn setup_files(
         Err(e) => return Err(e.into()),
     };
     let mut doc: Value = match &original {
-        Some(text) => {
-            serde_json::from_str(text).wrap_err("Invalid OpenCode JSON; not changing it")?
-        }
+        Some(text) => jsonc_parser::parse_to_serde_value(text, &Default::default())
+            .wrap_err("Invalid OpenCode JSON; not changing it")?,
         None => json!({"$schema": "https://opencode.ai/config.json"}),
     };
     eyre::ensure!(doc.is_object(), "OpenCode config must be a JSON object");
@@ -211,7 +211,39 @@ fn activate_config(config: &Path, original: Option<&str>, doc: &Value) -> eyre::
         config.display()
     );
     let staged = crate::ops::backup_path(config);
-    fs::write(&staged, format!("{}\n", serde_json::to_string_pretty(doc)?))?;
+    let text = if config.extension().is_some_and(|ext| ext == "jsonc") {
+        let root = jsonc_parser::cst::CstRootNode::parse(original.unwrap(), &Default::default())?;
+        let object = root.object_value_or_set();
+        let mcp = if let Some(prop) = object.get("mcp") {
+            prop.object_value().unwrap()
+        } else {
+            object.append("mcp", jsonc_parser::json!({}));
+            object.get("mcp").unwrap().object_value().unwrap()
+        };
+        let servers = if let Some(prop) = mcp.get("servers") {
+            prop.object_value().unwrap()
+        } else {
+            mcp.append("servers", jsonc_parser::json!({}));
+            mcp.get("servers").unwrap().object_value().unwrap()
+        };
+        servers.append(
+            "rag",
+            jsonc_parser::cst::CstInputValue::Object(vec![
+                ("type".into(), "local".into()),
+                (
+                    "command".into(),
+                    vec!["node", ".opencode/rag-cli.mjs", "mcp"].into(),
+                ),
+            ]),
+        );
+        root.to_string()
+    } else {
+        format!("{}\n", serde_json::to_string_pretty(doc)?)
+    };
+    fs::write(&staged, text)?;
+    if original.is_some() {
+        fs::set_permissions(&staged, fs::metadata(config)?.permissions())?;
+    }
     let write = if original.is_some() {
         fs::rename(&staged, config)
     } else {
@@ -282,6 +314,27 @@ mod tests {
         assert_eq!(doc["mcp"]["servers"]["other"]["command"][0], "other");
         assert_eq!(doc["mcp"]["servers"]["rag"]["command"][2], "mcp");
         assert!(setup_files(&root, "https://example.com", false).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn jsonc_config_keeps_comments_when_rag_is_added() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-jsonc-test"));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join(".opencode")).unwrap();
+        let path = root.join(".opencode/opencode.jsonc");
+        fs::write(
+            &path,
+            "{\n  // keep this note\n  \"model\": \"test/model\",\n}\n",
+        )
+        .unwrap();
+        let (_, config, original, doc) = setup_files(&root, "https://example.com", false).unwrap();
+        assert_eq!(config, path);
+        activate_config(&config, original.as_deref(), &doc).unwrap();
+        let result = fs::read_to_string(&path).unwrap();
+        assert!(result.contains("// keep this note"));
+        assert!(result.contains("rag-cli.mjs"));
+        assert!(!root.join(".opencode/opencode.json").exists());
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -38,18 +38,12 @@
         "palantir-openai": {
             "canonical": "openai",
             "name": "Palantir OpenAI",
-            "env": ["OPENCODE_API_KEY"],
             "package": "@opencode/ai/providers/openai/responses",
             "settings": {
-                "baseURL": "{env:OPENCODE_BASE_URL}/language-model-service/api/proxy/openai/v1",
-                "apiKey": "{env:OPENCODE_API_KEY}",
                 "timeout": false,
                 "headerTimeout": 60000,
                 "transport": "http",
                 "encoding": "none"
-            },
-            "headers": {
-                "Authorization": "Bearer {env:OPENCODE_API_KEY}"
             },
             "models": {
                 "gpt-6-sol": {
@@ -181,17 +175,11 @@
         "palantir-anthropic": {
             "canonical": "anthropic",
             "name": "Palantir Anthropic",
-            "env": ["OPENCODE_API_KEY"],
             "package": "@opencode/ai/providers/anthropic",
             "settings": {
-                "baseURL": "{env:OPENCODE_BASE_URL}/api/v2/llm/proxy/anthropic/v1",
-                "apiKey": "{env:OPENCODE_API_KEY}",
                 "timeout": false,
                 "transport": "http",
                 "encoding": "none"
-            },
-            "headers": {
-                "Authorization": "Bearer {env:OPENCODE_API_KEY}"
             },
             "models": {
                 "claude-haiku-4-5": {
@@ -373,22 +361,6 @@
         "intelephense": {
             "command": ["intelephense", "--stdio"],
             "extensions": [".php"]
-        }
-    },
-    "mcp": {
-        "servers": {
-            "palantir": {
-                "type": "local",
-                "command": [
-                    "direnv",
-                    "exec",
-                    ".",
-                    "sh",
-                    "-c",
-                    "FOUNDRY_TOKEN=\"$OPENCODE_API_KEY\" exec npx -y palantir-mcp --foundry-api-url \"$OPENCODE_BASE_URL\""
-                ],
-                "disabled": false
-            }
         }
     }
 }
