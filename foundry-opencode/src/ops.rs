@@ -8,7 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use color_eyre::eyre::{self, Context};
 use toml_edit::{Array, DocumentMut, Item, Table, value};
 
-pub const REMOTE: &str = "https://github.com/DemiLovato69/Foundry-OpenCode-Configs.git";
+pub const REMOTE: &str = "https://github.com/DemiLovato69/Foundry-OpenCode.git";
+const OLD_REMOTE: &str = "https://github.com/DemiLovato69/Foundry-OpenCode-Configs.git";
 const LEGACY_REMOTE: &str = "git@github.com:DemiLovato69/Foundry-OpenCode-Configs.git";
 static NEXT_PATH: AtomicU64 = AtomicU64::new(0);
 pub const BIN_PATH: &str = "/usr/local/bin/foundry-opencode";
@@ -354,7 +355,7 @@ pub fn check_checkout(path: &Path) -> eyre::Result<bool> {
     };
     let origin = run(&["remote", "get-url", "origin"])?;
     eyre::ensure!(
-        origin == REMOTE || origin == LEGACY_REMOTE,
+        origin == REMOTE || origin == OLD_REMOTE || origin == LEGACY_REMOTE,
         "Config origin does not match {}; not pulling",
         REMOTE
     );
@@ -366,7 +367,7 @@ pub fn check_checkout(path: &Path) -> eyre::Result<bool> {
         run(&["status", "--porcelain"])?.is_empty(),
         "Config checkout has local changes; commit or back them up before updating"
     );
-    Ok(origin == LEGACY_REMOTE)
+    Ok(origin != REMOTE)
 }
 
 pub fn migrate_remote(path: &Path) -> eyre::Result<()> {
@@ -585,7 +586,7 @@ mod tests {
     }
 
     #[test]
-    fn update_migrates_only_clean_legacy_origin() {
+    fn update_migrates_only_clean_old_origins() {
         let root = sandbox();
         let git = |args: &[&str]| {
             Command::new("git")
@@ -609,6 +610,14 @@ mod tests {
         fs::remove_file(root.join("mine")).unwrap();
         migrate_remote(&root).unwrap();
         assert!(!check_checkout(&root).unwrap());
+        migrate_remote(&root).unwrap();
+        assert_eq!(origin().trim(), REMOTE);
+        assert!(
+            git(&["remote", "set-url", "origin", OLD_REMOTE])
+                .status
+                .success()
+        );
+        assert!(check_checkout(&root).unwrap());
         migrate_remote(&root).unwrap();
         assert_eq!(origin().trim(), REMOTE);
         assert!(
