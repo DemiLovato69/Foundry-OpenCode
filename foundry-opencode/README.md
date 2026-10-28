@@ -59,7 +59,7 @@ of its previous Git remote or local edits. It preserves the optional global
 fallback. It also offers separate, optional host/token changes for the global fallback
 and each selected stack with an existing config; unchecked scopes retain their credentials.
 Changed stack configs and private tokens are backed up. Run `update` again to change
-a legacy `.envrc` stack after its migration. `init`
+a legacy `.envrc` stack after its migration. Palantir MCP launches through `npx --registry=https://registry.npmjs.org`, scoped only to that subprocess: project `.npmrc` continues to govern project installs. Install/update back up and upgrade verified older stack launchers; custom launchers and private tokens are untouched. After deployment, reconnect `palantir` with `/mcps` and test a tool in the affected repo. `init`
 prompts for a Foundry HTTPS base URL. At the token step, select **Open Foundry
 token page** with Tab/Arrows and Enter (or click it) to open
 `https://<host>/workspace/settings/tokens`,

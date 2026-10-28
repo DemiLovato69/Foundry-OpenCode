@@ -468,6 +468,22 @@ mod tests {
             global_credentials(&config).unwrap().unwrap(),
             ("https://example.com".into(), "private".into())
         );
+        let global = crate::stack::read_config(&config.join("opencode.jsonc")).unwrap();
+        assert_eq!(
+            global["mcp"]["servers"]["palantir"]["command"],
+            serde_json::json!([
+                "npx",
+                "-y",
+                "--registry=https://registry.npmjs.org",
+                "palantir-mcp",
+                "--foundry-api-url",
+                "https://example.com"
+            ])
+        );
+        assert_eq!(
+            global["mcp"]["servers"]["palantir"]["environment"]["FOUNDRY_TOKEN"],
+            "{file:./token}"
+        );
         assert!(
             fs::read_to_string(config.join(".git/info/exclude"))
                 .unwrap()
