@@ -74,7 +74,7 @@ fn main() -> eyre::Result<()> {
         }
         Some(Mode::Usage) => {
             println!(
-                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and select stack folders\nfoundry-opencode update    Replace backed-up configs and migrate selected stacks\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Create per-stack OpenCode config\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode --dry-run install  Preview without changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
+                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and select stack folders\nfoundry-opencode update    Replace backed-up configs; optionally change global and stack credentials\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Create per-stack OpenCode config\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode --dry-run update  Preview credential and config changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
             );
             return Ok(());
         }
@@ -2127,8 +2127,55 @@ fn update(
     } else {
         None
     };
+    let global_change =
+        offer_credentials(terminal, "Global Foundry fallback", global.clone(), dry_run)?;
+    let global_change = global_change.filter(|pair| global.as_ref() != Some(pair));
+    let mut stack_changes = Vec::new();
+    for path in &selected {
+        if fs::symlink_metadata(path.join(".envrc")).is_ok()
+            || !path.join(".opencode/opencode.json").exists()
+        {
+            continue;
+        }
+        let previous = stack::credentials(path)?;
+        if let Some((url, key)) = offer_credentials(
+            terminal,
+            &format!("Stack {}", path.display()),
+            Some(previous.clone()),
+            dry_run,
+        )? && (url.as_str(), key.as_str()) != (previous.0.as_str(), previous.1.as_str())
+        {
+            stack::update_credentials(path, &url, &key, true)?;
+            stack_changes.push((path.clone(), url, key));
+        }
+    }
+    let changes = format!(
+        "\nCredential changes: global {}; stacks: {}. Tokens are redacted.{}",
+        if global_change.is_some() {
+            "update"
+        } else {
+            "unchanged"
+        },
+        if stack_changes.is_empty() {
+            "none".to_owned()
+        } else {
+            stack_changes
+                .iter()
+                .map(|(path, _, _)| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        },
+        if selected
+            .iter()
+            .any(|path| fs::symlink_metadata(path.join(".envrc")).is_ok())
+        {
+            " Legacy .envrc stacks can be edited after migration by rerunning update."
+        } else {
+            ""
+        }
+    );
     let details = format!(
-        "Update Homebrew packages; clone latest config to {}{}; migrate selected stacks:\n{summary}\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.{}",
+        "Update Homebrew packages; clone latest config to {}{}; migrate selected stacks:\n{summary}{changes}\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.{}",
         config.display(),
         if existing {
             format!(" (backup: {})", backup.display())
@@ -2205,7 +2252,7 @@ fn update(
         }
         return Err(error);
     }
-    if let Some((url, key)) = global
+    if let Some((url, key)) = global_change.or(global)
         && let Err(error) = ops::prepare_global(&staged, &url, &key)
     {
         fs::remove_dir_all(&staged)?;
@@ -2224,6 +2271,13 @@ fn update(
             archive,
         )?);
     }
+    for (path, url, key) in stack_changes {
+        stack::update_credentials(&path, &url, &key, false)?;
+        results.push(format!(
+            "Updated private credentials for {}",
+            path.display()
+        ));
+    }
     remove_direnv(terminal, dry_run)?;
     notice(
         terminal,
@@ -2238,6 +2292,70 @@ fn update(
         ),
     )?;
     Ok(Some(binary))
+}
+
+fn offer_credentials(
+    terminal: &mut DefaultTerminal,
+    name: &str,
+    previous: Option<(String, String)>,
+    dry_run: bool,
+) -> eyre::Result<Option<(String, String)>> {
+    let mut enabled = false;
+    let (mut url, mut key) = previous.unwrap_or_default();
+    let mut page = 0;
+    loop {
+        let nav = match page {
+            0 => ui::step_checkbox(
+                terminal,
+                &format!("Update {name}?"),
+                "Leave unchecked to keep the existing host and token. A selected scope can change either or both.",
+                "Change host/token",
+                &mut enabled,
+                false,
+            )?,
+            1 => ui::step_text(
+                terminal,
+                &format!("{name} — host"),
+                "HTTPS Foundry host",
+                &mut url,
+                false,
+                ui::Field::Plain,
+            )?,
+            _ => ui::step_text(
+                terminal,
+                &format!("{name} — token"),
+                "Private Foundry token (keep or replace)",
+                &mut key,
+                false,
+                ui::Field::Token,
+            )?,
+        };
+        match nav {
+            ui::Nav::Cancel => return Err(Cancelled.into()),
+            ui::Nav::Back if page > 0 => page -= 1,
+            ui::Nav::Back => return Err(Cancelled.into()),
+            ui::Nav::Open => open_token_page(terminal, &url, dry_run)?,
+            ui::Nav::Next if page == 0 && !enabled => return Ok(None),
+            ui::Nav::Next if page == 1 && !ops::valid_url(&url) => {
+                notice(
+                    terminal,
+                    "Invalid host",
+                    "Enter an HTTPS host without a path or spaces.",
+                )?;
+            }
+            ui::Nav::Next if page == 2 && key.is_empty() && !dry_run => {
+                notice(terminal, "Token required", "Enter a Foundry token.")?;
+            }
+            ui::Nav::Next if page == 2 => {
+                if key.is_empty() {
+                    key = "dry-run-placeholder".into();
+                }
+                eyre::ensure!(!key.chars().any(char::is_control), "Invalid Foundry token");
+                return Ok(Some((url, key)));
+            }
+            ui::Nav::Next => page += 1,
+        }
+    }
 }
 
 #[cfg(test)]

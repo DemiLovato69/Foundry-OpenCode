@@ -320,6 +320,24 @@ fn replace_conflicting(stack: &Path, url: &str, key: &str, dry_run: bool) -> eyr
     Ok(())
 }
 
+pub fn update_credentials(stack: &Path, url: &str, key: &str, dry_run: bool) -> eyre::Result<()> {
+    eyre::ensure!(
+        ops::valid_url(url) && !key.is_empty() && !key.chars().any(char::is_control),
+        "Invalid Foundry host or token"
+    );
+    eyre::ensure!(
+        metadata(&stack.join(CONFIG))?.is_some(),
+        "Missing stack config in {}",
+        stack.display()
+    );
+    let (old_url, old_key) = credentials(stack)?;
+    inspect(stack, &old_url, &old_key)?;
+    if old_url == url && old_key == key {
+        return Ok(());
+    }
+    replace_conflicting(stack, url, key, dry_run)
+}
+
 fn legacy_value(value: &str) -> Option<String> {
     if value.starts_with('\'') && value.ends_with('\'') {
         let unescaped = value[1..value.len() - 1].replace("'\\''", "'");
@@ -700,6 +718,54 @@ mod tests {
             doc["mcp"]["servers"]["rag"]
         );
         assert!(!root.join(".envrc").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn credential_update_preserves_other_settings_and_private_backups() {
+        let root = ops::backup_path(&std::env::temp_dir().join("stack-update-test"));
+        fs::create_dir(&root).unwrap();
+        create(&root, "https://old.example.com", "old-key").unwrap();
+        let mut doc = read_config(&root.join(CONFIG)).unwrap();
+        doc["model"] = json!("palantir-openai/gpt-4.1");
+        fs::write(root.join(CONFIG), serde_json::to_string(&doc).unwrap()).unwrap();
+        update_credentials(&root, "https://new.example.com", "new-key", true).unwrap();
+        assert_eq!(credentials(&root).unwrap().1, "old-key");
+        update_credentials(&root, "https://new.example.com", "new-key", false).unwrap();
+        assert_eq!(
+            credentials(&root).unwrap(),
+            ("https://new.example.com".into(), "new-key".into())
+        );
+        update_credentials(&root, "https://new.example.com", "newer-key", false).unwrap();
+        assert_eq!(credentials(&root).unwrap().1, "newer-key");
+        update_credentials(&root, "https://latest.example.com", "newer-key", false).unwrap();
+        assert_eq!(credentials(&root).unwrap().0, "https://latest.example.com");
+        assert!(update_credentials(&root, "http://unsafe.example.com", "newer-key", true).is_err());
+        assert_eq!(
+            read_config(&root.join(CONFIG)).unwrap()["model"],
+            doc["model"]
+        );
+        let backup = fs::read_dir(root.join(".opencode"))
+            .unwrap()
+            .map(Result::unwrap)
+            .find(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("token.backup-")
+                    && fs::read_to_string(entry.path()).unwrap() == "old-key"
+            })
+            .unwrap()
+            .path();
+        assert_eq!(fs::read_to_string(&backup).unwrap(), "old-key");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(backup).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
         fs::remove_dir_all(root).unwrap();
     }
 }

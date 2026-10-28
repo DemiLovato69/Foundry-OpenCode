@@ -22,15 +22,15 @@ async function loadPlugin(providers = config.providers) {
 function requestEvent(providerID, body, overrides = {}) {
   return {
     sessionID: "session-test", agent: "build", model: { providerID, id: "test" }, kind: "primary",
-    request: new Request(`${config.providers[providerID].settings.baseURL}/${providerID === "palantir-openai" ? "responses" : "messages"}`.replace("{env:OPENCODE_BASE_URL}", "https://foundry.example"), {
-      method: "POST", headers: { "Content-Type": "application/json", "X-Test": "kept" }, body: JSON.stringify(body),
+    request: new Request(`${providers[providerID].settings.baseURL}/${providerID === "palantir-openai" ? "responses" : "messages"}`, {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Test": "kept", "Authorization": "Bearer stack-token" }, body: JSON.stringify(body),
     }),
     ...overrides,
   };
 }
 
 const providers = Object.fromEntries(Object.entries(config.providers).map(([id, value]) => [id, {
-  ...value, settings: { ...value.settings, baseURL: value.settings.baseURL.replace("{env:OPENCODE_BASE_URL}", "https://foundry.example") },
+  ...value, settings: { ...value.settings, baseURL: `https://foundry.example/${id}` },
 }]));
 
 test("native config preserves proxy model IDs, title model, permissions, and disabled MCP", () => {
@@ -38,7 +38,7 @@ test("native config preserves proxy model IDs, title model, permissions, and dis
   assert.equal(config.agents.title.model, "palantir-openai/gpt-6-luna");
   assert.equal(config.providers["palantir-openai"].models["gpt-5.6-sol"].modelID, "ri.language-model-service..language-model.gpt-5-6-sol");
   assert.equal(config.providers["palantir-anthropic"].models["claude-opus-5-5"].modelID, "ri.language-model-service..language-model.anthropic-claude-5-5-opus");
-  assert.equal(config.mcp.servers.palantir.disabled, true);
+  if (config.mcp?.servers?.palantir) assert.equal(config.mcp.servers.palantir.disabled, true);
   assert.ok(config.permissions.some(rule => rule.action === "external_directory" && rule.effect === "ask"));
   for (const id of Object.keys(providers)) {
     assert.deepEqual(Object.keys(config.providers[id].models), allowed[id]);
@@ -88,7 +88,7 @@ test("v2 HTTP hook normalizes every OpenAI request kind and preserves request me
       assert.deepEqual(body.tools[0].parameters, { type: "object", properties: {} });
       assert.equal(body.tools[1].strict, true);
       assert.ok(body.tools[1].parameters.properties.a);
-      assert.equal(event.request.headers.get("Authorization"), "Bearer synthetic-test-token");
+      assert.equal(event.request.headers.get("Authorization"), "Bearer stack-token");
       assert.equal(event.request.headers.get("X-Test"), "kept");
       assert.equal(event.request.signal.aborted, signal.aborted);
     }

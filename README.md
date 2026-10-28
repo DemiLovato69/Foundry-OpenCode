@@ -33,6 +33,13 @@ At the token prompt, select **Open Foundry token page** to open `https://<host>/
 - Update everything
 `foundry-opencode update`
 
+The update wizard can optionally change the global Foundry fallback and each selected
+stack's host and token independently. Leave a scope unchecked to retain its credentials;
+changed stack configs and private tokens are backed up. Child projects inherit their
+stack's credentials, but still use the globally configured default model unless the
+stack specifies one. If Foundry rejects a model with `INVALID_ARGUMENT`, select a model
+available on that stack or set a stack-local `model` in `.opencode/opencode.json`.
+
 - Remove installed tools, configs, credentials and session data permanently
 `foundry-opencode uninstall` (review first with `foundry-opencode uninstall --dry-run`)
 

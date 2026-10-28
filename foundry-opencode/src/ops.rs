@@ -125,6 +125,33 @@ pub fn replace_config(
     staged: &Path,
     backup: Option<&Path>,
 ) -> eyre::Result<()> {
+    #[cfg(target_os = "macos")]
+    if let Some(backup) = backup {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+        unsafe extern "C" {
+            fn renamex_np(
+                from: *const std::ffi::c_char,
+                to: *const std::ffi::c_char,
+                flags: u32,
+            ) -> i32;
+        }
+        let from = CString::new(destination.as_os_str().as_bytes())?;
+        let to = CString::new(staged.as_os_str().as_bytes())?;
+        // Swap atomically so plugin paths inside the global config never disappear.
+        eyre::ensure!(
+            unsafe { renamex_np(from.as_ptr(), to.as_ptr(), 0x00000002) } == 0,
+            "Could not swap configs: {}",
+            io::Error::last_os_error()
+        );
+        fs::rename(staged, backup).wrap_err_with(|| {
+            format!(
+                "New config is installed; old config remains at {}",
+                staged.display()
+            )
+        })?;
+        return Ok(());
+    }
     if let Some(backup) = backup {
         fs::rename(destination, backup).wrap_err("Could not back up existing configs")?;
     }
@@ -278,6 +305,29 @@ mod tests {
         fs::write(dest.join("mine"), "keep").unwrap();
         assert!(replace_config(&dest, &root.join("missing"), Some(&backup)).is_err());
         assert_eq!(fs::read_to_string(dest.join("mine")).unwrap(), "keep");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn config_swap_preserves_plugin_path() {
+        let root = sandbox();
+        let dest = root.join("opencode");
+        let stage = root.join("stage");
+        fs::create_dir_all(dest.join("plugins/local")).unwrap();
+        fs::create_dir_all(stage.join("plugins/local")).unwrap();
+        fs::write(dest.join("plugins/local/index.js"), "old").unwrap();
+        fs::write(stage.join("plugins/local/index.js"), "new").unwrap();
+        let backup = root.join("backup");
+        replace_config(&dest, &stage, Some(&backup)).unwrap();
+        assert_eq!(
+            fs::read_to_string(dest.join("plugins/local/index.js")).unwrap(),
+            "new"
+        );
+        assert_eq!(
+            fs::read_to_string(backup.join("plugins/local/index.js")).unwrap(),
+            "old"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

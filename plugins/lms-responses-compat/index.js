@@ -31,9 +31,6 @@ export default {
           url.pathname !== `${base.pathname.replace(/\/+$/, "")}/${endpoint}`) return;
 
       const headers = new Headers(request.headers);
-      if (process.env.OPENCODE_API_KEY) {
-        headers.set("Authorization", `Bearer ${process.env.OPENCODE_API_KEY.replace(/^Bearer\s+/i, "")}`);
-      }
 
       // Read a clone so malformed JSON can pass through without consuming the body.
       let body;
