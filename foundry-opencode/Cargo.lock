@@ -566,6 +566,7 @@ dependencies = [
  "jsonc-parser",
  "libc",
  "ratatui",
+ "serde",
  "serde_json",
  "unicode-segmentation",
  "unicode-width",

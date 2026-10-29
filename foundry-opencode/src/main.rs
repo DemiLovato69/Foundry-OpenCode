@@ -1,5 +1,6 @@
 mod cleanup;
 mod ops;
+mod projects;
 mod rag;
 mod stack;
 mod ui;
@@ -47,13 +48,13 @@ struct Args {
 
 #[derive(Clone, Copy, Subcommand)]
 enum Mode {
-    /// Generate per-stack OpenCode configuration
+    /// Configure a Git repository with its assigned Foundry stack
     Init,
     /// Configure and index RAG in the current project
     InitRag,
     /// Retire a verified V1 RAG plugin in the current project
     RepairPlugins,
-    /// Update Homebrew packages and fast-forward the config checkout
+    /// Update packages, global config and assigned repositories
     Update,
     /// Remove installed programs, configs, stack credentials and user data
     Uninstall,
@@ -76,7 +77,7 @@ fn main() -> eyre::Result<()> {
         }
         Some(Mode::Usage) => {
             println!(
-                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and select stack folders\nfoundry-opencode update    Update tools, configs and installer release\nfoundry-opencode repair-plugins Retire verified V1 RAG plugin in current project\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Create per-stack OpenCode config\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode --dry-run update  Preview credential and config changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
+                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and assign repositories to Foundry stacks\nfoundry-opencode update    Update tools, global config and project assignments\nfoundry-opencode repair-plugins Retire verified V1 RAG plugin in current project\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Configure a Git repository for a Foundry stack\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode --dry-run update  Preview project and config changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
             );
             return Ok(());
         }
@@ -186,6 +187,16 @@ fn init_rag(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     notice(terminal, "RAG — complete", &result)
 }
 
+fn register_rag_project(home: &std::path::Path, project: &std::path::Path) -> eyre::Result<()> {
+    let registry = home.join(".config/foundry-opencode/rag.json");
+    let mut paths = load_paths(&registry)?;
+    if !paths.contains(&project.to_path_buf()) {
+        paths.push(project.to_path_buf());
+        save_paths(&registry, &paths)?;
+    }
+    Ok(())
+}
+
 fn repair_plugins(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     let project = std::env::current_dir()?;
     let Some(path) = rag::legacy_plugin(&project)? else {
@@ -234,13 +245,6 @@ fn token_page(url: &str) -> String {
     format!("{url}/workspace/settings/tokens")
 }
 
-fn preview_stack(path: &std::path::Path, url: &str) -> String {
-    format!(
-        "Would create {}/.opencode/opencode.json for {url} and private, Git-ignored .opencode/token (mode 0600, token redacted)",
-        path.display(),
-    )
-}
-
 fn open_token_page(terminal: &mut DefaultTerminal, url: &str, dry_run: bool) -> eyre::Result<()> {
     let page = token_page(url);
     if dry_run {
@@ -259,232 +263,77 @@ fn open_token_page(terminal: &mut DefaultTerminal, url: &str, dry_run: bool) -> 
 }
 
 fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
-    let cwd = std::env::current_dir()?;
-    if fs::symlink_metadata(cwd.join(".envrc")).is_ok() {
-        let (supplied, archive) = migration_choice(terminal, &cwd, dry_run)?;
-        let preview = stack::migrate(
-            &cwd,
-            true,
-            supplied
-                .as_ref()
-                .map(|(url, key)| (url.as_str(), key.as_str())),
-            archive,
-        )?;
-        if ui::step_review(
-            terminal,
-            "Migrate stack",
-            &preview,
-            dry_run,
-            false,
-            "Migrate",
-        )? != ui::Nav::Next
-        {
-            return Err(Cancelled.into());
-        }
-        let result = if dry_run {
-            preview
+    let cwd = std::env::current_dir()?.canonicalize()?;
+    eyre::ensure!(
+        projects::is_repo(&cwd)?,
+        "Run init from a project repository root"
+    );
+    let user_home = home()?;
+    let catalog = projects::collect(terminal, &user_home, dry_run, Some(&cwd))?;
+    let project = catalog
+        .projects
+        .iter()
+        .find(|item| item.path == cwd)
+        .ok_or_else(|| eyre::eyre!("Select the current project"))?;
+    let stack = catalog
+        .choices()
+        .into_iter()
+        .find(|stack| stack.id == project.stack)
+        .ok_or_else(|| eyre::eyre!("Select a configured stack"))?;
+    let detail = format!(
+        "Back up and replace configuration in {} with stack {} ({}). RAG: {}. Private credentials remain outside the repository. Existing unrelated .opencode files and legacy parent configs are preserved.",
+        cwd.display(),
+        stack.name,
+        stack.url,
+        if project.rag {
+            "initialize"
         } else {
-            let message = stack::migrate(
-                &cwd,
-                false,
-                supplied
-                    .as_ref()
-                    .map(|(url, key)| (url.as_str(), key.as_str())),
-                archive,
-            )?;
-            register_stack(&cwd)?;
-            message
-        };
-        return notice(
-            terminal,
-            if dry_run {
-                "Dry-run complete"
-            } else {
-                "init — complete"
-            },
-            &result,
-        );
-    }
-    let config = cwd.join(".opencode/opencode.json");
-    if fs::symlink_metadata(&config).is_ok()
-        || fs::symlink_metadata(cwd.join(".opencode/opencode.jsonc")).is_ok()
-    {
-        if dry_run {
-            return notice(
-                terminal,
-                "init — dry run",
-                &format!(
-                    "{} already exists; would not overwrite it.",
-                    config.display()
-                ),
-            );
+            "not selected"
         }
-        eyre::bail!(
-            "{} already has OpenCode configuration; it was not changed",
-            cwd.display()
-        );
-    }
-    let mut url = String::new();
-    let mut key = String::new();
-    let mut step = 0usize;
-    loop {
-        let nav = match step {
-            0 => ui::step_text(
-                terminal,
-                "Foundry host",
-                "Enter your stack's HTTPS Foundry host (for example https://your-stack.palantirfoundry.com). Run init from the stack directory whose child projects should inherit this configuration.",
-                &mut url,
-                true,
-                ui::Field::Plain,
-            )?,
-            1 => ui::step_text(
-                terminal,
-                "Foundry token",
-                &format!(
-                    "Paste a token for {url}. Open the token page only if you choose to create one.{}",
-                    if dry_run {
-                        " A dry run does not require a token."
-                    } else {
-                        ""
-                    }
-                ),
-                &mut key,
-                false,
-                ui::Field::Token,
-            )?,
-            _ => {
-                let mut review = preview_stack(&cwd, &url);
-                if dry_run {
-                    review.push_str("\n\nDry run: no browser or files changed.");
-                }
-                ui::step_review(
-                    terminal,
-                    if dry_run {
-                        "Review preview"
-                    } else {
-                        "Review stack config"
-                    },
-                    &review,
-                    dry_run,
-                    false,
-                    "Create stack config",
-                )?
-            }
-        };
-        match nav {
-            ui::Nav::Cancel => return Err(Cancelled.into()),
-            ui::Nav::Back => step = step.saturating_sub(1),
-            ui::Nav::Open => open_token_page(terminal, &url, dry_run)?,
-            ui::Nav::Next => {
-                if step == 0 && !ops::valid_url(&url) {
-                    notice(
-                        terminal,
-                        "Invalid host",
-                        "Enter an HTTPS Foundry host without a path or spaces.",
-                    )?;
-                    continue;
-                }
-                if step == 1 && !dry_run && key.is_empty() {
-                    notice(
-                        terminal,
-                        "Token required",
-                        "Paste your token or go back to correct the host.",
-                    )?;
-                    continue;
-                }
-                if step == 2 {
-                    break;
-                }
-                step += 1;
-            }
-        }
-    }
-    if dry_run {
-        let steps = vec![("create per-stack config and private token".to_string(), 350)];
-        simulate(terminal, &steps)?;
-        return notice(
-            terminal,
-            "Dry-run complete",
-            &format!(
-                "{}\n\nSimulation only: no file was created.",
-                preview_stack(&cwd, &url),
-            ),
-        );
-    }
-    stack::create(&cwd, &url, &key)?;
-    register_stack(&cwd)?;
-    notice(
+    );
+    if ui::step_review(
         terminal,
-        "init — complete",
-        "Created per-stack OpenCode config and private token. OpenCode projects beneath this directory inherit the stack settings.",
-    )
-}
-
-fn migration_choice(
-    terminal: &mut DefaultTerminal,
-    path: &std::path::Path,
-    dry_run: bool,
-) -> eyre::Result<(Option<(String, String)>, bool)> {
-    if stack::legacy_credentials(path).is_ok() {
-        return Ok((None, false));
-    }
-    let mut url = String::new();
-    let mut key = String::new();
-    let mut archive = true;
-    loop {
-        if ui::step_text(
-            terminal,
-            "Unrecognized .envrc — Foundry host",
-            &format!(
-                "{} cannot be parsed safely. Enter its HTTPS Foundry host; shell contents will not be executed.",
-                path.display()
-            ),
-            &mut url,
-            false,
-            ui::Field::Plain,
-        )? != ui::Nav::Next
-        {
-            return Err(Cancelled.into());
-        }
-        if ops::valid_url(&url) {
-            break;
-        }
-        notice(
-            terminal,
-            "Invalid host",
-            "Enter an HTTPS Foundry host without a path.",
-        )?;
-    }
-    loop {
-        match ui::step_text(
-            terminal,
-            "Unrecognized .envrc — token",
-            "Enter this stack's token, or open the token page",
-            &mut key,
-            false,
-            ui::Field::Token,
-        )? {
-            ui::Nav::Next => break,
-            ui::Nav::Open => open_token_page(terminal, &url, dry_run)?,
-            _ => return Err(Cancelled.into()),
-        }
-    }
-    if dry_run && key.is_empty() {
-        key = "dry-run-placeholder".into();
-    }
-    eyre::ensure!(!key.is_empty(), "Token required to migrate stack");
-    if ui::step_checkbox(
-        terminal,
-        "Retire old .envrc",
-        "After the new config is verified, archive the old .envrc (recommended), or uncheck to delete it.",
-        "Archive old .envrc",
-        &mut archive,
+        "Review project config",
+        &detail,
+        dry_run,
         false,
+        "Initialize project",
     )? != ui::Nav::Next
     {
         return Err(Cancelled.into());
     }
-    Ok((Some((url, key)), archive))
+    if dry_run {
+        return notice(terminal, "Dry-run complete", &detail);
+    }
+    catalog.save(&user_home)?;
+    let mut progress = Progress {
+        done: 0,
+        total: 1 + usize::from(project.rag) * 2,
+        output: Vec::new(),
+    };
+    let existing_rag = project.rag && rag::ready(&cwd, &stack.url);
+    let backups = projects::write_project(&user_home, project, stack)?;
+    let mut result = format!(
+        "Configured {} ({} previous config files backed up).",
+        cwd.display(),
+        backups.len()
+    );
+    if existing_rag {
+        result.push_str("\nReused the existing RAG index.");
+    } else if project.rag {
+        let token = &catalog.tokens[&stack.id];
+        match rag::setup(&cwd, &stack.url, false, |label, mut command| {
+            command.env("OPENAI_API_KEY", token);
+            run(terminal, &mut progress, label, command)
+        }) {
+            Ok(message) => {
+                register_rag_project(&user_home, &cwd)?;
+                result.push_str(&format!("\n{message}"));
+            }
+            Err(error) => result.push_str(&format!("\nRAG incomplete: {error}")),
+        }
+    }
+    notice(terminal, "Project init — complete", &result)
 }
 
 // shortcut: external commands report no percentages, replace the spinner when they expose progress.
@@ -518,33 +367,6 @@ impl Progress {
         }
         false
     }
-}
-
-fn simulate(terminal: &mut DefaultTerminal, steps: &[(String, u64)]) -> eyre::Result<()> {
-    // shortcut: mock times are illustrative, use measured timings only if real task telemetry is added.
-    for (index, (label, millis)) in steps.iter().enumerate() {
-        let start = Instant::now();
-        loop {
-            let fraction = (start.elapsed().as_secs_f64() * 1000.0 / *millis as f64).min(1.0);
-            terminal.draw(|frame| {
-                ui::mock_progress(
-                    frame,
-                    &format!("Would {label} (mock {millis} ms)"),
-                    index,
-                    steps.len(),
-                    fraction,
-                )
-            })?;
-            if fraction >= 1.0 {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        }
-    }
-    terminal.draw(|frame| {
-        ui::mock_progress(frame, "Simulation complete", steps.len(), steps.len(), 0.0)
-    })?;
-    Ok(())
 }
 
 fn busy<T: Send + 'static>(
@@ -868,21 +690,6 @@ fn load_paths(path: &std::path::Path) -> eyre::Result<Vec<PathBuf>> {
     }
 }
 
-fn save_stacks(home: &std::path::Path, paths: &[PathBuf]) -> eyre::Result<()> {
-    save_paths(&stack_registry(home), paths)
-}
-
-fn register_stack(stack: &std::path::Path) -> eyre::Result<()> {
-    let user_home = home()?;
-    let mut stacks = load_stacks(&user_home)?;
-    let canonical = stack.canonicalize()?;
-    if !stacks.contains(&canonical) {
-        stacks.push(canonical);
-        save_stacks(&user_home, &stacks)?;
-    }
-    Ok(())
-}
-
 fn save_paths(path: &std::path::Path, paths: &[PathBuf]) -> eyre::Result<()> {
     fs::create_dir_all(path.parent().unwrap())?;
     let staged = ops::backup_path(path);
@@ -956,6 +763,7 @@ fn remove_safe(path: &std::path::Path) -> eyre::Result<()> {
 
 fn uninstall(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     let user_home = home()?;
+    let managed = projects::Catalog::inventory(&user_home)?;
     // shortcut: older RAG projects have no registry; add safe discovery if historical projects must be wiped automatically.
     let mut selected = load_stacks(&user_home)?;
     selected.retain(|path| path.exists());
@@ -987,6 +795,28 @@ fn uninstall(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> 
         user_home.join("Library/Caches/OpenChamber"),
         user_home.join("Library/Logs/OpenChamber"),
     ];
+    for project in &managed.projects {
+        if project.path.exists() {
+            eyre::ensure!(
+                project
+                    .path
+                    .canonicalize()
+                    .is_ok_and(|path| path == project.path)
+                    && project.path != user_home
+                    && project.path != std::path::Path::new("/"),
+                "Unsafe saved project {}",
+                project.path.display()
+            );
+            let open = project.path.join(".opencode");
+            eyre::ensure!(
+                fs::symlink_metadata(&open)
+                    .is_ok_and(|meta| meta.is_dir() && !meta.file_type().is_symlink()),
+                "Unsafe project config directory {}",
+                open.display()
+            );
+            targets.push(open.join("opencode.json"));
+        }
+    }
     if let Ok(entries) = fs::read_dir(config.parent().unwrap()) {
         for entry in entries {
             let entry = entry?;
@@ -1099,11 +929,12 @@ fn uninstall(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> 
     let packages = ["opencode", "opencode-v1", "opencode-v2", "direnv"];
     let npm_packages = cleanup::npm_opencode()?;
     let mut review = format!(
-        "PERMANENT FULL WIPE: sessions, credentials, caches and config backups will be deleted.\nRemove CLI: {}\nHomebrew: {:?}; OpenChamber cask (if installed).\nGlobal npm: {:?}.\nRemove direnv hooks from .zshrc (also ZDOTDIR) and generated stack .gitignore entries.\nSelected stacks: {}; RAG projects: {}\nPaths:\n{}\n\nOther files inside project/stack directories are preserved.",
+        "PERMANENT FULL WIPE: sessions, credentials, caches and global/legacy stack backups will be deleted. Project config backups remain for manual recovery.\nRemove CLI: {}\nHomebrew: {:?}; OpenChamber cask (if installed).\nGlobal npm: {:?}.\nRemove direnv hooks from .zshrc (also ZDOTDIR) and generated stack .gitignore entries.\nLegacy stacks: {}; managed project configs: {}; RAG projects: {}\nPaths:\n{}\n\nOther files inside project/stack directories are preserved.",
         ops::BIN_PATH,
         packages,
         npm_packages,
         selected.len(),
+        managed.projects.len(),
         projects.len(),
         targets
             .iter()
@@ -1239,10 +1070,16 @@ fn uninstall(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> 
             fs::remove_dir(dir)?;
         }
     }
+    for project in &managed.projects {
+        let dir = project.path.join(".opencode");
+        if fs::read_dir(&dir).is_ok_and(|mut entries| entries.next().is_none()) {
+            fs::remove_dir(dir)?;
+        }
+    }
     notice(
         terminal,
         "Uninstall — complete",
-        "Removed registered stack configs, direnv and known OpenCode/OpenChamber user data. Installer binary will be removed when you close this screen.",
+        "Removed registered project configs, legacy stack configs, direnv and known OpenCode/OpenChamber user data. Project config backups remain. Installer binary will be removed when you close this screen.",
     )
 }
 
@@ -1476,57 +1313,13 @@ fn reset(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     )
 }
 
-#[derive(Clone)]
-enum InstallPage {
-    Options,
-    Backup,
-    Stacks,
-    Global,
-    GlobalHost,
-    GlobalToken,
-    Host(PathBuf),
-    Token(PathBuf),
-    Archive(PathBuf),
-    Review,
-}
-
 struct InstallPlan {
     config: PathBuf,
     backup: PathBuf,
     existing: bool,
     with_chamber: bool,
-    stacks: Vec<StackInstall>,
-    global: Option<(String, String)>,
+    catalog: projects::Catalog,
     cleanup: cleanup::Inventory,
-}
-
-type StackInstall = (PathBuf, Option<(String, String)>, bool);
-
-fn install_pages(existing: bool, selected: &[PathBuf], global: bool) -> Vec<InstallPage> {
-    let mut pages = vec![InstallPage::Options];
-    if existing {
-        pages.push(InstallPage::Backup);
-    }
-    pages.extend([InstallPage::Stacks, InstallPage::Global]);
-    if global {
-        pages.extend([InstallPage::GlobalHost, InstallPage::GlobalToken]);
-    }
-    for path in selected {
-        let has_envrc = fs::symlink_metadata(path.join(".envrc")).is_ok();
-        let existing_config = path.join(".opencode/opencode.json").exists()
-            || path.join(".opencode/opencode.jsonc").exists();
-        if (!has_envrc && !existing_config)
-            || (has_envrc && stack::legacy_credentials(path).is_err())
-        {
-            pages.push(InstallPage::Host(path.clone()));
-            pages.push(InstallPage::Token(path.clone()));
-        }
-        if has_envrc && stack::legacy_credentials(path).is_err() {
-            pages.push(InstallPage::Archive(path.clone()));
-        }
-    }
-    pages.push(InstallPage::Review);
-    pages
 }
 
 fn collect_install_plan(
@@ -1537,365 +1330,185 @@ fn collect_install_plan(
     let config = user_home.join(".config/opencode");
     let existing = fs::symlink_metadata(&config).is_ok();
     let backup = ops::backup_path(&config);
+    let catalog = projects::collect(terminal, &user_home, dry_run, None)?;
     let mut with_chamber = false;
-    let mut backup_ok = false;
-    let mut current = user_home.canonicalize()?;
-    let mut selected = load_stacks(&user_home)?;
-    selected.retain(|path| path.exists());
-    let previous_global = if existing {
-        ops::global_credentials(&config).ok().flatten()
-    } else {
-        None
-    };
-    let mut global = previous_global.is_some();
-    let mut global_credentials = previous_global.unwrap_or_default();
-    let mut credentials = std::collections::BTreeMap::<PathBuf, (String, String)>::new();
-    let mut archives = std::collections::BTreeMap::<PathBuf, bool>::new();
-    let mut page = 0usize;
-    let mut preview_summary = String::new();
-    let mut cleanup_plan = None;
-    loop {
-        let pages = install_pages(existing, &selected, global);
-        let current_page = pages[page].clone();
-        let nav = match current_page {
-            InstallPage::Options => ui::step_checkbox(
-                terminal,
-                "Optional application",
-                "OpenCode is required. OpenChamber is optional and uses the Homebrew cask.",
-                "Install OpenChamber",
-                &mut with_chamber,
-                true,
-            )?,
-            InstallPage::Backup => ui::step_checkbox(
-                terminal,
-                "Existing configuration",
-                &format!(
-                    "{} already exists. We will back it up to {} before replacing it. Your old files remain in that backup.",
-                    config.display(),
-                    backup.display()
-                ),
-                "I understand",
-                &mut backup_ok,
-                false,
-            )?,
-            InstallPage::Stacks => {
-                ui::step_explorer(terminal, &user_home, &mut current, &mut selected)?
-            }
-            InstallPage::Global => ui::step_checkbox(
-                terminal,
-                "Global Foundry fallback",
-                "Configure a private default Foundry host/token for projects outside selected stacks? Stack-local configs override it.",
-                "Use global fallback",
-                &mut global,
-                false,
-            )?,
-            InstallPage::GlobalHost => ui::step_text(
-                terminal,
-                "Global Foundry host",
-                "Enter an HTTPS Foundry host",
-                &mut global_credentials.0,
-                false,
-                ui::Field::Plain,
-            )?,
-            InstallPage::GlobalToken => ui::step_text(
-                terminal,
-                "Global Foundry token",
-                "Enter a private token for the global fallback",
-                &mut global_credentials.1,
-                false,
-                ui::Field::Token,
-            )?,
-            InstallPage::Host(name) => {
-                let fields = credentials.entry(name.clone()).or_default();
-                ui::step_text(
-                    terminal,
-                    &format!("{} — Foundry host", name.display()),
-                    "Enter this stack's Foundry base URL (https://host). The config will be created in the selected stack directory, not its nested repositories.",
-                    &mut fields.0,
-                    false,
-                    ui::Field::Plain,
-                )?
-            }
-            InstallPage::Token(name) => {
-                let fields = credentials.entry(name.clone()).or_default();
-                ui::step_text(
-                    terminal,
-                    &format!("{} — API token", name.display()),
-                    &format!(
-                        "Paste a token for {}. Only activate Open token page if you want to create one in your browser. The token remains hidden.{}",
-                        fields.0,
-                        if dry_run {
-                            " No token is requested in dry-run mode."
-                        } else {
-                            ""
-                        }
-                    ),
-                    &mut fields.1,
-                    false,
-                    ui::Field::Token,
-                )?
-            }
-            InstallPage::Archive(path) => ui::step_checkbox(
-                terminal,
-                "Unrecognized .envrc",
-                &format!(
-                    "{} contains shell content the installer will not execute. After verifying the new stack config, archive it (recommended) or delete it? Uncheck to delete.",
-                    path.join(".envrc").display()
-                ),
-                "Archive old .envrc",
-                archives.entry(path).or_insert(true),
-                false,
-            )?,
-            InstallPage::Review => {
-                let home_for_check = user_home.clone();
-                let inventory = busy(terminal, "Inspecting installed tools", move || {
-                    cleanup::inspect(&home_for_check, with_chamber)
-                })?;
-                let mut preview = format!(
-                    "Homebrew: update; install/upgrade OpenCode{}.\nClone {} to {}{}.\nConfigure {} selected stacks.\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.\nDownload latest macOS release, verify SHA-256 and version, install to {}.",
-                    if with_chamber { ", OpenChamber" } else { "" },
-                    ops::REMOTE,
-                    config.display(),
-                    if existing {
-                        format!(" (backup: {})", backup.display())
-                    } else {
-                        String::new()
-                    },
-                    selected.len(),
-                    ops::BIN_PATH
-                );
-                if inventory.brew_v2 {
-                    preview.push_str(
-                        "\nMigrate Homebrew opencode-v2 to standard opencode (V2 verified).",
-                    );
-                }
-                for name in &inventory.brew_v1 {
-                    preview.push_str(&format!("\nUninstall V1 Homebrew package: {name}"));
-                }
-                for name in &inventory.npm_v1 {
-                    preview.push_str(&format!("\nUninstall global V1 npm package: {name}"));
-                }
-                for path in &inventory.files {
-                    preview.push_str(&format!(
-                        "\nMove non-Homebrew OpenCode binary to Trash: {}",
-                        path.display()
-                    ));
-                }
-                if inventory.chamber {
-                    preview.push_str("\nMove non-Homebrew /Applications/OpenChamber.app to Trash (app data is preserved).");
-                }
-                for path in &inventory.unknown {
-                    preview.push_str(&format!(
-                        "\nUnrecognized executable (leave untouched): {}",
-                        path.display()
-                    ));
-                }
-                cleanup_plan = Some(inventory);
-                if global {
-                    preview.push_str("\nConfigure private global Foundry fallback.");
-                }
-                for name in &selected {
-                    let path = name.join(".envrc");
-                    if stack::outdated_mcp(name).unwrap_or(false) {
-                        preview.push_str(&format!("\nBack up and update verified Palantir MCP launcher in {} (npm registry override only)", name.display()));
-                    }
-                    if fs::symlink_metadata(&path).is_ok() {
-                        let pair = credentials
-                            .get(name)
-                            .map(|(url, key)| (url.as_str(), key.as_str()));
-                        let result =
-                            stack::migrate(name, true, pair, *archives.get(name).unwrap_or(&false))
-                                .wrap_err_with(|| format!("Cannot migrate {}", path.display()))?;
-                        preview.push_str(&format!("\n{result}"));
-                    } else if name.join(".opencode/opencode.json").exists()
-                        || name.join(".opencode/opencode.jsonc").exists()
-                    {
-                        preview.push_str(&format!(
-                            "\nSkip existing stack config for {}",
-                            name.display()
-                        ));
-                    } else if let Some((url, _)) = credentials.get(name) {
-                        preview.push_str(&format!("\n{}", preview_stack(name, url)));
-                    }
-                }
-                if dry_run {
-                    preview.push_str("\n\nDry run: read-only inventory only; no install/removal commands, browser or file changes.");
-                    preview_summary = preview.clone();
-                }
-                ui::step_review(
-                    terminal,
-                    if dry_run {
-                        "Review preview"
-                    } else {
-                        "Review installation"
-                    },
-                    &preview,
-                    dry_run,
-                    false,
-                    "Install",
-                )?
-            }
-        };
-        match nav {
-            ui::Nav::Cancel => return Err(Cancelled.into()),
-            ui::Nav::Back => page = page.saturating_sub(1),
-            ui::Nav::Open => {
-                if let InstallPage::Token(name) = &pages[page] {
-                    let url = &credentials[name].0;
-                    open_token_page(terminal, url, dry_run)?;
-                } else if matches!(&pages[page], InstallPage::GlobalToken) {
-                    open_token_page(terminal, &global_credentials.0, dry_run)?;
-                }
-            }
-            ui::Nav::Next => {
-                match &pages[page] {
-                    InstallPage::Backup if !backup_ok => {
-                        notice(
-                            terminal,
-                            "Confirmation required",
-                            "Please agree to the backup and replacement, or go back to cancel.",
-                        )?;
-                        continue;
-                    }
-                    InstallPage::Stacks => {
-                        let config_path = config.canonicalize().unwrap_or(config.clone());
-                        if selected.iter().any(|path| {
-                            path.starts_with(&config_path)
-                                || !path.is_dir()
-                                || path == &user_home
-                                || path == std::path::Path::new("/")
-                        }) {
-                            notice(
-                                terminal,
-                                "Invalid stack",
-                                "Choose existing stack folders outside the config checkout, not your home or filesystem root.",
-                            )?;
-                            continue;
-                        }
-                    }
-                    InstallPage::GlobalHost if !ops::valid_url(&global_credentials.0) => {
-                        notice(
-                            terminal,
-                            "Invalid URL",
-                            "Enter an HTTPS host without a path.",
-                        )?;
-                        continue;
-                    }
-                    InstallPage::GlobalToken if !dry_run && global_credentials.1.is_empty() => {
-                        notice(
-                            terminal,
-                            "Token required",
-                            "Enter the global Foundry token.",
-                        )?;
-                        continue;
-                    }
-                    InstallPage::GlobalToken if dry_run && global_credentials.1.is_empty() => {
-                        global_credentials.1 = "dry-run-placeholder".into();
-                    }
-                    InstallPage::Host(name) => {
-                        if !ops::valid_url(&credentials[name].0) {
-                            notice(
-                                terminal,
-                                "Invalid URL",
-                                "Enter the HTTPS Foundry host without a path or spaces.",
-                            )?;
-                            continue;
-                        }
-                    }
-                    InstallPage::Token(name) if !dry_run && credentials[name].1.is_empty() => {
-                        notice(
-                            terminal,
-                            "Token required",
-                            "Paste a Foundry API token, or go back to change the host.",
-                        )?;
-                        continue;
-                    }
-                    InstallPage::Token(name) if dry_run && credentials[name].1.is_empty() => {
-                        credentials.get_mut(name).unwrap().1 = "dry-run-placeholder".into();
-                    }
-                    _ => {}
-                }
-                if page + 1 == pages.len() {
-                    let inventory = cleanup_plan
-                        .take()
-                        .ok_or_else(|| eyre::eyre!("Missing install inventory"))?;
-                    if !inventory.unknown.is_empty() && !dry_run {
-                        notice(
-                            terminal,
-                            "Unrecognized OpenCode executable",
-                            "Unknown executables will not be removed. Homebrew installation and config setup will continue; check PATH if an old executable is selected by your shell.",
-                        )?;
-                    }
-                    if dry_run {
-                        let mut steps = vec![("refresh Homebrew metadata".to_string(), 300)];
-                        for name in &inventory.brew_v1 {
-                            steps.push((format!("uninstall V1 Homebrew {name}"), 220));
-                        }
-                        for name in &inventory.npm_v1 {
-                            steps.push((format!("npm uninstall -g {name}"), 240));
-                        }
-                        for path in &inventory.files {
-                            steps.push((format!("move {} to Trash", path.display()), 180));
-                        }
-                        if inventory.brew_v2 {
-                            steps.push(("uninstall Homebrew opencode-v2".to_string(), 280));
-                        }
-                        steps.push(("install or upgrade OpenCode V2".to_string(), 400));
-                        if with_chamber {
-                            if inventory.chamber {
-                                steps.push((
-                                    "move non-Homebrew OpenChamber.app to Trash".to_string(),
-                                    200,
-                                ));
-                            }
-                            steps
-                                .push(("install or upgrade optional OpenChamber".to_string(), 350));
-                        }
-                        steps.push((
-                            "clone config repository to ~/.config/opencode".to_string(),
-                            500,
-                        ));
-                        for name in &selected {
-                            let action = if fs::symlink_metadata(name.join(".envrc")).is_ok() {
-                                "migrate existing .envrc"
-                            } else {
-                                "create or reuse stack config"
-                            };
-                            steps.push((format!("{action} for {}", name.display()), 170));
-                        }
-                        steps.push(("upgrade verified Palantir MCP launchers".to_string(), 220));
-                        steps.push(("replace the installer in /usr/local/bin".to_string(), 220));
-                        if !inventory.unknown.is_empty() {
-                            steps.push((
-                                "skip unresolved OpenCode installations (manual removal required)"
-                                    .to_string(),
-                                150,
-                            ));
-                        }
-                        simulate(terminal, &steps)?;
-                        notice(terminal, "Dry-run complete", &preview_summary)?;
-                        return Ok(None);
-                    }
-                    let mut stacks = Vec::new();
-                    for path in selected {
-                        let pair = credentials.remove(&path);
-                        let archive = *archives.get(&path).unwrap_or(&false);
-                        stacks.push((path, pair, archive));
-                    }
-                    return Ok(Some(InstallPlan {
-                        config,
-                        backup,
-                        existing,
-                        with_chamber,
-                        stacks,
-                        global: global.then_some(global_credentials),
-                        cleanup: inventory,
-                    }));
-                }
-                page += 1;
-            }
+    if ui::step_checkbox(
+        terminal,
+        "Optional application",
+        "OpenCode is required. OpenChamber is optional.",
+        "Install OpenChamber",
+        &mut with_chamber,
+        false,
+    )? != ui::Nav::Next
+    {
+        return Err(Cancelled.into());
+    }
+    if existing {
+        let mut confirmed = false;
+        if ui::step_checkbox(
+            terminal,
+            "Existing global configuration",
+            &format!(
+                "{} will be backed up to {} before replacement.",
+                config.display(),
+                backup.display()
+            ),
+            "I understand",
+            &mut confirmed,
+            false,
+        )? != ui::Nav::Next
+            || !confirmed
+        {
+            return Err(Cancelled.into());
         }
     }
+    let inventory = busy(terminal, "Inspecting installed tools", {
+        let user_home = user_home.clone();
+        move || cleanup::inspect(&user_home, with_chamber)
+    })?;
+    let mut review = format!(
+        "Install/upgrade OpenCode{}; clone latest global configuration{}; download and verify the installer release. Remove direnv and its shell hooks.\n{} selected repositories:",
+        if with_chamber { " and OpenChamber" } else { "" },
+        if existing {
+            format!(" (backup: {})", backup.display())
+        } else {
+            String::new()
+        },
+        catalog.projects.len()
+    );
+    if inventory.brew_v2 {
+        review.push_str("\nMigrate Homebrew opencode-v2 to the standard V2 formula.");
+    }
+    for name in &inventory.brew_v1 {
+        review.push_str(&format!("\nUninstall V1 Homebrew package: {name}"));
+    }
+    for name in &inventory.npm_v1 {
+        review.push_str(&format!("\nUninstall global V1 npm package: {name}"));
+    }
+    for path in &inventory.files {
+        review.push_str(&format!(
+            "\nMove older OpenCode executable to Trash: {}",
+            path.display()
+        ));
+    }
+    if inventory.chamber {
+        review.push_str("\nMove non-Homebrew /Applications/OpenChamber.app to Trash if OpenChamber was selected.");
+    }
+    for path in &inventory.unknown {
+        review.push_str(&format!(
+            "\nUnrecognized executable (leave untouched): {}",
+            path.display()
+        ));
+    }
+    for project in &catalog.projects {
+        let stack = catalog
+            .choices()
+            .into_iter()
+            .find(|item| item.id == project.stack)
+            .ok_or_else(|| eyre::eyre!("Unknown stack for {}", project.path.display()))?;
+        review.push_str(&format!(
+            "\n{} => {} ({}){}; back up and replace existing project config files: {}",
+            project.path.display(),
+            stack.name,
+            stack.url,
+            if project.rag { "; initialize RAG" } else { "" },
+            projects::config_paths(&project.path)
+                .iter()
+                .filter(|path| path.exists())
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    for previous in projects::Catalog::inventory(&user_home)?.projects {
+        if !catalog
+            .projects
+            .iter()
+            .any(|project| project.path == previous.path)
+        {
+            review.push_str(&format!("\nDeselect {}: assignment removed; previous config is preserved for manual removal.", previous.path.display()));
+        }
+    }
+    review.push_str("\nOther .opencode files and existing legacy stack configs are preserved. Tokens are redacted.");
+    if dry_run {
+        review.push_str("\nDry run: no files, packages, browser or credentials changed.");
+    }
+    if ui::step_review(
+        terminal,
+        "Review installation",
+        &review,
+        dry_run,
+        false,
+        "Install",
+    )? != ui::Nav::Next
+    {
+        return Err(Cancelled.into());
+    }
+    if dry_run {
+        notice(terminal, "Dry-run complete", &review)?;
+        return Ok(None);
+    }
+    Ok(Some(InstallPlan {
+        config,
+        backup,
+        existing,
+        with_chamber,
+        catalog,
+        cleanup: inventory,
+    }))
+}
+
+fn configure_projects(
+    terminal: &mut DefaultTerminal,
+    progress: &mut Progress,
+    catalog: &projects::Catalog,
+) -> eyre::Result<Vec<String>> {
+    let mut result = Vec::new();
+    let user_home = home()?;
+    for project in &catalog.projects {
+        let chosen = catalog
+            .choices()
+            .into_iter()
+            .find(|item| item.id == project.stack)
+            .ok_or_else(|| eyre::eyre!("Unknown stack"))?;
+        progress.show(
+            terminal,
+            &format!("Configuring repository {}", project.path.display()),
+        )?;
+        let existing_rag = project.rag && rag::ready(&project.path, &chosen.url);
+        let backups = projects::write_project(&user_home, project, chosen)?;
+        result.push(format!(
+            "Configured {} for {} ({} configs backed up)",
+            project.path.display(),
+            chosen.name,
+            backups.len()
+        ));
+        if existing_rag {
+            register_rag_project(&user_home, &project.path)?;
+            result.push(format!(
+                "Reused existing RAG index for {}",
+                project.path.display()
+            ));
+        } else if project.rag {
+            let token = catalog.tokens[&chosen.id].clone();
+            let path = project.path.clone();
+            let url = chosen.url.clone();
+            match rag::setup(&path, &url, false, |label, mut command| {
+                command.env("OPENAI_API_KEY", &token);
+                run(terminal, progress, label, command)
+            }) {
+                Ok(message) => {
+                    register_rag_project(&user_home, &path)?;
+                    result.push(message);
+                }
+                Err(error) => {
+                    result.push(format!("RAG incomplete for {}: {error}", path.display()))
+                }
+            }
+        }
+        progress.done += 1;
+    }
+    Ok(result)
 }
 
 fn install(
@@ -1910,8 +1523,7 @@ fn install(
         backup,
         existing,
         with_chamber,
-        stacks,
-        global,
+        catalog,
         cleanup: inventory,
     } = plan;
     let (binary, release_version) = busy(
@@ -1923,7 +1535,13 @@ fn install(
         done: 0,
         total: 4
             + usize::from(with_chamber)
-            + stacks.len()
+            + catalog.projects.len()
+            + catalog
+                .projects
+                .iter()
+                .filter(|project| project.rag)
+                .count()
+                * 2
             + inventory.brew_v1.len()
             + inventory.npm_v1.len()
             + inventory.files.len()
@@ -2066,53 +1684,23 @@ fn install(
         }
         return Err(error);
     }
-    if let Some((url, key)) = &global
-        && let Err(error) = ops::prepare_global(&staged, url, key)
+    if let Some(default) = &catalog.default
+        && let Some(key) = catalog.tokens.get(&default.id)
+        && let Err(error) = ops::prepare_global(&staged, &default.url, key)
     {
         fs::remove_dir_all(&staged)?;
         return Err(error);
     }
     ops::replace_config(&config, &staged, existing.then_some(backup.as_path()))?;
-    let mut migration = Vec::new();
-    let selected: Vec<PathBuf> = stacks.iter().map(|(path, _, _)| path.clone()).collect();
-    save_stacks(&home()?, &selected)?;
-    for (path, pair, archive) in stacks {
-        progress.show(terminal, &format!("Configuring stack {}", path.display()))?;
-        if fs::symlink_metadata(path.join(".envrc")).is_ok() {
-            migration.push(stack::migrate(
-                &path,
-                false,
-                pair.as_ref().map(|(url, key)| (url.as_str(), key.as_str())),
-                archive,
-            )?);
-        } else if let Some((url, key)) = pair {
-            stack::create(&path, &url, &key)?;
-        }
-        progress.done += 1;
-    }
-    for path in &selected {
-        match stack::outdated_mcp(path) {
-            Ok(true) => {
-                stack::upgrade_mcp(path)?;
-                migration.push(format!(
-                    "Updated Palantir MCP registry for {} (old config backed up)",
-                    path.display()
-                ));
-            }
-            Ok(false) => {}
-            Err(error) => migration.push(format!(
-                "MCP launcher in {} was not upgraded: {error}",
-                path.display()
-            )),
-        }
-    }
+    catalog.save(&home()?)?;
+    let migration = configure_projects(terminal, &mut progress, &catalog)?;
     remove_direnv(terminal, false)?;
     progress.show(terminal, "Installation complete")?;
     notice(
         terminal,
         "Install — complete",
         &format!(
-            "Installation finished.{}\nStack configs are inherited by their child projects.{}\nRelease {release_version} will replace /usr/local/bin/foundry-opencode when you leave this screen.{}",
+            "Installation finished.{}\nSelected repositories have their own stack configuration.{}\nRelease {release_version} will replace /usr/local/bin/foundry-opencode when you leave this screen.{}",
             if existing {
                 format!(" Backup: {}", backup.display())
             } else {
@@ -2144,162 +1732,60 @@ fn update(
     terminal: &mut DefaultTerminal,
     dry_run: bool,
 ) -> eyre::Result<Option<ops::StagedBinary>> {
-    let config = home()?.join(".config/opencode");
     let user_home = home()?;
-    let mut current = user_home.canonicalize()?;
-    let mut selected = load_stacks(&user_home)?;
-    selected.retain(|path| path.exists());
-    if ui::step_explorer(terminal, &user_home, &mut current, &mut selected)? != ui::Nav::Next {
-        return Err(Cancelled.into());
-    }
-    let config_path = config.canonicalize().unwrap_or(config.clone());
-    eyre::ensure!(
-        selected.iter().all(|path| path.is_dir()
-            && !path.starts_with(&config_path)
-            && path != &user_home
-            && path != std::path::Path::new("/")),
-        "Invalid selected stack directory"
-    );
-    let mut migration = Vec::new();
-    for path in &selected {
-        if fs::symlink_metadata(path.join(".envrc")).is_ok() {
-            let (supplied, archive) = migration_choice(terminal, path, dry_run)?;
-            let preview = stack::migrate(
-                path,
-                true,
-                supplied
-                    .as_ref()
-                    .map(|(url, key)| (url.as_str(), key.as_str())),
-                archive,
-            )?;
-            migration.push((path.clone(), supplied, archive, preview));
-        }
-    }
-    let summary = migration
-        .iter()
-        .map(|(_, _, _, result)| result.clone())
-        .collect::<Vec<_>>()
-        .join("\n");
+    let catalog = projects::collect(terminal, &user_home, dry_run, None)?;
+    let config = user_home.join(".config/opencode");
     let existing = fs::symlink_metadata(&config).is_ok();
     let backup = ops::backup_path(&config);
-    let global = if existing {
-        match ops::global_credentials(&config) {
-            Ok(value) => value,
-            Err(error) => {
-                notice(
-                    terminal,
-                    "Global fallback not reusable",
-                    &format!(
-                        "{error}. The old config will be backed up; this fallback will not be copied to the new config."
-                    ),
-                )?;
-                None
-            }
-        }
-    } else {
-        None
-    };
-    let global_change =
-        offer_credentials(terminal, "Global Foundry fallback", global.clone(), dry_run)?;
-    let global_change = global_change.filter(|pair| global.as_ref() != Some(pair));
-    let mut stack_changes = Vec::new();
-    for path in &selected {
-        if fs::symlink_metadata(path.join(".envrc")).is_ok()
-            || !path.join(".opencode/opencode.json").exists()
-        {
-            continue;
-        }
-        let previous = stack::credentials(path)?;
-        if let Some((url, key)) = offer_credentials(
-            terminal,
-            &format!("Stack {}", path.display()),
-            Some(previous.clone()),
-            dry_run,
-        )? && (url.as_str(), key.as_str()) != (previous.0.as_str(), previous.1.as_str())
-        {
-            stack::update_credentials(path, &url, &key, true)?;
-            stack_changes.push((path.clone(), url, key));
-        }
-    }
-    let mut mcp_upgrades = Vec::new();
-    for path in &selected {
-        if stack_changes.iter().any(|(changed, _, _)| changed == path) {
-            continue; // Credential replacement already writes the new launcher.
-        }
-        if stack::outdated_mcp(path)? {
-            mcp_upgrades.push(path.clone());
-        }
-    }
-    let changes = format!(
-        "\nCredential changes: global {}; stacks: {}. Tokens are redacted.{}",
-        if global_change.is_some() {
-            "update"
-        } else {
-            "unchanged"
-        },
-        if stack_changes.is_empty() {
-            "none".to_owned()
-        } else {
-            stack_changes
-                .iter()
-                .map(|(path, _, _)| path.display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        },
-        if selected
-            .iter()
-            .any(|path| fs::symlink_metadata(path.join(".envrc")).is_ok())
-        {
-            " Legacy .envrc stacks can be edited after migration by rerunning update."
-        } else {
-            ""
-        }
-    );
-    let details = format!(
-        "Update Homebrew packages; clone latest config to {}{}; migrate selected stacks:\n{summary}{changes}\nUse public npm registry for Palantir MCP in newly generated configs. Upgrade existing managed MCP launchers (backing up each config): {}. Custom launchers are preserved.\nDownload latest macOS release, verify SHA-256 and version, install to {} after closing the wizard.\nRemove direnv hook from .zshrc, ~/.config/direnv, ~/.local/share/direnv and its installation.{}",
-        config.display(),
+    let mut details = format!(
+        "Upgrade Homebrew OpenCode (OpenChamber if installed), download and verify the latest installer release, clone global configs{}, and remove direnv plus its shell hooks.",
         if existing {
             format!(" (backup: {})", backup.display())
         } else {
             String::new()
-        },
-        if mcp_upgrades.is_empty() {
-            "none".to_owned()
-        } else {
-            mcp_upgrades
+        }
+    );
+    for project in &catalog.projects {
+        let stack = catalog
+            .choices()
+            .into_iter()
+            .find(|item| item.id == project.stack)
+            .ok_or_else(|| eyre::eyre!("Unknown stack"))?;
+        details.push_str(&format!(
+            "\n{}: {} ({}){}; replace existing config with backups: {}",
+            project.path.display(),
+            stack.name,
+            stack.url,
+            if project.rag { "; initialize RAG" } else { "" },
+            projects::config_paths(&project.path)
                 .iter()
+                .filter(|path| path.exists())
                 .map(|path| path.display().to_string())
                 .collect::<Vec<_>>()
                 .join(", ")
-        },
-        ops::BIN_PATH,
-        if dry_run {
-            "\nDry run: no changes."
-        } else {
-            ""
+        ));
+    }
+    for previous in projects::Catalog::inventory(&user_home)?.projects {
+        if !catalog
+            .projects
+            .iter()
+            .any(|project| project.path == previous.path)
+        {
+            details.push_str(&format!("\nDeselect {}: assignment removed; previous config is preserved for manual removal.", previous.path.display()));
         }
+    }
+    details.push_str(
+        "\nExisting parent stack configs and unrelated .opencode files remain. Tokens redacted.",
     );
+    if dry_run {
+        details.push_str("\nDry run: no files, packages, browser or credentials changed.");
+    }
     if ui::step_review(terminal, "Review update", &details, dry_run, true, "Update")?
         != ui::Nav::Next
     {
         return Err(Cancelled.into());
     }
     if dry_run {
-        simulate(
-            terminal,
-            &[
-                ("refresh Homebrew metadata".to_string(), 300),
-                ("install or upgrade OpenCode".to_string(), 400),
-                ("upgrade OpenChamber if installed".to_string(), 300),
-                ("migrate selected stack .envrc files".to_string(), 300),
-                ("upgrade managed Palantir MCP launchers".to_string(), 220),
-                (
-                    "clone latest config and back up existing checkout".to_string(),
-                    500,
-                ),
-                ("replace the installer in /usr/local/bin".to_string(), 220),
-            ],
-        )?;
         notice(terminal, "Dry-run complete", &details)?;
         return Ok(None);
     }
@@ -2311,7 +1797,15 @@ fn update(
     let chamber = installed("openchamber", true)?;
     let mut progress = Progress {
         done: 0,
-        total: 3 + usize::from(chamber),
+        total: 3
+            + usize::from(chamber)
+            + catalog.projects.len()
+            + catalog
+                .projects
+                .iter()
+                .filter(|project| project.rag)
+                .count()
+                * 2,
         output: Vec::new(),
     };
     brew_update(terminal, &mut progress)?;
@@ -2320,7 +1814,7 @@ fn update(
         let _ = optional_chamber(terminal, &mut progress);
     }
     let staged = ops::backup_path(&config);
-    let make_pull = || {
+    let make_clone = || {
         let mut git = Process::new("git");
         git.args([
             "clone",
@@ -2334,137 +1828,39 @@ fn update(
         .arg(&staged);
         git
     };
-    let cloned = run_interactive_git(
+    if let Err(error) = run_interactive_git(
         terminal,
         &mut progress,
         "Cloning latest configs",
-        make_pull(),
-        make_pull(),
+        make_clone(),
+        make_clone(),
         Some(&staged),
-    );
-    if let Err(error) = cloned {
+    ) {
         if staged.is_dir() {
             fs::remove_dir_all(&staged)?;
         }
         return Err(error);
     }
-    if let Some((url, key)) = global_change.or(global)
-        && let Err(error) = ops::prepare_global(&staged, &url, &key)
-    {
-        fs::remove_dir_all(&staged)?;
-        return Err(error);
+    if let Some(default) = &catalog.default {
+        let token = &catalog.tokens[&default.id];
+        if let Err(error) = ops::prepare_global(&staged, &default.url, token) {
+            fs::remove_dir_all(&staged)?;
+            return Err(error);
+        }
     }
     ops::replace_config(&config, &staged, existing.then_some(backup.as_path()))?;
-    save_stacks(&user_home, &selected)?;
-    let mut results = Vec::new();
-    for (path, supplied, archive, _) in migration {
-        results.push(stack::migrate(
-            &path,
-            false,
-            supplied
-                .as_ref()
-                .map(|(url, key)| (url.as_str(), key.as_str())),
-            archive,
-        )?);
-    }
-    for (path, url, key) in stack_changes {
-        stack::update_credentials(&path, &url, &key, false)?;
-        results.push(format!(
-            "Updated private credentials for {}",
-            path.display()
-        ));
-    }
-    for path in mcp_upgrades {
-        results.push(if stack::upgrade_mcp(&path)? {
-            format!(
-                "Updated Palantir MCP registry for {} (old config backed up)",
-                path.display()
-            )
-        } else {
-            format!(
-                "Skipped changed Palantir MCP config at {}; review it manually",
-                path.display()
-            )
-        });
-    }
-    remove_direnv(terminal, dry_run)?;
+    catalog.save(&user_home)?;
+    let results = configure_projects(terminal, &mut progress, &catalog)?;
+    remove_direnv(terminal, false)?;
     notice(
         terminal,
         "Update — complete",
         &format!(
-            "Packages and configs are up to date. Release {release_version} will replace the CLI in /usr/local/bin when you leave this screen.{}",
-            if results.is_empty() {
-                String::new()
-            } else {
-                format!("\n{}", results.join("\n"))
-            }
+            "Repositories configured. Release {release_version} will replace the CLI in /usr/local/bin when you leave this screen.\n{}",
+            results.join("\n")
         ),
     )?;
     Ok(Some(binary))
-}
-
-fn offer_credentials(
-    terminal: &mut DefaultTerminal,
-    name: &str,
-    previous: Option<(String, String)>,
-    dry_run: bool,
-) -> eyre::Result<Option<(String, String)>> {
-    let mut enabled = false;
-    let (mut url, mut key) = previous.unwrap_or_default();
-    let mut page = 0;
-    loop {
-        let nav = match page {
-            0 => ui::step_checkbox(
-                terminal,
-                &format!("Update {name}?"),
-                "Leave unchecked to keep the existing host and token. A selected scope can change either or both.",
-                "Change host/token",
-                &mut enabled,
-                false,
-            )?,
-            1 => ui::step_text(
-                terminal,
-                &format!("{name} — host"),
-                "HTTPS Foundry host",
-                &mut url,
-                false,
-                ui::Field::Plain,
-            )?,
-            _ => ui::step_text(
-                terminal,
-                &format!("{name} — token"),
-                "Private Foundry token (keep or replace)",
-                &mut key,
-                false,
-                ui::Field::Token,
-            )?,
-        };
-        match nav {
-            ui::Nav::Cancel => return Err(Cancelled.into()),
-            ui::Nav::Back if page > 0 => page -= 1,
-            ui::Nav::Back => return Err(Cancelled.into()),
-            ui::Nav::Open => open_token_page(terminal, &url, dry_run)?,
-            ui::Nav::Next if page == 0 && !enabled => return Ok(None),
-            ui::Nav::Next if page == 1 && !ops::valid_url(&url) => {
-                notice(
-                    terminal,
-                    "Invalid host",
-                    "Enter an HTTPS host without a path or spaces.",
-                )?;
-            }
-            ui::Nav::Next if page == 2 && key.is_empty() && !dry_run => {
-                notice(terminal, "Token required", "Enter a Foundry token.")?;
-            }
-            ui::Nav::Next if page == 2 => {
-                if key.is_empty() {
-                    key = "dry-run-placeholder".into();
-                }
-                eyre::ensure!(!key.chars().any(char::is_control), "Invalid Foundry token");
-                return Ok(Some((url, key)));
-            }
-            ui::Nav::Next => page += 1,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -2579,38 +1975,6 @@ mod tests {
             "https://example.palantirfoundry.com/workspace/settings/tokens"
         );
         assert!(!ops::valid_url("https://example.palantirfoundry.com/other"));
-        let preview = preview_stack(
-            std::path::Path::new("/stack"),
-            "https://example.palantirfoundry.com",
-        );
-        assert!(preview.contains("token redacted"));
-        assert!(preview.contains("https://example.palantirfoundry.com"));
-    }
-
-    #[test]
-    fn install_pages_prompt_for_unrecognized_envrc() {
-        let root = ops::backup_path(&std::env::temp_dir().join("foundry-pages"));
-        fs::create_dir(&root).unwrap();
-        fs::create_dir(root.join("existing")).unwrap();
-        fs::write(root.join("existing/.envrc"), "preserve").unwrap();
-        let selected = vec![root.join("existing"), root.join("new")];
-        let pages = install_pages(true, &selected, false);
-        assert!(matches!(pages.first(), Some(InstallPage::Options)));
-        assert!(
-            pages
-                .iter()
-                .any(|page| matches!(page, InstallPage::Host(name) if name == &root.join("new")))
-        );
-        assert!(
-            pages.iter().any(
-                |page| matches!(page, InstallPage::Host(name) if name == &root.join("existing"))
-            )
-        );
-        assert!(pages.iter().any(
-            |page| matches!(page, InstallPage::Archive(name) if name == &root.join("existing"))
-        ));
-        assert!(matches!(pages.last(), Some(InstallPage::Review)));
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -2649,7 +2013,7 @@ mod tests {
         fs::create_dir(&root).unwrap();
         let stack = root.join("stack");
         fs::create_dir(&stack).unwrap();
-        save_stacks(&root, std::slice::from_ref(&stack)).unwrap();
+        save_paths(&stack_registry(&root), std::slice::from_ref(&stack)).unwrap();
         assert_eq!(load_stacks(&root).unwrap(), [stack]);
         let keep = root.join("keep");
         fs::write(&keep, "preserve").unwrap();
