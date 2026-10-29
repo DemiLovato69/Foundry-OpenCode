@@ -32,7 +32,8 @@
     ],
     "plugins": [
         "@dietrichgebert/ponytail@5.3.2",
-        "./plugins/lms-responses-compat"
+        "./plugins/lms-responses-compat",
+        "-context-mode"
     ],
     "providers": {
         "palantir-openai": {

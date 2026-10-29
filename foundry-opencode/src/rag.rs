@@ -7,9 +7,47 @@ use color_eyre::eyre::{self, Context};
 use serde_json::{Value, json};
 
 const PACKAGE: &str = r#"{"private":true,"type":"module","scripts":{"postinstall":"node patch-opencode-rag.mjs"},"dependencies":{"@opencode-ai/plugin":"1.17.10","opencode-rag-plugin":"1.22.1"}}"#;
+const LEGACY_PLUGIN: &str = include_str!("legacy-rag-plugin.txt");
 const PATCH: &str = include_str!("rag-patch.mjs");
 const CLI: &str = include_str!("rag-cli.mjs");
+const LEGACY_CLI: &str = include_str!("rag-cli-legacy.mjs");
 const IGNORE: &str = "node_modules/\nrag_db/\nrag_db.backup-*/\nrag_db_tmp/\nopencode-rag.log\nruntime-overrides.json\n";
+
+pub fn ready(project: &Path, base_url: &str) -> bool {
+    files(project, base_url)
+        .iter()
+        .all(|(path, expected)| fs::read_to_string(path).is_ok_and(|text| text == *expected))
+        && project.join(".opencode/rag_db").is_dir()
+        && project
+            .join(".opencode/node_modules/opencode-rag-plugin/dist/cli/index.js")
+            .is_file()
+}
+
+pub fn legacy_plugin(project: &Path) -> eyre::Result<Option<PathBuf>> {
+    let open = project.join(".opencode");
+    let dir = open.join("plugins");
+    let path = dir.join("rag-plugin.js");
+    let metadata = match fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    eyre::ensure!(
+        fs::symlink_metadata(&open)?.is_dir()
+            && !fs::symlink_metadata(&open)?.file_type().is_symlink()
+            && fs::symlink_metadata(&dir)?.is_dir()
+            && !fs::symlink_metadata(&dir)?.file_type().is_symlink()
+            && metadata.is_file()
+            && !metadata.file_type().is_symlink(),
+        "Unsafe legacy RAG plugin path"
+    );
+    eyre::ensure!(
+        fs::read_to_string(&path)? == LEGACY_PLUGIN,
+        "{} is not the known V1 RAG wrapper; leave it untouched and migrate it manually",
+        path.display()
+    );
+    Ok(Some(path))
+}
 
 fn files(project: &Path, base_url: &str) -> Vec<(std::path::PathBuf, String)> {
     vec![
@@ -61,16 +99,24 @@ fn setup_files(
     let mut package_owned = false;
     let mut rag_owned = false;
     let mut missing = Vec::new();
+    let mut legacy_cli = false;
     for (index, (path, expected)) in files.iter().enumerate() {
         match fs::symlink_metadata(path) {
             Ok(metadata) => {
                 eyre::ensure!(
-                    metadata.is_file()
-                        && !metadata.file_type().is_symlink()
-                        && fs::read_to_string(path)? == *expected,
+                    metadata.is_file() && !metadata.file_type().is_symlink(),
+                    "Unsafe RAG file {}",
+                    path.display()
+                );
+                let existing = fs::read_to_string(path)?;
+                eyre::ensure!(
+                    existing == *expected || index == 2 && existing == LEGACY_CLI,
                     "{} differs from the installer RAG file; not changing it",
                     path.display()
                 );
+                if index == 2 && existing == LEGACY_CLI {
+                    legacy_cli = true;
+                }
                 reused += 1;
                 if index == 0 {
                     package_owned = true;
@@ -160,6 +206,11 @@ fn setup_files(
         "rag".into(),
         json!({"type": "local", "command": ["node", ".opencode/rag-cli.mjs", "mcp"]}),
     );
+    if let Some(reference) = doc["providers"]["palantir-openai"]["settings"]["apiKey"].as_str()
+        && reference.starts_with("{file:/")
+    {
+        doc["mcp"]["servers"]["rag"]["environment"] = json!({"OPENAI_API_KEY": reference});
+    }
     let paths = files
         .iter()
         .map(|(p, _)| p.display().to_string())
@@ -199,6 +250,15 @@ fn setup_files(
             let _ = fs::remove_file(path);
         }
         return Err(e);
+    }
+    if legacy_cli {
+        let path = project.join(".opencode/rag-cli.mjs");
+        let backup = crate::ops::backup_path(&path);
+        fs::rename(&path, &backup)?;
+        if let Err(error) = fs::write(&path, CLI) {
+            fs::rename(&backup, &path)?;
+            return Err(error.into());
+        }
     }
     Ok((paths, config, original, doc))
 }
@@ -265,7 +325,8 @@ pub fn setup(
         return Ok(paths);
     }
     let mut npm = Command::new("npm");
-    npm.arg("install").current_dir(project.join(".opencode"));
+    npm.args(["install", "--registry=https://registry.npmjs.org"])
+        .current_dir(project.join(".opencode"));
     run("Installing RAG dependencies (npm install)", npm)
         .wrap_err("RAG setup files remain; npm is required")?;
     let mut node = Command::new("node");
@@ -280,6 +341,88 @@ pub fn setup(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn known_legacy_rag_helper_is_backed_up_without_touching_the_index() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-helper-upgrade"));
+        fs::create_dir(&root).unwrap();
+        setup_files(&root, "https://example.com", false).unwrap();
+        let helper = root.join(".opencode/rag-cli.mjs");
+        fs::write(&helper, LEGACY_CLI).unwrap();
+        fs::create_dir(root.join(".opencode/rag_db")).unwrap();
+        fs::write(root.join(".opencode/rag_db/index"), "preserve").unwrap();
+        setup_files(&root, "https://example.com", true).unwrap();
+        assert_eq!(fs::read_to_string(&helper).unwrap(), LEGACY_CLI);
+        setup_files(&root, "https://example.com", false).unwrap();
+        assert_eq!(fs::read_to_string(&helper).unwrap(), CLI);
+        assert_eq!(
+            fs::read_to_string(root.join(".opencode/rag_db/index")).unwrap(),
+            "preserve"
+        );
+        assert!(
+            fs::read_dir(root.join(".opencode"))
+                .unwrap()
+                .map(Result::unwrap)
+                .any(|entry| entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("rag-cli.mjs.backup-"))
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn completed_index_can_be_reused_without_reindexing() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-reuse-test"));
+        fs::create_dir(&root).unwrap();
+        setup_files(&root, "https://example.com", false).unwrap();
+        fs::create_dir_all(root.join(".opencode/rag_db")).unwrap();
+        fs::create_dir_all(root.join(".opencode/node_modules/opencode-rag-plugin/dist/cli"))
+            .unwrap();
+        fs::write(
+            root.join(".opencode/node_modules/opencode-rag-plugin/dist/cli/index.js"),
+            "cli",
+        )
+        .unwrap();
+        assert!(ready(&root, "https://example.com"));
+        assert!(!ready(&root, "https://different.example.com"));
+        assert!(
+            Command::new("git")
+                .args(["init", "-q"])
+                .arg(&root)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let stack = crate::projects::Stack {
+            id: "default".into(),
+            name: "Global default".into(),
+            url: "https://example.com".into(),
+        };
+        let project = crate::projects::Project {
+            path: root.canonicalize().unwrap(),
+            stack: "default".into(),
+            rag: true,
+        };
+        crate::projects::write_project(&root, &project, &stack).unwrap();
+        let config = crate::stack::read_config(&root.join(".opencode/opencode.json")).unwrap();
+        assert_eq!(
+            config["mcp"]["servers"]["rag"]["environment"]["OPENAI_API_KEY"],
+            config["providers"]["palantir-openai"]["settings"]["apiKey"]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn only_the_known_legacy_plugin_can_be_retired() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("legacy-rag-test"));
+        fs::create_dir_all(root.join(".opencode/plugins")).unwrap();
+        let path = root.join(".opencode/plugins/rag-plugin.js");
+        fs::write(&path, LEGACY_PLUGIN).unwrap();
+        assert_eq!(legacy_plugin(&root).unwrap(), Some(path.clone()));
+        fs::write(&path, "custom plugin").unwrap();
+        assert!(legacy_plugin(&root).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "custom plugin");
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn preview_is_read_only_and_preserves_conflicts() {
         let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-setup-test"));

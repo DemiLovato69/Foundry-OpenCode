@@ -62,6 +62,7 @@ test("proxy provider IDs cannot select saved vendor OAuth accounts", () => {
   assert.equal(config.providers["palantir-openai"].canonical, "openai");
   assert.equal(config.providers["palantir-anthropic"].canonical, "anthropic");
   assert.ok(config.policies.some(rule => rule.action === "integration.use" && rule.resource === "plugin:context-mode" && rule.effect === "deny"));
+  assert.ok(config.plugins.includes("-context-mode"));
 });
 
 test("v2 HTTP hook normalizes every OpenAI request kind and preserves request metadata", async () => {
