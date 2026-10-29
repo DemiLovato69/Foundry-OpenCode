@@ -214,6 +214,146 @@ pub enum Nav {
     Open,
 }
 
+pub enum CatalogAction {
+    Back,
+    Next,
+    Add,
+    Edit(usize),
+    Remove(usize),
+}
+
+pub fn step_catalog(terminal: &mut DefaultTerminal, names: &[String]) -> Result<CatalogAction> {
+    let mut selected = 0usize;
+    let mut scroll = 0usize;
+    loop {
+        let visible = terminal.size()?.height.saturating_sub(11).max(1) as usize;
+        if selected < scroll {
+            scroll = selected;
+        }
+        if selected >= scroll + visible {
+            scroll = selected + 1 - visible;
+        }
+        let mut buttons = Vec::new();
+        let mut list = Rect::default();
+        terminal.draw(|frame| {
+            buttons = screen(frame, "Foundry stacks", "Set up the global default and your named stacks before selecting repositories.",
+                &[("Back", false), ("Add stack", false), ("Continue", true)], 0,
+                "Up/Down: select  Enter/E: edit  A: add  D: remove named stack  C: continue  Esc: back");
+            let body = sections(frame.area())[1];
+            list = Rect::new(body.x + 1, body.y + 3, body.width.saturating_sub(2), body.height.saturating_sub(4));
+            frame.render_widget(List::new(names.iter().skip(scroll).take(list.height as usize).enumerate().map(|(index, name)| format!("{} {name}", if index + scroll == selected { ">" } else { " " })).collect::<Vec<_>>()), list);
+        })?;
+        let event = event::read()?;
+        if let Some(index) = click(&event, &buttons) {
+            return Ok(match index {
+                0 => CatalogAction::Back,
+                1 => CatalogAction::Add,
+                _ => CatalogAction::Next,
+            });
+        }
+        if let Event::Mouse(mouse) = event
+            && mouse.kind == MouseEventKind::Down(MouseButton::Left)
+            && list.contains(Position::new(mouse.column, mouse.row))
+        {
+            selected = (mouse.row.saturating_sub(list.y) as usize + scroll)
+                .min(names.len().saturating_sub(1));
+        }
+        if let Event::Key(key) = event {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+            match key.code {
+                KeyCode::Esc => return Ok(CatalogAction::Back),
+                KeyCode::Char('a' | 'A') => return Ok(CatalogAction::Add),
+                KeyCode::Char('c' | 'C') => return Ok(CatalogAction::Next),
+                KeyCode::Char('d' | 'D') | KeyCode::Delete if selected > 0 => {
+                    return Ok(CatalogAction::Remove(selected - 1));
+                }
+                KeyCode::Enter | KeyCode::Char('e' | 'E') => {
+                    return Ok(CatalogAction::Edit(selected));
+                }
+                KeyCode::Up => selected = selected.saturating_sub(1),
+                KeyCode::Down => selected = (selected + 1).min(names.len().saturating_sub(1)),
+                _ => {}
+            }
+        }
+    }
+}
+
+pub fn step_choice(
+    terminal: &mut DefaultTerminal,
+    title: &str,
+    names: &[String],
+    selected: &mut usize,
+) -> Result<Nav> {
+    let mut scroll = 0usize;
+    loop {
+        let visible = terminal.size()?.height.saturating_sub(11).max(1) as usize;
+        if *selected < scroll {
+            scroll = *selected;
+        }
+        if *selected >= scroll + visible {
+            scroll = *selected + 1 - visible;
+        }
+        let mut buttons = Vec::new();
+        let mut list = Rect::default();
+        terminal.draw(|frame| {
+            buttons = screen(
+                frame,
+                title,
+                "Choose this repository's Foundry stack.",
+                &[("Back", false), ("Continue", true)],
+                0,
+                "Up/Down: select  Enter: continue  Esc: back",
+            );
+            let body = sections(frame.area())[1];
+            list = Rect::new(
+                body.x + 1,
+                body.y + 3,
+                body.width.saturating_sub(2),
+                body.height.saturating_sub(4),
+            );
+            frame.render_widget(
+                List::new(
+                    names
+                        .iter()
+                        .skip(scroll)
+                        .take(list.height as usize)
+                        .enumerate()
+                        .map(|(i, name)| {
+                            format!("{} {name}", if i + scroll == *selected { ">" } else { " " })
+                        })
+                        .collect::<Vec<_>>(),
+                ),
+                list,
+            );
+        })?;
+        let event = event::read()?;
+        if let Some(index) = click(&event, &buttons) {
+            return Ok(if index == 0 { Nav::Back } else { Nav::Next });
+        }
+        if let Event::Mouse(mouse) = event
+            && mouse.kind == MouseEventKind::Down(MouseButton::Left)
+            && list.contains(Position::new(mouse.column, mouse.row))
+        {
+            *selected = (mouse.row.saturating_sub(list.y) as usize + scroll)
+                .min(names.len().saturating_sub(1));
+        }
+        if let Event::Key(key) = event {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+            match key.code {
+                KeyCode::Esc => return Ok(Nav::Back),
+                KeyCode::Enter => return Ok(Nav::Next),
+                KeyCode::Up => *selected = selected.saturating_sub(1),
+                KeyCode::Down => *selected = (*selected + 1).min(names.len().saturating_sub(1)),
+                _ => {}
+            }
+        }
+    }
+}
+
 fn back(first: bool) -> Nav {
     if first { Nav::Cancel } else { Nav::Back }
 }
@@ -1118,17 +1258,6 @@ pub fn progress_with_output(
         &format!("Overall progress  {done}/{total}"),
         false,
         output,
-    );
-}
-
-pub fn mock_progress(frame: &mut Frame, label: &str, done: usize, total: usize, fraction: f64) {
-    progress_frame(
-        frame,
-        label,
-        (done as f64 + fraction) / total.max(1) as f64,
-        &format!("Mock progress  {}/{}", (done + 1).min(total), total),
-        true,
-        &[],
     );
 }
 
