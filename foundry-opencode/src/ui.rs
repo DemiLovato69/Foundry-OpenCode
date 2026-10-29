@@ -717,6 +717,35 @@ pub fn step_explorer(
     current: &mut PathBuf,
     checked: &mut Vec<PathBuf>,
 ) -> Result<Nav> {
+    explorer(terminal, home, current, checked, "stack", false)
+}
+
+pub fn step_initial_explorer(
+    terminal: &mut DefaultTerminal,
+    home: &Path,
+    current: &mut PathBuf,
+    checked: &mut Vec<PathBuf>,
+) -> Result<Nav> {
+    explorer(terminal, home, current, checked, "stack", true)
+}
+
+pub fn step_project_explorer(
+    terminal: &mut DefaultTerminal,
+    home: &Path,
+    current: &mut PathBuf,
+    checked: &mut Vec<PathBuf>,
+) -> Result<Nav> {
+    explorer(terminal, home, current, checked, "RAG project", false)
+}
+
+fn explorer(
+    terminal: &mut DefaultTerminal,
+    home: &Path,
+    current: &mut PathBuf,
+    checked: &mut Vec<PathBuf>,
+    kind: &str,
+    first: bool,
+) -> Result<Nav> {
     let mut scroll = 0usize;
     let mut focus = 0usize; // tree, search
     let mut query = String::new();
@@ -775,10 +804,10 @@ pub fn step_explorer(
             scroll = scroll_selected.saturating_sub(visible / 2);
         }
         terminal.draw(|frame| {
-            buttons = screen(frame, "Choose stack directories", &format!(
-                "Browsing {}\n{} marked as stacks. Hidden folders omitted; type a full path to open one.",
+            buttons = screen(frame, &format!("Choose {kind} directories"), &format!(
+                "Browsing {}\n{} marked as {kind} folders. Hidden folders omitted; type a full path to open one.",
                 current.display(), checked.len()),
-                &[("Back", false), ("Continue", true)], 0,
+                &[(if first { "Cancel" } else { "Back" }, false), ("Continue", true)], 0,
                 "Tab: tree/search  S: search  /: path  Enter/Right: expand  Left: collapse  Space: mark  C: continue");
             let body = sections(frame.area())[1];
             search_area = Rect::new(body.x + 1, body.y + 3, body.width.saturating_sub(2), 1);
@@ -803,7 +832,7 @@ pub fn step_explorer(
         let event = event::read()?;
         let button = click(&event, &buttons);
         if button == Some(0) {
-            return Ok(Nav::Back);
+            return Ok(back(first));
         }
         if button == Some(1) {
             return Ok(Nav::Next);
@@ -837,7 +866,9 @@ pub fn step_explorer(
                 let checkbox = tree_area.x + 4 + indent;
                 if (checkbox..checkbox + 3).contains(&mouse.column) {
                     if path == home || path == Path::new("/") {
-                        warning = "Home and the filesystem root cannot be marked as stacks".into();
+                        warning = format!(
+                            "Home and the filesystem root cannot be marked as {kind} folders"
+                        );
                     } else {
                         toggle_folder(checked, path);
                         warning.clear();
@@ -867,7 +898,7 @@ pub fn step_explorer(
                     suggestion_selected = false;
                     warning.clear();
                 }
-                KeyCode::Esc => return Ok(Nav::Back),
+                KeyCode::Esc => return Ok(back(first)),
                 KeyCode::Tab | KeyCode::BackTab => focus = explorer_tab(focus),
                 KeyCode::Char('s' | 'S') if focus == 0 => {
                     focus = 1;
@@ -942,7 +973,9 @@ pub fn step_explorer(
                 KeyCode::Right if focus == 0 => target = Some((tree_cursor.clone(), false)),
                 KeyCode::Char(' ') if focus == 0 => {
                     if tree_cursor == home || tree_cursor == Path::new("/") {
-                        warning = "Home and the filesystem root cannot be marked as stacks".into();
+                        warning = format!(
+                            "Home and the filesystem root cannot be marked as {kind} folders"
+                        );
                     } else {
                         toggle_folder(checked, &tree_cursor);
                         warning.clear();
@@ -1570,6 +1603,7 @@ mod tests {
         assert_eq!(text_action(0, false, true), Nav::Next);
         assert_eq!(text_action(2, false, true), Nav::Open);
         assert_eq!(text_action(1, true, false), Nav::Cancel);
+        assert_eq!(text_action(1, false, false), Nav::Back);
     }
 
     #[test]

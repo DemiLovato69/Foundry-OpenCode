@@ -232,6 +232,21 @@ pub fn create(stack: &Path, url: &str, key: &str) -> eyre::Result<()> {
     result
 }
 
+pub fn replace(stack: &Path, url: &str, key: &str, dry_run: bool) -> eyre::Result<()> {
+    eyre::ensure!(
+        ops::valid_url(url) && !key.is_empty() && !key.chars().any(char::is_control),
+        "Invalid Foundry host or token"
+    );
+    let directory = stack.join(".opencode");
+    if metadata(&directory)?.is_some() {
+        replace_conflicting(stack, url, key, dry_run)
+    } else if !dry_run {
+        create(stack, url, key)
+    } else {
+        Ok(())
+    }
+}
+
 fn replace_conflicting(stack: &Path, url: &str, key: &str, dry_run: bool) -> eyre::Result<()> {
     let directory = stack.join(".opencode");
     eyre::ensure!(
@@ -325,24 +340,6 @@ fn replace_conflicting(stack: &Path, url: &str, key: &str, dry_run: bool) -> eyr
         return Err(error);
     }
     Ok(())
-}
-
-pub fn update_credentials(stack: &Path, url: &str, key: &str, dry_run: bool) -> eyre::Result<()> {
-    eyre::ensure!(
-        ops::valid_url(url) && !key.is_empty() && !key.chars().any(char::is_control),
-        "Invalid Foundry host or token"
-    );
-    eyre::ensure!(
-        metadata(&stack.join(CONFIG))?.is_some(),
-        "Missing stack config in {}",
-        stack.display()
-    );
-    let (old_url, old_key) = credentials(stack)?;
-    inspect(stack, &old_url, &old_key)?;
-    if old_url == url && old_key == key {
-        return Ok(());
-    }
-    replace_conflicting(stack, url, key, dry_run)
 }
 
 pub fn outdated_mcp(stack: &Path) -> eyre::Result<bool> {
@@ -622,6 +619,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn replace_overwrites_existing_stack_and_keeps_a_private_backup() {
+        let root = ops::backup_path(&std::env::temp_dir().join("stack-replace-test"));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join(".opencode")).unwrap();
+        fs::write(
+            root.join(CONFIG),
+            r#"{"model":"keep","providers":{"palantir-openai":{"settings":{"baseURL":"old"}}}}"#,
+        )
+        .unwrap();
+        fs::write(root.join(TOKEN), "old-key").unwrap();
+        replace(&root, "https://example.com", "new-key", true).unwrap();
+        assert_eq!(fs::read_to_string(root.join(TOKEN)).unwrap(), "old-key");
+        replace(&root, "https://example.com", "new-key", false).unwrap();
+        assert_eq!(credentials(&root).unwrap().1, "new-key");
+        assert_eq!(read_config(&root.join(CONFIG)).unwrap()["model"], "keep");
+        assert!(fs::read_dir(root.join(".opencode")).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("token.backup-")
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn migration_is_safe_and_repeatable() {
         let root = ops::backup_path(&std::env::temp_dir().join("stack-migrate-test"));
         fs::create_dir(&root).unwrap();
@@ -810,18 +833,18 @@ mod tests {
         let mut doc = read_config(&root.join(CONFIG)).unwrap();
         doc["model"] = json!("palantir-openai/gpt-4.1");
         fs::write(root.join(CONFIG), serde_json::to_string(&doc).unwrap()).unwrap();
-        update_credentials(&root, "https://new.example.com", "new-key", true).unwrap();
+        replace(&root, "https://new.example.com", "new-key", true).unwrap();
         assert_eq!(credentials(&root).unwrap().1, "old-key");
-        update_credentials(&root, "https://new.example.com", "new-key", false).unwrap();
+        replace(&root, "https://new.example.com", "new-key", false).unwrap();
         assert_eq!(
             credentials(&root).unwrap(),
             ("https://new.example.com".into(), "new-key".into())
         );
-        update_credentials(&root, "https://new.example.com", "newer-key", false).unwrap();
+        replace(&root, "https://new.example.com", "newer-key", false).unwrap();
         assert_eq!(credentials(&root).unwrap().1, "newer-key");
-        update_credentials(&root, "https://latest.example.com", "newer-key", false).unwrap();
+        replace(&root, "https://latest.example.com", "newer-key", false).unwrap();
         assert_eq!(credentials(&root).unwrap().0, "https://latest.example.com");
-        assert!(update_credentials(&root, "http://unsafe.example.com", "newer-key", true).is_err());
+        assert!(replace(&root, "http://unsafe.example.com", "newer-key", true).is_err());
         assert_eq!(
             read_config(&root.join(CONFIG)).unwrap()["model"],
             doc["model"]
@@ -866,7 +889,7 @@ mod tests {
         fs::write(&path, &old).unwrap();
         assert!(outdated_mcp(&root).unwrap());
         assert!(inspect(&root, "https://example.com", "private").unwrap());
-        assert!(update_credentials(&root, "https://example.com", "private", true).is_ok());
+        assert!(replace(&root, "https://example.com", "private", true).is_ok());
         assert_eq!(fs::read(&path).unwrap(), old); // preview is read-only
         assert!(upgrade_mcp(&root).unwrap());
         assert!(!upgrade_mcp(&root).unwrap());
@@ -928,9 +951,9 @@ mod tests {
         let mut doc = read_config(&path).unwrap();
         doc["mcp"]["servers"]["palantir"] = previous_mcp("https://old.example.com");
         fs::write(&path, serde_json::to_vec_pretty(&doc).unwrap()).unwrap();
-        update_credentials(&root, "https://new.example.com", "new-key", true).unwrap();
+        replace(&root, "https://new.example.com", "new-key", true).unwrap();
         assert!(outdated_mcp(&root).unwrap());
-        update_credentials(&root, "https://new.example.com", "new-key", false).unwrap();
+        replace(&root, "https://new.example.com", "new-key", false).unwrap();
         assert_eq!(
             read_config(&path).unwrap()["mcp"]["servers"]["palantir"],
             config("https://new.example.com")["mcp"]["servers"]["palantir"]

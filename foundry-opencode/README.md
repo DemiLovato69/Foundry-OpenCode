@@ -38,7 +38,7 @@ existing `~/.config/opencode` and replaces it
 with the new checkout. Choose any number of stack folders in the file explorer;
 the selection is saved in `~/.config/foundry-opencode/stacks.json` for future updates.
 Use the single expandable tree to select folders. Arrows or a single click highlight without opening; Enter expands or collapses, Right expands, Left collapses or selects a parent, Space marks/unmarks, and C continues. Tab switches between tree and search. Press S to filter visible directory names or `/` to start an absolute path. `~/`, `./`, and `../` paths are supported; path matches appear in the tree, and Enter opens a complete or arrow-highlighted path. Dot-prefixed folders and directories with macOS `UF_HIDDEN` or FinderInfo `kIsInvisible` are omitted by default; an explicit full path still opens them, and existing marks are retained. Inaccessible folders show an error without closing the wizard or losing marked folders. It creates `.opencode/opencode.json` and a private
-`.opencode/token` in selected stack directories. Child projects inherit their
+`.opencode/token` in selected stack directories. Existing selected stack configs and tokens are backed up and replaced, not skipped; `init` and `update` do the same. Child projects inherit their
 stack's providers and Foundry MCP connection. The token file is mode `0600`
 and Git-ignored if the stack is in a repository. Optionally configure a private
 global Foundry fallback for projects outside marked stacks; stack-local settings
@@ -53,8 +53,8 @@ to archive (private, Git-ignored) or delete them after verifying the new config.
 Conflicting stack configs are backed up and replaced; unrelated JSON settings are
 retained when possible. Tracked `.envrc` secrets still require Git cleanup and token rotation.
 
-`update` downloads the latest macOS installer release for the machine's architecture, verifies its SHA-256 and executable version, and replaces `/usr/local/bin/foundry-opencode` after the TUI closes. Failed downloads or checks leave the old binary untouched. `install` uses the same release so running an older installer cannot overwrite a newer release. `update` upgrades the installed tools (OpenChamber only when present), clones
-fresh configs from `main`, and backs up and replaces `~/.config/opencode` regardless
+`update` downloads the latest macOS installer release for the machine's architecture, verifies its SHA-256 and executable version, and replaces `/usr/local/bin/foundry-opencode` after the TUI closes (backing up the old CLI). Failed downloads or checks leave the old binary untouched. `install` uses the same release so running an older installer cannot overwrite a newer release. `update` upgrades the installed tools (OpenChamber only when present), clones
+fresh configs from the matching release tag, and backs up and replaces `~/.config/opencode` regardless
 of its previous Git remote or local edits. It preserves the optional global
 fallback. It also offers separate, optional host/token changes for the global fallback
 and each selected stack with an existing config; unchecked scopes retain their credentials.
@@ -67,7 +67,7 @@ or press Enter on **Enter an existing token** (the default). Paste the token
 into the masked prompt; merely entering a host never opens the browser. It
 creates `.opencode/opencode.json` and a private `.opencode/token`. If inside a
 Git repo, it Git-ignores the token and refuses a tracked or conflicting secret.
-Press Esc to cancel. Host, token and path inputs support clicking to place the cursor, arrows, Home/End, Delete/Backspace and Ctrl+U (or Cmd+Delete if forwarded by the terminal) to delete to the beginning. Tokens remain masked; terminals that intercept Cmd shortcuts still support Ctrl+U.
+Esc goes back to the previous wizard screen; on the first screen it cancels. Host, token and path inputs support clicking to place the cursor, arrows, Home/End, Delete/Backspace and Ctrl+U (or Cmd+Delete if forwarded by the terminal) to delete to the beginning. Tokens remain masked; terminals that intercept Cmd shortcuts still support Ctrl+U.
 
 `reset` asks for confirmation, stops the current user's OpenCode service and
 OpenCode/OpenChamber processes, then deletes `~/.cache/opencode` if present.
@@ -88,19 +88,26 @@ If OpenChamber is running, `install` and `update` skip its optional installation
 or upgrade and continue with the required setup. Quit OpenChamber and rerun the
 command to upgrade it.
 
-`init-rag` runs separately from installation, from the root of **one project**.
+`install` and `update` let you select project folders for RAG separately from
+stack folders (stack folders are initially marked as projects). RAG is **on by
+default** for each marked project; uncheck its RAG choice or unmark its folder
+to leave its RAG files and index untouched. Checked project folders
+have their RAG files backed up and updated, dependencies installed, and project
+indexed during the same run; a failed selected setup leaves the run incomplete.
+The verified latest installer release performs this step, even when an older
+installer started the run. `init-rag` remains available from the root of
+**one project**.
 Run `init` first from its stack directory, or configure the optional global
 fallback, so its private token and host can be found without direnv.
 It requires Node.js and npm. It creates `.opencode/rag.json`, pinned npm
 dependencies, compatibility patches, a CLI helper, local ignores, and a
 project-local V2 MCP server entry in `.opencode/opencode.json` (or an existing
 `.opencode/opencode.jsonc`), preserving other settings and JSONC comments.
-It refuses conflicting RAG files or MCP entries rather
-than overwriting them. If an earlier attempt stopped after creating the
-RAG files, rerun `init-rag` from the same project and Foundry host: it verifies
-those files and the npm lockfile before resuming, without deleting an existing
-index. Unrelated or edited files still require manual review. It installs the
-dependencies and indexes the project with Foundry's `text-embedding-3-large`
+It backs up and replaces older RAG files and MCP entries rather than refusing
+them. If an earlier attempt stopped after creating the RAG files, rerun
+`init-rag` from the same project and Foundry host; it preserves an existing
+index and unrelated OpenCode settings. Symlinked or unsafe paths are refused.
+It installs the dependencies and indexes the project with Foundry's `text-embedding-3-large`
 endpoint; API credentials come from the stack's private token file.
 Reindex after edits with
 `node .opencode/rag-cli.mjs index` from the project root. The underlying RAG

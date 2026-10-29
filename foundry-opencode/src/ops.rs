@@ -20,6 +20,12 @@ impl Drop for StagedBinary {
     }
 }
 
+impl StagedBinary {
+    pub fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
 pub fn stage_binary(source: &Path) -> io::Result<StagedBinary> {
     let path = backup_path(&std::env::temp_dir().join("foundry-opencode"));
     let mut out = OpenOptions::new()
@@ -205,6 +211,9 @@ fn copy_binary(source: &StagedBinary, destination: &Path) -> io::Result<()> {
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(&temporary, fs::Permissions::from_mode(0o755))?;
         }
+        if destination.exists() {
+            fs::hard_link(destination, backup_path(destination))?;
+        }
         fs::rename(&temporary, destination)
     })();
     if created {
@@ -240,7 +249,7 @@ pub fn install_binary(source: &StagedBinary, destination: &Path) -> eyre::Result
         }
     }
     // sudo runs only after the TUI restores the terminal, so macOS can prompt normally.
-    let script = "set -e; d=$(dirname \"$2\"); if [ -L \"$d\" ]; then exit 1; fi; if [ ! -d \"$d\" ]; then /usr/bin/install -d -m 0755 \"$d\"; fi; if [ -L \"$2\" ] || { [ -e \"$2\" ] && [ ! -f \"$2\" ]; }; then exit 1; fi; t=$(mktemp \"$2.tmp.XXXXXXXX\"); trap 'rm -f \"$t\"' EXIT; /usr/bin/install -m 0755 \"$1\" \"$t\"; /bin/mv -f \"$t\" \"$2\"";
+    let script = "set -e; d=$(dirname \"$2\"); if [ -L \"$d\" ]; then exit 1; fi; if [ ! -d \"$d\" ]; then /usr/bin/install -d -m 0755 \"$d\"; fi; if [ -L \"$2\" ] || { [ -e \"$2\" ] && [ ! -f \"$2\" ]; }; then exit 1; fi; t=$(mktemp \"$2.tmp.XXXXXXXX\"); trap 'rm -f \"$t\"' EXIT; /usr/bin/install -m 0755 \"$1\" \"$t\"; if [ -f \"$2\" ]; then b=$(mktemp \"$2.backup.XXXXXXXX\"); if ! /bin/cp -p \"$2\" \"$b\"; then /bin/rm -f \"$b\"; exit 1; fi; fi; /bin/mv -f \"$t\" \"$2\"";
     let status = Command::new("sudo")
         .args(["/bin/sh", "-c", script, "foundry-opencode"])
         .arg(&source.0)
@@ -592,6 +601,14 @@ mod tests {
         fs::write(&destination, b"outdated").unwrap();
         install_binary(&staged, &destination).unwrap();
         assert_eq!(fs::read(&destination).unwrap(), b"binary");
+        assert!(fs::read_dir(&root).unwrap().any(|entry| {
+            let entry = entry.unwrap();
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("foundry-opencode.backup-")
+                && fs::read(entry.path()).unwrap() == b"outdated"
+        }));
         #[cfg(unix)]
         {
             let link = root.join("link");

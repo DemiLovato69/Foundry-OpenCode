@@ -75,7 +75,7 @@ fn setup_files(
         crate::ops::valid_url(base_url),
         "Initialize a stack with an HTTPS Foundry host first"
     );
-    let files = files(project, base_url);
+    let mut files = files(project, base_url);
     let directory = project.join(".opencode");
     if let Ok(metadata) = fs::symlink_metadata(&directory) {
         eyre::ensure!(
@@ -84,31 +84,39 @@ fn setup_files(
             directory.display()
         );
     }
-    let mut reused = 0;
-    let mut package_owned = false;
-    let mut rag_owned = false;
-    let mut missing = Vec::new();
-    for (index, (path, expected)) in files.iter().enumerate() {
+    for (path, _) in &files {
         match fs::symlink_metadata(path) {
             Ok(metadata) => {
                 eyre::ensure!(
-                    metadata.is_file()
-                        && !metadata.file_type().is_symlink()
-                        && fs::read_to_string(path)? == *expected,
-                    "{} differs from the installer RAG file; not changing it",
+                    metadata.is_file() && !metadata.file_type().is_symlink(),
+                    "{} must be a regular file",
                     path.display()
                 );
-                reused += 1;
-                if index == 0 {
-                    package_owned = true;
-                }
-                if index == 4 {
-                    rag_owned = true;
-                }
             }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => missing.push(path),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(error.into()),
         }
+    }
+    let ignore = &mut files[3];
+    if ignore.0.exists() {
+        let existing = fs::read_to_string(&ignore.0)?;
+        let missing = IGNORE
+            .lines()
+            .filter(|line| !existing.lines().any(|old| old == *line))
+            .collect::<Vec<_>>();
+        ignore.1 = format!(
+            "{}{}{}",
+            existing,
+            if !existing.is_empty() && !existing.ends_with('\n') {
+                "\n"
+            } else {
+                ""
+            },
+            missing
+                .iter()
+                .map(|line| format!("{line}\n"))
+                .collect::<String>()
+        );
     }
     for name in ["package-lock.json", "node_modules", "rag_db"] {
         let path = directory.join(name);
@@ -118,35 +126,34 @@ fn setup_files(
             Err(error) => return Err(error.into()),
         };
         eyre::ensure!(
-            package_owned
-                && (name != "rag_db" || rag_owned)
-                && if name == "package-lock.json" {
-                    metadata.is_file() && !metadata.file_type().is_symlink()
-                } else {
-                    metadata.is_dir() && !metadata.file_type().is_symlink()
-                },
-            "{} already exists and is not verified installer RAG data; not changing it",
+            if name == "package-lock.json" {
+                metadata.is_file() && !metadata.file_type().is_symlink()
+            } else {
+                metadata.is_dir() && !metadata.file_type().is_symlink()
+            },
+            "{} must be a real file or directory",
             path.display()
         );
-        if name == "package-lock.json" {
-            let lock: Value = serde_json::from_slice(&fs::read(&path)?)
-                .wrap_err_with(|| format!("Invalid {}; not changing it", path.display()))?;
-            let package: Value = serde_json::from_str(PACKAGE)?;
-            eyre::ensure!(
-                lock["packages"][""]["dependencies"] == package["dependencies"],
-                "{} does not match the installer dependencies; not changing it",
-                path.display()
-            );
-        }
     }
     let jsonc = project.join(".opencode/opencode.jsonc");
     let json = project.join(".opencode/opencode.json");
-    eyre::ensure!(
-        !(json.exists() && jsonc.exists()),
-        "Both OpenCode config formats exist in {}; review them manually",
-        directory.display()
-    );
-    let config = if jsonc.exists() { jsonc } else { json };
+    // Prefer JSONC when both formats exist; retire the other file after activation.
+    let config = match fs::symlink_metadata(&jsonc) {
+        Ok(_) => jsonc.clone(),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => json.clone(),
+        Err(error) => return Err(error.into()),
+    };
+    if config == jsonc {
+        match fs::symlink_metadata(&json) {
+            Ok(metadata) => eyre::ensure!(
+                metadata.is_file() && !metadata.file_type().is_symlink(),
+                "{} must be a regular file",
+                json.display()
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
     if let Ok(metadata) = fs::symlink_metadata(&config) {
         eyre::ensure!(
             metadata.is_file() && !metadata.file_type().is_symlink(),
@@ -159,30 +166,28 @@ fn setup_files(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
         Err(e) => return Err(e.into()),
     };
-    let mut doc: Value = match &original {
-        Some(text) => jsonc_parser::parse_to_serde_value(text, &Default::default())
-            .wrap_err("Invalid OpenCode JSON; not changing it")?,
-        None => json!({"$schema": "https://opencode.ai/config.json"}),
-    };
-    eyre::ensure!(doc.is_object(), "OpenCode config must be a JSON object");
+    let mut doc: Value = original
+        .as_deref()
+        .and_then(|text| jsonc_parser::parse_to_serde_value(text, &Default::default()).ok())
+        .filter(Value::is_object)
+        .unwrap_or_else(|| json!({"$schema": "https://opencode.ai/config.json"}));
     let mcp = doc
         .as_object_mut()
         .unwrap()
         .entry("mcp")
         .or_insert_with(|| json!({}));
-    eyre::ensure!(mcp.is_object(), "OpenCode mcp config must be an object");
+    if !mcp.is_object() {
+        *mcp = json!({});
+    }
     let servers = mcp
         .as_object_mut()
         .unwrap()
         .entry("servers")
         .or_insert_with(|| json!({}));
-    let servers = servers
-        .as_object_mut()
-        .ok_or_else(|| eyre::eyre!("OpenCode mcp.servers must be an object"))?;
-    eyre::ensure!(
-        !servers.contains_key("rag"),
-        "mcp.servers.rag already exists; not replacing it"
-    );
+    if !servers.is_object() {
+        *servers = json!({});
+    }
+    let servers = servers.as_object_mut().unwrap();
     servers.insert(
         "rag".into(),
         json!({"type": "local", "command": ["node", ".opencode/rag-cli.mjs", "mcp"]}),
@@ -196,12 +201,7 @@ fn setup_files(
     if dry_run {
         return Ok((
             format!(
-                "Would {} RAG files and add the MCP server to OpenCode config:\n{paths}\nWould run npm install in .opencode and index this project.",
-                if reused > 0 {
-                    "reuse matching or create missing"
-                } else {
-                    "create"
-                }
+                "Would replace or create RAG files and the MCP server in OpenCode config (backing up replaced files):\n{paths}\nWould run npm install in .opencode and index this project. Existing index is preserved."
             ),
             config,
             original,
@@ -209,21 +209,31 @@ fn setup_files(
         ));
     }
     fs::create_dir_all(project.join(".opencode"))?;
-    let mut created = Vec::new();
+    let mut changed = Vec::new();
     let result = (|| -> eyre::Result<()> {
         for (path, text) in &files {
-            if !missing.contains(&path) {
+            if fs::read(path).ok().as_deref() == Some(text.as_bytes()) {
                 continue;
             }
+            let backup = if path.exists() {
+                let backup = crate::ops::backup_path(path);
+                fs::rename(path, &backup)?;
+                Some(backup)
+            } else {
+                None
+            };
+            changed.push((path.clone(), backup));
             let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
-            created.push(path.clone());
             file.write_all(text.as_bytes())?;
         }
         Ok(())
     })();
     if let Err(e) = result {
-        for path in created {
-            let _ = fs::remove_file(path);
+        for (path, backup) in changed.into_iter().rev() {
+            let _ = fs::remove_file(&path);
+            if let Some(backup) = backup {
+                let _ = fs::rename(backup, path);
+            }
         }
         return Err(e);
     }
@@ -238,7 +248,16 @@ fn activate_config(config: &Path, original: Option<&str>, doc: &Value) -> eyre::
         config.display()
     );
     let staged = crate::ops::backup_path(config);
-    let text = if config.extension().is_some_and(|ext| ext == "jsonc") {
+    let text = if config.extension().is_some_and(|ext| ext == "jsonc")
+        && original.is_some_and(|text| {
+            jsonc_parser::parse_to_serde_value(text, &Default::default()).is_ok_and(
+                |value: Value| {
+                    value.is_object()
+                        && value.get("mcp").is_none_or(Value::is_object)
+                        && value["mcp"].get("servers").is_none_or(Value::is_object)
+                },
+            )
+        }) {
         let root = jsonc_parser::cst::CstRootNode::parse(original.unwrap(), &Default::default())?;
         let object = root.object_value_or_set();
         let mcp = if let Some(prop) = object.get("mcp") {
@@ -253,6 +272,9 @@ fn activate_config(config: &Path, original: Option<&str>, doc: &Value) -> eyre::
             mcp.append("servers", jsonc_parser::json!({}));
             mcp.get("servers").unwrap().object_value().unwrap()
         };
+        if let Some(old) = servers.get("rag") {
+            old.remove();
+        }
         servers.append(
             "rag",
             jsonc_parser::cst::CstInputValue::Object(vec![
@@ -272,6 +294,11 @@ fn activate_config(config: &Path, original: Option<&str>, doc: &Value) -> eyre::
         fs::set_permissions(&staged, fs::metadata(config)?.permissions())?;
     }
     let write = if original.is_some() {
+        let backup = crate::ops::backup_path(config);
+        if let Err(error) = fs::hard_link(config, &backup) {
+            let _ = fs::remove_file(&staged);
+            return Err(error.into());
+        }
         fs::rename(&staged, config)
     } else {
         fs::hard_link(&staged, config)
@@ -291,6 +318,10 @@ pub fn setup(
     if dry_run {
         return Ok(paths);
     }
+    let lock = project.join(".opencode/package-lock.json");
+    if lock.is_file() {
+        fs::copy(&lock, crate::ops::backup_path(&lock))?;
+    }
     let mut npm = Command::new("npm");
     npm.arg("install").current_dir(project.join(".opencode"));
     run("Installing RAG dependencies (npm install)", npm)
@@ -301,6 +332,21 @@ pub fn setup(
     run("Indexing project (node .opencode/rag-cli.mjs index)", node)
         .wrap_err("RAG setup files remain; retry with node .opencode/rag-cli.mjs index")?;
     activate_config(&config, original.as_deref(), &doc)?;
+    if config.extension().is_some_and(|ext| ext == "jsonc") {
+        let other = project.join(".opencode/opencode.json");
+        match fs::symlink_metadata(&other) {
+            Ok(metadata) => {
+                eyre::ensure!(
+                    metadata.is_file() && !metadata.file_type().is_symlink(),
+                    "Unsafe OpenCode config {}",
+                    other.display()
+                );
+                fs::rename(&other, crate::ops::backup_path(&other))?;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
     Ok(format!("RAG indexed. Project files:\n{paths}"))
 }
 
@@ -320,7 +366,7 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
     #[test]
-    fn preview_is_read_only_and_preserves_conflicts() {
+    fn preview_is_read_only_with_older_rag_config() {
         let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-setup-test"));
         fs::create_dir(&root).unwrap();
         let preview = setup(&root, "https://example.com", true, |_, _| unreachable!()).unwrap();
@@ -328,7 +374,11 @@ mod tests {
         assert!(!root.join(".opencode").exists());
         fs::create_dir(root.join(".opencode")).unwrap();
         fs::write(root.join(".opencode/rag.json"), "keep").unwrap();
-        assert!(setup(&root, "https://example.com", true, |_, _| unreachable!()).is_err());
+        assert!(
+            setup(&root, "https://example.com", true, |_, _| unreachable!())
+                .unwrap()
+                .contains("replace or create")
+        );
         assert_eq!(
             fs::read_to_string(root.join(".opencode/rag.json")).unwrap(),
             "keep"
@@ -337,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn setup_preserves_other_mcp_servers_and_refuses_reruns() {
+    fn setup_preserves_other_mcp_servers_and_replaces_old_rag_entry() {
         let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-setup-test"));
         fs::create_dir(&root).unwrap();
         fs::create_dir(root.join(".opencode")).unwrap();
@@ -352,7 +402,12 @@ mod tests {
         assert_eq!(doc["model"], "test/model");
         assert_eq!(doc["mcp"]["servers"]["other"]["command"][0], "other");
         assert_eq!(doc["mcp"]["servers"]["rag"]["command"][2], "mcp");
-        assert!(setup_files(&root, "https://example.com", false).is_err());
+        fs::write(root.join(".opencode/opencode.json"), r#"{"model":"test/model","mcp":{"servers":{"other":{"type":"local","command":["other"]},"rag":{"command":["old"]}}}}"#).unwrap();
+        let (_, config, original, doc) = setup_files(&root, "https://example.com", false).unwrap();
+        activate_config(&config, original.as_deref(), &doc).unwrap();
+        let updated = read_config_for_test(&config);
+        assert_eq!(updated["mcp"]["servers"]["other"]["command"][0], "other");
+        assert_eq!(updated["mcp"]["servers"]["rag"]["command"][2], "mcp");
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -364,7 +419,7 @@ mod tests {
         let path = root.join(".opencode/opencode.jsonc");
         fs::write(
             &path,
-            "{\n  // keep this note\n  \"model\": \"test/model\",\n}\n",
+            "{\n  // keep this note\n  \"model\": \"test/model\",\n  \"mcp\": {\"servers\": {\"rag\": {\"command\": [\"old\"]}}},\n}\n",
         )
         .unwrap();
         let (_, config, original, doc) = setup_files(&root, "https://example.com", false).unwrap();
@@ -373,6 +428,7 @@ mod tests {
         let result = fs::read_to_string(&path).unwrap();
         assert!(result.contains("// keep this note"));
         assert!(result.contains("rag-cli.mjs"));
+        assert!(!result.contains("[\"old\"]"));
         assert!(!root.join(".opencode/opencode.json").exists());
         fs::remove_dir_all(root).unwrap();
     }
@@ -390,7 +446,7 @@ mod tests {
         fs::write(directory.join("package-lock.json"), lock.to_string()).unwrap();
         fs::remove_file(directory.join("rag-cli.mjs")).unwrap();
         let preview = setup(&root, "https://example.com", true, |_, _| unreachable!()).unwrap();
-        assert!(preview.contains("reuse matching"));
+        assert!(preview.contains("replace or create"));
         assert!(!directory.join("rag-cli.mjs").exists());
         assert!(!directory.join("opencode.json").exists());
         let mut commands = Vec::new();
@@ -433,30 +489,98 @@ mod tests {
     }
 
     #[test]
-    fn retry_rejects_unrelated_or_modified_artifacts() {
+    fn retry_overwrites_older_artifacts_and_preserves_index() {
         let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-conflict-test"));
         fs::create_dir(&root).unwrap();
         fs::create_dir(root.join(".opencode")).unwrap();
         let directory = root.join(".opencode");
+        fs::write(directory.join(".gitignore"), "token\ncustom-secret\n").unwrap();
+        fs::create_dir(directory.join("rag_db")).unwrap();
+        fs::write(directory.join("rag_db/existing"), "keep").unwrap();
         let lock = directory.join("package-lock.json");
         fs::write(&lock, "not ours").unwrap();
-        assert!(setup_files(&root, "https://example.com", false).is_err());
-        assert!(!directory.join("package.json").exists());
-        fs::remove_file(&lock).unwrap();
+        setup_files(&root, "https://example.com", false).unwrap();
         setup_files(&root, "https://example.com", false).unwrap();
         fs::write(&lock, r#"{"packages":{"":{"dependencies":{"other":"1"}}}}"#).unwrap();
-        assert!(setup_files(&root, "https://example.com", false).is_err());
+        setup_files(&root, "https://example.com", false).unwrap();
         assert_eq!(
             fs::read_to_string(&lock).unwrap(),
             r#"{"packages":{"":{"dependencies":{"other":"1"}}}}"#
         );
-        fs::remove_file(&lock).unwrap();
         fs::write(directory.join("rag.json"), "custom").unwrap();
-        assert!(setup_files(&root, "https://example.com", true).is_err());
+        assert!(setup_files(&root, "https://example.com", true).is_ok());
         assert_eq!(
             fs::read_to_string(directory.join("rag.json")).unwrap(),
             "custom"
         );
+        setup_files(&root, "https://example.com", false).unwrap();
+        assert_ne!(
+            fs::read_to_string(directory.join("rag.json")).unwrap(),
+            "custom"
+        );
+        let ignored = fs::read_to_string(directory.join(".gitignore")).unwrap();
+        assert!(ignored.contains("custom-secret\n"));
+        assert!(ignored.contains("rag_db/\n"));
+        assert!(fs::read_dir(&directory).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("rag.json.backup-")
+        }));
+        assert_eq!(
+            fs::read_to_string(directory.join("rag_db/existing")).unwrap(),
+            "keep"
+        );
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn both_config_formats_are_backed_up_without_blocking_setup() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-both-configs-test"));
+        fs::create_dir_all(root.join(".opencode")).unwrap();
+        let directory = root.join(".opencode");
+        fs::write(directory.join("opencode.json"), "{\"model\":\"old\"}").unwrap();
+        fs::write(directory.join("opencode.jsonc"), "{\"model\":\"new\"}").unwrap();
+        setup(&root, "https://example.com", false, |_, _| Ok(())).unwrap();
+        assert!(!directory.join("opencode.json").exists());
+        assert!(
+            fs::read_to_string(directory.join("opencode.jsonc"))
+                .unwrap()
+                .contains("rag-cli.mjs")
+        );
+        assert!(fs::read_dir(&directory).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("opencode.json.backup-")
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn malformed_config_is_backed_up_and_replaced() {
+        let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-invalid-config-test"));
+        fs::create_dir_all(root.join(".opencode")).unwrap();
+        let config = root.join(".opencode/opencode.jsonc");
+        fs::write(&config, "{invalid").unwrap();
+        setup(&root, "https://example.com", false, |_, _| Ok(())).unwrap();
+        assert!(fs::read_to_string(&config).unwrap().contains("rag-cli.mjs"));
+        assert!(fs::read_dir(root.join(".opencode")).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("opencode.jsonc.backup-")
+        }));
+        fs::write(&config, "{\"mcp\":null}").unwrap();
+        setup(&root, "https://example.com", false, |_, _| Ok(())).unwrap();
+        assert!(fs::read_to_string(&config).unwrap().contains("rag-cli.mjs"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn read_config_for_test(path: &Path) -> Value {
+        serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
     }
 }
