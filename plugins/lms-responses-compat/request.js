@@ -9,6 +9,15 @@ function stripAnthropicFields(value) {
   for (const item of Object.values(value)) stripAnthropicFields(item);
 }
 
+function stripCacheBlocks(blocks) {
+  if (!Array.isArray(blocks)) return;
+  for (const block of blocks) {
+    if (!block || typeof block !== "object") continue;
+    delete block.cache_control;
+    if (block.type === "tool_result") stripCacheBlocks(block.content);
+  }
+}
+
 function containsInputFile(value) {
   if (!value || typeof value !== "object") return false;
   if (Array.isArray(value)) return value.some(containsInputFile);
@@ -18,6 +27,21 @@ function containsInputFile(value) {
 export function normalizeLmsRequestBody(body, provider) {
   if (provider === "anthropic") {
     stripAnthropicFields(body);
+    if (!body || typeof body !== "object") return body;
+    delete body.cache_control;
+    stripCacheBlocks(body.system);
+    if (Array.isArray(body.tools)) {
+      for (const tool of body.tools) {
+        if (tool && typeof tool === "object") delete tool.cache_control;
+      }
+    }
+    if (Array.isArray(body.messages)) {
+      for (const message of body.messages) {
+        if (!message || typeof message !== "object") continue;
+        delete message.cache_control;
+        stripCacheBlocks(message.content);
+      }
+    }
     return body;
   }
 

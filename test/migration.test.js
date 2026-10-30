@@ -115,6 +115,29 @@ test("Anthropic request cleanup preserves nested tool schemas, thinking, and PDF
   assert.equal(body.thinking.budget_tokens, 16000);
 });
 
+test("Anthropic HTTP requests drop proxy-incompatible cache markers for every request kind", async () => {
+  const { hook } = await loadPlugin(providers);
+  for (const kind of ["primary", "compaction", "title", "generate"]) {
+    const event = requestEvent("palantir-anthropic", {
+      cache_control: { type: "ephemeral" },
+      system: [{ type: "text", text: "instructions", cache_control: { type: "ephemeral" } }],
+      tools: [{ name: "lookup", cache_control: { type: "ephemeral" }, input_schema: { type: "object", properties: { cache_control: { type: "string" } } } }],
+      messages: [{ role: "assistant", content: [{ type: "tool_use", name: "lookup", id: "call-1", input: { cache_control: "keep" }, cache_control: { type: "ephemeral" } }] }],
+    }, { kind });
+    const signal = event.request.signal;
+    await hook(event);
+    const body = await event.request.json();
+    assert.equal(body.cache_control, undefined);
+    assert.equal(body.system[0].cache_control, undefined);
+    assert.equal(body.tools[0].cache_control, undefined);
+    assert.equal(body.messages[0].content[0].cache_control, undefined);
+    assert.deepEqual(body.tools[0].input_schema.properties.cache_control, { type: "string" });
+    assert.equal(body.messages[0].content[0].input.cache_control, "keep");
+    assert.equal(event.request.headers.get("Authorization"), "Bearer stack-token");
+    assert.equal(event.request.signal.aborted, signal.aborted);
+  }
+});
+
 test("OpenAI file attachments fail before sending, while images remain supported", async () => {
   const { hook } = await loadPlugin(providers);
   await assert.rejects(hook(requestEvent("palantir-openai", {
