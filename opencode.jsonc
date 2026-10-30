@@ -25,6 +25,11 @@
             "effect": "allow"
         },
         {
+            "action": "provider.use",
+            "resource": "palantir-google",
+            "effect": "allow"
+        },
+        {
             "action": "integration.use",
             "resource": "plugin:context-mode",
             "effect": "deny"
@@ -54,6 +59,14 @@
                         "output": 128000
                     },
                     "modelID": "ri.language-model-service..language-model.gpt-6-sol"
+                },
+                "gpt-6-1-sol": {
+                    "name": "Foundry GPT-6.1 Sol",
+                    "limit": {
+                        "context": 1050000,
+                        "output": 128000
+                    },
+                    "modelID": "ri.language-model-service..language-model.gpt-6-1-sol"
                 },
                 "gpt-6-1-terra": {
                     "name": "Foundry GPT-6.1 Terra",
@@ -178,6 +191,44 @@
                         "output": 128000
                     },
                     "modelID": "ri.language-model-service..language-model.codex-auto-review"
+                }
+            }
+        },
+        "palantir-google": {
+            "canonical": "google",
+            "name": "Palantir Google",
+            "package": "@opencode/ai/providers/google",
+            "settings": {
+                "timeout": false,
+                "transport": "http",
+                "encoding": "none"
+            },
+            "models": {
+                "gemini-4-argon": {
+                    "name": "Foundry Gemini 4 Argon",
+                    "limit": {
+                        "context": 1048576,
+                        "output": 32768
+                    },
+                    "modelID": "ri.language-model-service..language-model.gemini-4-argon",
+                    "capabilities": {
+                        "tools": true,
+                        "input": ["text"],
+                        "output": ["text"]
+                    }
+                },
+                "gemini-3-8-flash": {
+                    "name": "Foundry Gemini 3.8 Flash",
+                    "limit": {
+                        "context": 1048576,
+                        "output": 65536
+                    },
+                    "modelID": "ri.language-model-service..language-model.gemini-3-8-flash",
+                    "capabilities": {
+                        "tools": true,
+                        "input": ["text"],
+                        "output": ["text"]
+                    }
                 }
             }
         },

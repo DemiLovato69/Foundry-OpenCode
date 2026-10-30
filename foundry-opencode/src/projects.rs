@@ -324,7 +324,7 @@ pub fn is_repo(path: &Path) -> eyre::Result<bool> {
 pub fn project_config(home: &Path, stack: &Stack) -> Value {
     let mut config = stack::config(&stack.url);
     let token = format!("{{file:{}}}", token_file(home, &stack.id).display());
-    for provider in ["palantir-openai", "palantir-anthropic"] {
+    for provider in ["palantir-openai", "palantir-anthropic", "palantir-google"] {
         config["providers"][provider]["settings"]["apiKey"] = token.clone().into();
         config["providers"][provider]["headers"]["Authorization"] =
             format!("Bearer {token}").into();
@@ -719,6 +719,14 @@ mod tests {
         assert_eq!(
             doc["mcp"]["servers"]["palantir"]["environment"]["FOUNDRY_TOKEN"],
             doc["providers"]["palantir-openai"]["settings"]["apiKey"]
+        );
+        assert_eq!(
+            doc["providers"]["palantir-google"]["settings"]["apiKey"],
+            doc["providers"]["palantir-openai"]["settings"]["apiKey"]
+        );
+        assert_eq!(
+            doc["providers"]["palantir-google"]["headers"]["Authorization"],
+            "Bearer {file:/Users/example/.config/foundry-opencode/tokens/default}"
         );
     }
 
