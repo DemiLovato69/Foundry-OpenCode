@@ -33,7 +33,9 @@ At the token prompt, select **Open Foundry token page** to open `https://<host>/
 - Update everything
 `foundry-opencode update`
 
-Update reopens the stack catalog and saved repo assignments. Edit credentials on the first screen, add or remove projects in the tree, then review the backups and per-repo RAG choices. An existing repo config is replaced, not merged; unrelated `.opencode` files are preserved. The globally configured default model still applies unless the project overrides it.
+Update reopens the stack catalog and saved repo assignments. After the update-options screen, edit credentials in the stack catalog, add or remove projects in the tree, then review the backups and per-repo RAG choices. An existing repo config is replaced, not merged; unrelated `.opencode` files are preserved. The globally configured default model still applies unless the project overrides it.
+
+To keep all saved stacks, tokens, repository assignments and per-repo RAG choices, check **Accept all loaded defaults and update** on update's first screen. Or run `foundry-opencode update -y` (`--yes`) to skip the wizard entirely; `update -y --dry-run` previews the saved update without changing anything. Missing or invalid saved settings stop the shortcut before any update. The command prints the redacted summary and finishes without an extra confirmation; Git authentication or administrator prompts may still appear.
 
 Update downloads the latest published macOS installer binary for your CPU, checks its release SHA-256 and version, and replaces `/usr/local/bin/foundry-opencode` after the wizard closes. Download or verification failures leave the existing binary untouched. The global config is cloned independently from `main`.
 

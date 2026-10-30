@@ -6,6 +6,8 @@ macOS installer for OpenCode V2 and Foundry. Requires Homebrew, Git, and HTTPS a
 foundry-opencode                # install
 foundry-opencode install        # guided installation and repository setup
 foundry-opencode update         # refresh packages/configs and repository assignments
+foundry-opencode update -y      # accept all saved defaults without the wizard
+foundry-opencode update -y --dry-run # preview saved defaults without changes
 foundry-opencode init           # configure this Git repository
 foundry-opencode init-rag       # configure/index RAG in this project
 foundry-opencode repair-plugins # retire a verified legacy V1 RAG plugin
@@ -17,6 +19,8 @@ foundry-opencode --dry-run update
 ## Project setup
 
 The wizard starts with a **Foundry stacks** list: configure the optional Global default, add named stacks, and edit their HTTPS hosts and masked private tokens. Next, use the single tree to mark **Git repository roots**. For every selected repo, choose one configured stack and whether to initialize RAG. Update reopens these saved assignments. A named stack cannot be removed while it is assigned to a saved project.
+
+Update first offers an unchecked **Accept all loaded defaults and update** checkbox. Checking it, or passing `update -y`/`--yes`, uses the saved stack credentials, repository assignments and RAG choices without editing or confirmation screens. Invalid or missing saved settings stop before updates begin. `update -y --dry-run` prints a redacted read-only preview. The shortcut finishes without waiting for a completion-screen keypress; Git authentication or an administrator password may still be required.
 
 The tree supports Up/Down to highlight, Enter to expand/collapse, Right to expand, Left to collapse or move to a parent, Space to mark, S to search, `/` to enter a path, and Tab to switch between the tree and search. Hidden Finder or dot-prefixed folders are omitted unless entered by their full path. Invalid or inaccessible folders do not close the wizard.
 
