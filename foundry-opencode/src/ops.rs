@@ -357,7 +357,7 @@ pub fn prepare_global(config: &Path, url: &str, key: &str) -> eyre::Result<()> {
     let mut doc = crate::stack::read_config(&path)?;
     let mut overrides = crate::stack::config(url);
     // The token reference is relative to the global config, not a stack's .opencode directory.
-    for provider in ["palantir-openai", "palantir-anthropic"] {
+    for provider in ["palantir-openai", "palantir-anthropic", "palantir-google"] {
         let existing = doc["providers"][provider]
             .as_object_mut()
             .ok_or_else(|| eyre::eyre!("Missing {provider} provider in bundled config"))?;
@@ -462,7 +462,7 @@ mod tests {
         let config = root.join("opencode");
         fs::create_dir_all(config.join(".git/info")).unwrap();
         fs::write(config.join(".git/info/exclude"), "keep\n").unwrap();
-        fs::write(config.join("opencode.jsonc"), r#"{"providers":{"palantir-openai":{"settings":{"transport":"http"}},"palantir-anthropic":{"settings":{}}},"mcp":{"servers":{}}}"#).unwrap();
+        fs::write(config.join("opencode.jsonc"), r#"{"providers":{"palantir-openai":{"settings":{"transport":"http"}},"palantir-anthropic":{"settings":{}},"palantir-google":{"settings":{}}},"mcp":{"servers":{}}}"#).unwrap();
         prepare_global(&config, "https://example.com", "private").unwrap();
         assert_eq!(
             global_credentials(&config).unwrap().unwrap(),
@@ -483,6 +483,14 @@ mod tests {
         assert_eq!(
             global["mcp"]["servers"]["palantir"]["environment"]["FOUNDRY_TOKEN"],
             "{file:./token}"
+        );
+        assert_eq!(
+            global["providers"]["palantir-google"]["settings"]["baseURL"],
+            "https://example.com/api/v2/llm/proxy/google/v1"
+        );
+        assert_eq!(
+            global["providers"]["palantir-google"]["headers"]["Authorization"],
+            "Bearer {file:./token}"
         );
         assert!(
             fs::read_to_string(config.join(".git/info/exclude"))

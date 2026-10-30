@@ -70,3 +70,8 @@ stores credentials in private `~/.config/foundry-opencode/tokens/` files, not in
 each selected repository config. Uninstall removes registered project configs,
 generated RAG files and OpenCode/OpenChamber user data; project directories and
 original config backups remain for manual recovery.
+
+New model selectors: `palantir-openai/gpt-6-1-sol`, `palantir-google/gemini-4-argon`,
+and `palantir-google/gemini-3-8-flash`. Gemini uses Foundry's beta Google proxy;
+your enrollment must enable the models. Its streaming requests require `alt=sse`
+and Foundry bearer authentication, not a Google API key header.

@@ -22,6 +22,10 @@ pub fn config(url: &str) -> Value {
             "palantir-anthropic": {
                 "settings": {"baseURL": format!("{url}/api/v2/llm/proxy/anthropic/v1"), "apiKey": token},
                 "headers": {"Authorization": format!("Bearer {token}")}
+            },
+            "palantir-google": {
+                "settings": {"baseURL": format!("{url}/api/v2/llm/proxy/google/v1"), "apiKey": token, "transport": "http", "encoding": "none"},
+                "headers": {"Authorization": format!("Bearer {token}")}
             }
         },
         "mcp": {"servers": {"palantir": {
@@ -201,6 +205,14 @@ mod tests {
         assert_eq!(
             doc["mcp"]["servers"]["palantir"]["environment"]["FOUNDRY_TOKEN"],
             "{file:./token}"
+        );
+        assert_eq!(
+            doc["providers"]["palantir-google"]["settings"]["baseURL"],
+            "https://example.com/api/v2/llm/proxy/google/v1"
+        );
+        assert_eq!(
+            doc["providers"]["palantir-google"]["headers"]["Authorization"],
+            "Bearer {file:./token}"
         );
     }
     #[test]

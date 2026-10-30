@@ -26,9 +26,22 @@ export default {
 
       const request = event.request;
       const url = new URL(request.url);
+      const path = base.pathname.replace(/\/+$/, "");
+      if (providerID === "palantir-google") {
+        const route = url.pathname.slice(path.length);
+        if (request.method !== "POST" || url.origin !== base.origin ||
+            !url.pathname.startsWith(`${path}/models/`) ||
+            !/^\/models\/[^/]+:(?:generateContent|streamGenerateContent)$/.test(route)) return;
+        url.searchParams.delete("key");
+        if (route.endsWith(":streamGenerateContent")) url.searchParams.set("alt", "sse");
+        const next = new Request(url, request);
+        next.headers.delete("x-goog-api-key");
+        event.request = next;
+        return;
+      }
       const endpoint = providerID === "palantir-openai" ? "responses" : "messages";
       if (request.method !== "POST" || url.origin !== base.origin ||
-          url.pathname !== `${base.pathname.replace(/\/+$/, "")}/${endpoint}`) return;
+          url.pathname !== `${path}/${endpoint}`) return;
 
       const headers = new Headers(request.headers);
 
