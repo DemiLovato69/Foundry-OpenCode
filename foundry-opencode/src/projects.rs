@@ -78,6 +78,35 @@ pub fn private_token(path: &Path) -> eyre::Result<String> {
 }
 
 impl Catalog {
+    pub fn saved(home: &Path) -> eyre::Result<Self> {
+        if fs::symlink_metadata(location(home))
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
+        {
+            eyre::bail!("No saved project catalog; run update without --yes to configure it");
+        }
+        let catalog = Self::load(home)?;
+        eyre::ensure!(
+            catalog.default.is_some() || !catalog.stacks.is_empty() || !catalog.projects.is_empty(),
+            "Saved project catalog is empty; run update without --yes to configure it"
+        );
+        catalog.validate(home)?;
+        let mut paths = std::collections::BTreeSet::new();
+        for project in &catalog.projects {
+            eyre::ensure!(
+                paths.insert(&project.path),
+                "Duplicate saved repository {}",
+                project.path.display()
+            );
+            preflight(&project.path).wrap_err_with(|| {
+                format!(
+                    "Saved repository {} needs review in the update wizard",
+                    project.path.display()
+                )
+            })?;
+        }
+        Ok(catalog)
+    }
+
     pub fn validate(&self, home: &Path) -> eyre::Result<()> {
         let path = location(home);
         match fs::symlink_metadata(&path) {
@@ -839,6 +868,63 @@ mod tests {
                 0o600
             );
         }
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn saved_defaults_keep_assignments_and_refuse_invalid_repositories_or_tokens() {
+        let home = ops::backup_path(&std::env::temp_dir().join("saved-update-test"));
+        fs::create_dir_all(home.join("repo")).unwrap();
+        let home = home.canonicalize().unwrap();
+        assert!(Catalog::saved(&home).is_err());
+        let repo = home.join("repo");
+        assert!(
+            Command::new("git")
+                .args(["init", "-q"])
+                .arg(&repo)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let mut catalog = Catalog {
+            default: Some(Stack {
+                id: "default".into(),
+                name: "Global default".into(),
+                url: "https://example.com".into(),
+            }),
+            projects: vec![Project {
+                path: repo.clone(),
+                stack: "default".into(),
+                rag: false,
+            }],
+            ..Catalog::default()
+        };
+        catalog.tokens.insert("default".into(), "private".into());
+        catalog.save(&home).unwrap();
+        let before = fs::read(location(&home)).unwrap();
+        let loaded = Catalog::saved(&home).unwrap();
+        assert_eq!(loaded.tokens["default"], "private");
+        assert_eq!(loaded.projects[0].path, repo);
+        assert!(!loaded.projects[0].rag);
+        assert_eq!(fs::read(location(&home)).unwrap(), before);
+        assert!(!repo.join(".opencode").exists());
+
+        catalog.projects.push(catalog.projects[0].clone());
+        catalog.save(&home).unwrap();
+        assert!(Catalog::saved(&home).is_err());
+        catalog.projects.pop();
+        catalog.save(&home).unwrap();
+
+        fs::remove_file(token_file(&home, "default")).unwrap();
+        assert!(Catalog::saved(&home).is_err());
+        catalog.save(&home).unwrap();
+        catalog.projects[0].path = home.join("missing-repository");
+        catalog.save(&home).unwrap();
+        assert!(Catalog::saved(&home).is_err());
+        catalog.projects[0].path = repo;
+        catalog.projects[0].rag = true;
+        catalog.save(&home).unwrap();
+        assert!(Catalog::saved(&home).unwrap().projects[0].rag);
         fs::remove_dir_all(home).unwrap();
     }
 

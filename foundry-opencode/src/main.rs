@@ -55,7 +55,11 @@ enum Mode {
     /// Retire a verified V1 RAG plugin in the current project
     RepairPlugins,
     /// Update packages, global config and assigned repositories
-    Update,
+    Update {
+        /// Accept saved stacks, repositories and RAG choices without opening the wizard
+        #[arg(short, long)]
+        yes: bool,
+    },
     /// Remove installed programs, configs, stack credentials and user data
     Uninstall,
     /// Stop OpenCode and OpenChamber and clear the OpenCode cache
@@ -77,7 +81,7 @@ fn main() -> eyre::Result<()> {
         }
         Some(Mode::Usage) => {
             println!(
-                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and assign repositories to Foundry stacks\nfoundry-opencode update    Update tools, global config and project assignments\nfoundry-opencode repair-plugins Retire verified V1 RAG plugin in current project\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Configure a Git repository for a Foundry stack\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode --dry-run update  Preview project and config changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
+                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and assign repositories to Foundry stacks\nfoundry-opencode update    Update tools, global config and project assignments\nfoundry-opencode update -y Accept saved defaults and update without the wizard\nfoundry-opencode repair-plugins Retire verified V1 RAG plugin in current project\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Configure a Git repository for a Foundry stack\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode update -y --dry-run Preview saved defaults without changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
             );
             return Ok(());
         }
@@ -93,13 +97,14 @@ fn main() -> eyre::Result<()> {
     {
         eyre::bail!("Installation and updates require macOS and Homebrew");
     }
+    let mut quick_summary = None;
     let staged = match ratatui::run(|terminal| {
         execute!(std::io::stdout(), EnableMouseCapture)?;
         let result = match args.command.unwrap_or(Mode::Install) {
             Mode::Init => init(terminal, args.dry_run).map(|_| None),
             Mode::InitRag => init_rag(terminal, args.dry_run).map(|_| None),
             Mode::RepairPlugins => repair_plugins(terminal, args.dry_run).map(|_| None),
-            Mode::Update => update(terminal, args.dry_run),
+            Mode::Update { yes } => update(terminal, args.dry_run, yes, &mut quick_summary),
             Mode::Uninstall => uninstall(terminal, args.dry_run).map(|_| None),
             Mode::Reset => reset(terminal, args.dry_run).map(|_| None),
             Mode::Install => install(terminal, args.dry_run),
@@ -115,6 +120,9 @@ fn main() -> eyre::Result<()> {
         }
         Err(error) => return Err(error),
     };
+    if let Some(summary) = quick_summary {
+        println!("{summary}");
+    }
     if let Some(staged) = staged {
         ops::install_binary(&staged, std::path::Path::new(ops::BIN_PATH))?;
         println!("Installed foundry-opencode to {}", ops::BIN_PATH);
@@ -634,18 +642,30 @@ fn chamber_available(terminal: &mut DefaultTerminal) -> bool {
     }
 }
 
-fn optional_chamber(terminal: &mut DefaultTerminal, progress: &mut Progress) -> bool {
-    if chamber_available(terminal) {
-        if let Err(error) = brew_package(terminal, progress, "openchamber", true) {
-            let _ = notice(
-                terminal,
-                "OpenChamber upgrade skipped",
-                &format!("{error}. Continue setup; retry after quitting OpenChamber."),
-            );
+fn optional_chamber(terminal: &mut DefaultTerminal, progress: &mut Progress, quick: bool) -> bool {
+    if quick {
+        let skip = match chamber_running() {
+            Ok(false) => None,
+            Ok(true) => Some("OpenChamber is running; upgrade skipped".to_owned()),
+            Err(error) => Some(format!("OpenChamber upgrade skipped: {error}")),
+        };
+        if let Some(message) = skip {
+            progress.line(message.as_bytes());
             progress.done += 1;
             return false;
         }
-    } else {
+    } else if !chamber_available(terminal) {
+        progress.done += 1;
+        return false;
+    }
+    if let Err(error) = brew_package(terminal, progress, "openchamber", true) {
+        let message =
+            format!("OpenChamber upgrade skipped: {error}. Retry after quitting OpenChamber.");
+        if quick {
+            progress.line(message.as_bytes());
+        } else {
+            let _ = notice(terminal, "OpenChamber upgrade skipped", &message);
+        }
         progress.done += 1;
         return false;
     }
@@ -1639,7 +1659,7 @@ fn install(
             progress.done += 1;
         }
         if !inventory.chamber || safe_to_move {
-            if !optional_chamber(terminal, &mut progress)
+            if !optional_chamber(terminal, &mut progress, false)
                 && let Some(backup) = chamber_backup
             {
                 let app = std::path::Path::new("/Applications/OpenChamber.app");
@@ -1731,9 +1751,32 @@ fn install(
 fn update(
     terminal: &mut DefaultTerminal,
     dry_run: bool,
+    yes: bool,
+    quick_summary: &mut Option<String>,
 ) -> eyre::Result<Option<ops::StagedBinary>> {
     let user_home = home()?;
-    let catalog = projects::collect(terminal, &user_home, dry_run, None)?;
+    let mut accept = false;
+    let quick = if yes {
+        true
+    } else {
+        if ui::step_checkbox(
+            terminal,
+            "Update options",
+            "Keep unchecked to review or edit stacks, repositories and RAG choices.",
+            "Accept all loaded defaults and update",
+            &mut accept,
+            true,
+        )? != ui::Nav::Next
+        {
+            return Err(Cancelled.into());
+        }
+        accept
+    };
+    let catalog = if quick {
+        projects::Catalog::saved(&user_home)?
+    } else {
+        projects::collect(terminal, &user_home, dry_run, None)?
+    };
     let config = user_home.join(".config/opencode");
     let existing = fs::symlink_metadata(&config).is_ok();
     let backup = ops::backup_path(&config);
@@ -1780,13 +1823,18 @@ fn update(
     if dry_run {
         details.push_str("\nDry run: no files, packages, browser or credentials changed.");
     }
-    if ui::step_review(terminal, "Review update", &details, dry_run, true, "Update")?
-        != ui::Nav::Next
+    if !quick
+        && ui::step_review(terminal, "Review update", &details, dry_run, true, "Update")?
+            != ui::Nav::Next
     {
         return Err(Cancelled.into());
     }
     if dry_run {
-        notice(terminal, "Dry-run complete", &details)?;
+        if quick {
+            *quick_summary = Some(details);
+        } else {
+            notice(terminal, "Dry-run complete", &details)?;
+        }
         return Ok(None);
     }
     let (binary, release_version) = busy(
@@ -1811,7 +1859,7 @@ fn update(
     brew_update(terminal, &mut progress)?;
     brew_package(terminal, &mut progress, "opencode", false)?;
     if chamber {
-        let _ = optional_chamber(terminal, &mut progress);
+        let _ = optional_chamber(terminal, &mut progress, quick);
     }
     let staged = ops::backup_path(&config);
     let make_clone = || {
@@ -1852,14 +1900,27 @@ fn update(
     catalog.save(&user_home)?;
     let results = configure_projects(terminal, &mut progress, &catalog)?;
     remove_direnv(terminal, false)?;
-    notice(
-        terminal,
-        "Update — complete",
-        &format!(
-            "Repositories configured. Release {release_version} will replace the CLI in /usr/local/bin when you leave this screen.\n{}",
-            results.join("\n")
-        ),
-    )?;
+    let result = format!(
+        "Repositories configured. Release {release_version} {}.\n{}",
+        if quick {
+            "verified; installing the CLI next"
+        } else {
+            "will replace the CLI in /usr/local/bin when you leave this screen"
+        },
+        results.join("\n")
+    );
+    if quick {
+        let warnings = progress
+            .output
+            .iter()
+            .filter(|line| line.starts_with("OpenChamber"))
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n");
+        *quick_summary = Some(format!("{details}\n{result}\n{warnings}"));
+    } else {
+        notice(terminal, "Update — complete", &result)?;
+    }
     Ok(Some(binary))
 }
 
@@ -1895,6 +1956,26 @@ mod tests {
         ] {
             assert!(Args::try_parse_from(args).unwrap().dry_run);
         }
+    }
+
+    #[test]
+    fn update_defaults_flags_are_update_only() {
+        for args in [
+            vec!["foundry-opencode", "update", "--yes"],
+            vec!["foundry-opencode", "update", "-y"],
+            vec!["foundry-opencode", "--dry-run", "update", "-y"],
+            vec!["foundry-opencode", "update", "--yes", "--dry-run"],
+        ] {
+            let args = Args::try_parse_from(args).unwrap();
+            assert!(matches!(args.command, Some(Mode::Update { yes: true })));
+        }
+        assert!(matches!(
+            Args::try_parse_from(["foundry-opencode", "update"])
+                .unwrap()
+                .command,
+            Some(Mode::Update { yes: false })
+        ));
+        assert!(Args::try_parse_from(["foundry-opencode", "install", "--yes"]).is_err());
     }
 
     #[test]
