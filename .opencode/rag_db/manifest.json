@@ -1,0 +1,2175 @@
+{
+  "files": {
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/.github/workflows/release.yml": {
+      "hash": "718dd067c7f48459e31d9b6052b2836324f658a8504f1a5fbc287de7dea98d72",
+      "chunkCount": 4,
+      "indexedAt": 1793235776993,
+      "mtime": 1793200192713.277,
+      "size": 3031,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/README.md": {
+      "hash": "8e0c95b541f95ebe32f18ed6faec3e322eb069b48042a1017daab74799145973",
+      "chunkCount": 2,
+      "indexedAt": 1793235776994,
+      "mtime": 1793233062061.8535,
+      "size": 7603,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/agents/ai-fde.md": {
+      "hash": "7d6eadc7474b7c5b42721e795bbe21a39628d165c3baafa224111b8da5397368",
+      "chunkCount": 1,
+      "indexedAt": 1793235776994,
+      "mtime": 1793200192713.689,
+      "size": 2855,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/agents/stackoverflow.md": {
+      "hash": "c972b45c31201a1f01968442c4a6094b046d9e20e051fdbb50ee8bcd51406a3b",
+      "chunkCount": 9,
+      "indexedAt": 1793235776994,
+      "mtime": 1793200192713.833,
+      "size": 8703,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/commands/ponytail-audit.md": {
+      "hash": "6278f820b117a6a57e4c0b013906e06fe4719652e6adc4b9a1b868d6bd1ba6f2",
+      "chunkCount": 1,
+      "indexedAt": 1793235776994,
+      "mtime": 1793200192714.01,
+      "size": 587,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/commands/ponytail-debt.md": {
+      "hash": "d01efd2b740819b5da4292c97afbf08048ac4838c10c8ac505a2e1d93b51ed4b",
+      "chunkCount": 1,
+      "indexedAt": 1793235776994,
+      "mtime": 1793200192714.1167,
+      "size": 690,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/commands/ponytail-help.md": {
+      "hash": "e30fba984252c53f03c1e2e6dbcff4445099af9433d324cba4e1668a44e47c59",
+      "chunkCount": 1,
+      "indexedAt": 1793235776994,
+      "mtime": 1793200192714.2139,
+      "size": 1077,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/commands/ponytail-review.md": {
+      "hash": "ff09bd42b1d23bd3e3919c6b7ab4710c0a71b04e23c0fc30fb3c1b1b50451485",
+      "chunkCount": 1,
+      "indexedAt": 1793235776994,
+      "mtime": 1793200192714.302,
+      "size": 510,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/commands/ponytail.md": {
+      "hash": "bc8e6e39e4439bf353f7b3cdbeafb1e2c77f5d53d726cf107ad491d553211d14",
+      "chunkCount": 1,
+      "indexedAt": 1793235776994,
+      "mtime": 1793200192714.397,
+      "size": 463,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/Cargo.toml": {
+      "hash": "6d443cb7cfbd42888d567f5c3eddc1f95a2aca36c18844813682c7e9454dcc39",
+      "chunkCount": 3,
+      "indexedAt": 1793235776994,
+      "mtime": 1793227714956.5562,
+      "size": 671,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/README.md": {
+      "hash": "a57f979752e0bd4ab0b0f871acd98777a5a8d25c6ecaa9ad7ad8e43569acf845",
+      "chunkCount": 2,
+      "indexedAt": 1793235776994,
+      "mtime": 1793233062062.362,
+      "size": 10401,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/src/cleanup.rs": {
+      "hash": "f468870e751ca827c5c302a09c4f83144b84da9710f8d6725662fbb471067acb",
+      "chunkCount": 20,
+      "indexedAt": 1793235776994,
+      "mtime": 1793213549531.344,
+      "size": 12867,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/src/main.rs": {
+      "hash": "f969689ec7274198776133363d3c3ecd8468ba9a9b75b85915677ccbfe3687aa",
+      "chunkCount": 76,
+      "indexedAt": 1793235776994,
+      "mtime": 1793233062063.195,
+      "size": 95263,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/src/ops.rs": {
+      "hash": "adfe5e8ce056b9b9849b74ae5e1b81977fe65bcef2badad135eaef036fd2d382",
+      "chunkCount": 27,
+      "indexedAt": 1793235776994,
+      "mtime": 1793233062063.5676,
+      "size": 21963,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/src/rag-cli.mjs": {
+      "hash": "681d8044ad9e452059c314acbee9d1739481060b4895522d6fe8627bab2f749d",
+      "chunkCount": 1,
+      "indexedAt": 1793235776994,
+      "mtime": 1793200192715.6956,
+      "size": 1093,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/src/rag-patch.mjs": {
+      "hash": "3de2b86a7790c37028e85dcc6027fda2557150d3c90bd4441c008042be6821f7",
+      "chunkCount": 1,
+      "indexedAt": 1793235776994,
+      "mtime": 1793200192715.7893,
+      "size": 2179,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/src/rag.rs": {
+      "hash": "0cc03222356045e6ed2c9a63b16772b806c3d65eb4f174ef8c8bff1f6b5397d8",
+      "chunkCount": 12,
+      "indexedAt": 1793235776994,
+      "mtime": 1793227714957.7095,
+      "size": 19104,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/src/stack.rs": {
+      "hash": "8b6f471df293032f292f30a1e936a4fcf65a695f36a1d6346d95162bc4b1f785",
+      "chunkCount": 27,
+      "indexedAt": 1793235776994,
+      "mtime": 1793233062064.1167,
+      "size": 35598,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/src/ui.rs": {
+      "hash": "8e4b71e9c66082b0dbbc146e92b8ef717ebcf20bc285fcff7992e6ca4015e827",
+      "chunkCount": 51,
+      "indexedAt": 1793235776994,
+      "mtime": 1793227714958.0015,
+      "size": 58386,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/.rustc_info.json": {
+      "hash": "9f643af5f0ae6b7480efa6f444b2cac7e57fde19c538ed0f4b7c56ec0dc95eda",
+      "chunkCount": 3,
+      "indexedAt": 1793235776994,
+      "mtime": 1793227139939.476,
+      "size": 1949,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/addr2line-6ad628010a300a2e/lib-addr2line.json": {
+      "hash": "64a2536ed9367c2d6de55c2a180faa8159effb7a09a50018412a0633190360bc",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200926192.4392,
+      "size": 599,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/addr2line-b5e5c85a7aa9f4d6/lib-addr2line.json": {
+      "hash": "92f59869a1b2887aa4c38193d6ec0951baadfcb49e819e9f199fb7d240c5ddee",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201524342.262,
+      "size": 597,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/adler2-80698922634b7c3a/lib-adler2.json": {
+      "hash": "c7a084df999387958ac301f4a3e805c4acc0e54dd7ac9582cec24f287e430409",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200925341.8074,
+      "size": 396,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/adler2-99d50fde753c230a/lib-adler2.json": {
+      "hash": "ba5dfb756f8086539f50e34016391cd04c87c77d034917ba31affb0ae891d9a6",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201523434.7642,
+      "size": 394,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/allocator-api2-0c80f7826e4d7e2d/lib-allocator_api2.json": {
+      "hash": "b43c20b6e74a099f048cdda4cbf50a557d9d3c9f6822d4888ec5b131950e1a96",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201522351.9395,
+      "size": 441,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/allocator-api2-5c22aa61c512de9e/lib-allocator_api2.json": {
+      "hash": "159a3128f63274ba0c34112b611464c8d3d862f4450870fe4483ed899e197006",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200923663.2083,
+      "size": 440,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/anstream-1d2e8e25f822af16/lib-anstream.json": {
+      "hash": "b1c6495d85c9c939f97940b6df36626a8de5e3edff17410e9eea493efe34e381",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201523562.1306,
+      "size": 810,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/anstream-6887a319d76b22fd/lib-anstream.json": {
+      "hash": "5631e843b6eeefe3b48592ad6a4a47343deab7ea86d17191a8738ff68149bfba",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200925602.6318,
+      "size": 806,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/anstyle-0b1703ca36eca22d/lib-anstyle.json": {
+      "hash": "eb7fd124e836a3cb8c1644f8d61ff7585a64c1c7330532272cb841a67e33a838",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201523351.0195,
+      "size": 387,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/anstyle-f71e9e19747527fa/lib-anstyle.json": {
+      "hash": "259081a0a90453701b254cd2666921d3197c98aee74cd3306ea5bc818eb8b295",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200925340.5107,
+      "size": 388,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/anstyle-parse-111943d24fd46302/lib-anstyle_parse.json": {
+      "hash": "bcc948baaa9e80bca6ef59d016378942c4bce5f85b1ea0c5a03599201d8ad67b",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200924716.1016,
+      "size": 472,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/anstyle-parse-430fa3a94426e1b8/lib-anstyle_parse.json": {
+      "hash": "21a72def00ccefafef6b6f0dc05d5ba2f443ad1bc6bcb88ba107f4acf9ccb6da",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201522840.8857,
+      "size": 472,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/anstyle-query-9d75d1931acf1ebf/lib-anstyle_query.json": {
+      "hash": "c75f0a926a642653ea3b777328ef4a4724394d4eab85ca4f979d92e555650b35",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201523435.4702,
+      "size": 360,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/anstyle-query-d960cd4a95b23ceb/lib-anstyle_query.json": {
+      "hash": "d57ac669ca6a0bf4bc8cd87ff5ffdf47621aa060568b6b7876b2519a4133966e",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200925402.4167,
+      "size": 361,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/autocfg-3791343adbc7fdcd/lib-autocfg.json": {
+      "hash": "97f311a02fb95c3f02421161536df8e605502a4068f852667f9c79f05e0c5ee1",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200924515.5117,
+      "size": 346,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/backtrace-8ab9c60a2c6a88d4/lib-backtrace.json": {
+      "hash": "79754f6501f50621328ccdb52f35741c52bd00b4993a7fe6ce0ef9cd133526ba",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201524844.9417,
+      "size": 931,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/backtrace-cbc79b3195014556/lib-backtrace.json": {
+      "hash": "7d530d257d8b66a6c6345b34f95b81a37831aa44552d4519540f62187afa10c2",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200927285.0645,
+      "size": 932,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/bitflags-ad434670d6c019f8/lib-bitflags.json": {
+      "hash": "df1987d53f8b433a7b1d4a12713ca74c04ad5dce9766875d225871f451ffffe7",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201522299.6445,
+      "size": 439,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/bitflags-c2973591c174539a/lib-bitflags.json": {
+      "hash": "12dbf826d784440147d2d805f9a416a36546db01faa9bc3b0492d51ad597f050",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200923728.8677,
+      "size": 441,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/castaway-145ae28755c6126f/lib-castaway.json": {
+      "hash": "286aa7ccfdfb45f67ebba5b22f16f2967be398c3b71f70e37eb1d66f94e176ed",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200924755.2468,
+      "size": 451,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/castaway-37fed69cfe334485/lib-castaway.json": {
+      "hash": "bda860e882271b383d4a3db12cad9018f6cb45ea94ee2ca4f052c824fe199d7e",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793201522291.101,
+      "size": 449,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/cfg-if-52ec2228f4c14b18/lib-cfg_if.json": {
+      "hash": "03ac4821ec07a2b0bedd16b0dbe36e3b8009fb936502c656ab770fe7fe3b3281",
+      "chunkCount": 11,
+      "indexedAt": 1793235776995,
+      "mtime": 1793200923529.9595,
+      "size": 376,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/cfg-if-9646dc4634849171/lib-cfg_if.json": {
+      "hash": "7219fe9212da0b63b188d4f86df1f00c64fa26b3e01117065393d3c9afd27337",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793201522239.3535,
+      "size": 374,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/clap-23cf4f80049d3d0b/lib-clap.json": {
+      "hash": "57e821c962c230fa727cec132571343cfbbf8fa7190be78707ec211846aec877",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200927121.9822,
+      "size": 876,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/clap-40ec95fcc7ffa701/lib-clap.json": {
+      "hash": "e8a85169443567f618c629c6e56fce1c8e224dde710eb34e5e191a744580f811",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793201524403.4253,
+      "size": 877,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/clap_builder-afd9cf8b23c30be9/lib-clap_builder.json": {
+      "hash": "19f76b2268c599c1b1d965ff4003492d8c3943485ed5eaa2d6a2eb974226fcc5",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793201524363.5784,
+      "size": 917,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/clap_builder-e6dd51058837b85b/lib-clap_builder.json": {
+      "hash": "79a8e7b5248c150da9ee877355a779724408f65e61818616a036e88383f0c89a",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200926833.0686,
+      "size": 915,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/clap_derive-b431997db758c48e/lib-clap_derive.json": {
+      "hash": "80e60da5d8053011ad897a2da9a697d9995c310a3af30c9b829a19ec1ca45b8d",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200926994.1836,
+      "size": 694,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/clap_lex-07672f77556a7534/lib-clap_lex.json": {
+      "hash": "b38c6425fa14fc73d4b2ed32c4ae5cc2bcbb8de2df7586ddb2b6c88e5ff3db0c",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793201523714.633,
+      "size": 349,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/clap_lex-10fe6b4fc6ed1c66/lib-clap_lex.json": {
+      "hash": "d1ea919b9443235ecc6f979f921060437d9b904ed65eba8800f66dc46730637e",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200925669.0527,
+      "size": 347,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/color-eyre-60d630d496cce0e0/lib-color_eyre.json": {
+      "hash": "35dce72e2e19c49d5b63c7c5ed2e9bb2be74afcc1447631cfabf9b104602a761",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200927280.3918,
+      "size": 990,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/color-eyre-7632bbedfbc7763e/lib-color_eyre.json": {
+      "hash": "44179d660fc08c52fa2419c99c55a20166bf019708b2aab07e1f058cd101b646",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793201524936.2468,
+      "size": 989,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/color-spantrace-399e44e9baba590f/build-script-build-script-build.json": {
+      "hash": "3ca624dbf5a2d9f0c5caaa994b332003eb8f86379befcafd8c99777cd13c1f3d",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200925468.27,
+      "size": 375,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/color-spantrace-3fdeef8531d1302e/lib-color_spantrace.json": {
+      "hash": "28f04634dbe2c78a0b4349475c558f3c4f040566a054f846625c3aa213696550",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793201523964.6736,
+      "size": 682,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/color-spantrace-734b06f12d93b979/lib-color_spantrace.json": {
+      "hash": "1433a68de3f1489402a757f6160346236e4dc13237a67f6620dd42275f273019",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200926014.2366,
+      "size": 684,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/color-spantrace-e4847295c13e844c/run-build-script-build-script-build.json": {
+      "hash": "90d904edbb2a77235ccf6faeb1460df29d8653ddfcd468945be3ca1c9efd864c",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200925604.3567,
+      "size": 257,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/colorchoice-179c2f0c9365a8fc/lib-colorchoice.json": {
+      "hash": "8874acf295e13cc2ff2022b0c1d2583f9f4d1987c336115e038b1851cb048f09",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793201523220.4524,
+      "size": 356,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/colorchoice-bc72a4eff42c8a48/lib-colorchoice.json": {
+      "hash": "b213ff5d6d6b8e9276a0cf4886a61b4604c57165a64e3971f73d0b731777743d",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200924892.9153,
+      "size": 357,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/compact_str-e17c5c31aa98f90a/lib-compact_str.json": {
+      "hash": "92c01c1c26f7d5039fe8e4b70286e150d0047d47e63f31369298bd4e5a3dd371",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200925208.3457,
+      "size": 943,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/compact_str-f66760acb6a0cc59/lib-compact_str.json": {
+      "hash": "c78c42048173fd8434597a1f4107d377845126f2105cb18e1de26080cda9f8ca",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793201522685.3362,
+      "size": 938,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/convert_case-6f9f5983a389da27/lib-convert_case.json": {
+      "hash": "a26f433576801b19c89cb96cf91ef05c40d904b21dc1f9fd20e060f490932074",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793201522747.8677,
+      "size": 429,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/convert_case-f52ee3b81fe9bd57/lib-convert_case.json": {
+      "hash": "b79d4e26f3b02111547fc6d1fbebbc3a9cd1f7f023f918cb1a6b50e51a32ce75",
+      "chunkCount": 11,
+      "indexedAt": 1793235776996,
+      "mtime": 1793200924017.7073,
+      "size": 430,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/critical-section-41b41af5696383e0/lib-critical_section.json": {
+      "hash": "bbf880f1320a9f00e0a549c898a837572caadd9b441d5b23d304e7a0ae6b2e9c",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793201522452.305,
+      "size": 534,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/critical-section-8e4662bdbd8e14c8/lib-critical_section.json": {
+      "hash": "6b0c15adf2eacfbb43d178e651347786b6748c14d136e27e6cbbb24aaffe3455",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200924283.0781,
+      "size": 536,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/crossterm-5818c10aa029db05/lib-crossterm.json": {
+      "hash": "aa7519dee971a7047fd3b90a65b833f1b246415aba8091d8f757cefab977364f",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200926835.8179,
+      "size": 1079,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/crossterm-f7a0791f3369192f/lib-crossterm.json": {
+      "hash": "31d377a335862af724bcedded80e457623003c021f0ae384cec6a90242d4e1ef",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793201524130.1167,
+      "size": 1074,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/darling-ae1a7e0ce543a02c/lib-darling.json": {
+      "hash": "6647709dd04ac8fc054887fc38b30309bf3272ebb0ae956837516173086718b9",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200927430.9905,
+      "size": 556,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/darling-dcee3660283064e5/lib-darling.json": {
+      "hash": "fa074c4fa50343ba16c0738eb23bc3d42db2a5ab431919afeec9f5e63852baf9",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793201524526.3738,
+      "size": 557,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/darling_core-4824544a092175b3/lib-darling_core.json": {
+      "hash": "dfa27ff3794feaec1685e2c5c5cac9e53027995f52ac5d2eb959c768817653e6",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200927146.7363,
+      "size": 734,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/darling_core-5cdc3d97e1f58dc5/lib-darling_core.json": {
+      "hash": "d24834a1151a9f34dde372c2a3a5c4deaefd1ba2a02daf7d25def67df45e8de4",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793201524217.528,
+      "size": 734,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/darling_macro-85f3a66410a96277/lib-darling_macro.json": {
+      "hash": "fe483b6338638c846e815589748f3c1af9f8ba43cd678f98109f131ee3c9fc4b",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200927302.4414,
+      "size": 534,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/darling_macro-9f7a7cf4eaee5b23/lib-darling_macro.json": {
+      "hash": "08abf590ffe43c581fe6744015ceb0354e6d2a7e6cb398c0a26a5aa1498be93c",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793201524370.5835,
+      "size": 535,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/deranged-33094d32c7a45dfa/lib-deranged.json": {
+      "hash": "2b443f2ad58f821c9994cce800463f2def98c441ba7f3d2eb4fa2d4ab524265b",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793201523499.058,
+      "size": 491,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/deranged-ddc8b80a8e0a8026/lib-deranged.json": {
+      "hash": "58fe02115423094c37845219a95d4bc78b159f779b941db041c50df7124a18f4",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200925035.6797,
+      "size": 491,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/derive_more-5b8d8836a73b7ef4/lib-derive_more.json": {
+      "hash": "954719781776f087961d7886171b885aba0ef176650cd1cf085afec419383c1d",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200926339.552,
+      "size": 827,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/derive_more-cd72889b1165b51a/lib-derive_more.json": {
+      "hash": "1ee3875c828f70e0271f6535fbd9a6be00c82c8edce6f61d7b5ae476b356568e",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793201523760.4563,
+      "size": 828,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/derive_more-impl-76fa4f32c5a17681/lib-derive_more_impl.json": {
+      "hash": "8a53472254e7c39bc55d9fed70b2705430bcfdc9bc23bfae444853fb6e9968d4",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793201523547.6143,
+      "size": 989,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/derive_more-impl-a020c31f7ca5f73e/lib-derive_more_impl.json": {
+      "hash": "114db3667a28853583489d209f89e58bb2d874de509c762e7f344df9eac3d367",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200926205.415,
+      "size": 989,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/document-features-f27de7a9bbeaec87/lib-document_features.json": {
+      "hash": "3f616e23c91cb8d66b9124c8044c018924ead2564578ae74d2f802bdc1245aad",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200924964.177,
+      "size": 458,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/either-6f040be04afb0530/lib-either.json": {
+      "hash": "ce4deefae48bd124f194b21330993bf3e4e75719700f6043ee6586515a945a05",
+      "chunkCount": 11,
+      "indexedAt": 1793235776997,
+      "mtime": 1793200923778.146,
+      "size": 410,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/either-cc7259d0c9076fa2/lib-either.json": {
+      "hash": "f46d0c4e54459c3bed31cd270bae9b3de6ad828d384c90465d278d6b602847a4",
+      "chunkCount": 11,
+      "indexedAt": 1793235803658,
+      "mtime": 1793201522308.9185,
+      "size": 408,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/equivalent-c0cb0bb1acb43b8b/lib-equivalent.json": {
+      "hash": "c6343a7dad13ae9de129141aef9a52895d21e6995fdea5af521510a0d8bec4aa",
+      "chunkCount": 11,
+      "indexedAt": 1793235803658,
+      "mtime": 1793200923676.1953,
+      "size": 353,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/equivalent-deeb1c8d783bdf16/lib-equivalent.json": {
+      "hash": "f73d5dd698991fcfec2496660c0dd83a3086078ef15c022eaa18f65a9d7588bc",
+      "chunkCount": 11,
+      "indexedAt": 1793235803658,
+      "mtime": 1793201522243.6196,
+      "size": 351,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/errno-7541482e08e497ff/lib-errno.json": {
+      "hash": "ce04bc4d25c36af8610d8ffa316dda72040b7296470e9f42e6e91fe1fc9c1ac6",
+      "chunkCount": 11,
+      "indexedAt": 1793235803658,
+      "mtime": 1793200924882.214,
+      "size": 440,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/errno-84f0b29a9ccce089/lib-errno.json": {
+      "hash": "d7ef6ed6cbe73e24a9b36ff9c76f6a51f74d19a66e2129e7434242d8cd212738",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793201522911.9473,
+      "size": 439,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/eyre-2cf3998b8a53b608/build-script-build-script-build.json": {
+      "hash": "ee8c5b25af6d53cb32d21fec4ede493c7fd329b8adb361db212792f0153e0ee3",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793200924823.231,
+      "size": 516,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/eyre-56241e9ab40246eb/run-build-script-build-script-build.json": {
+      "hash": "540108f07d3bf74d3d875d7db5ef0b7c9c0d93651870af254cf821622afc67cc",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793200925756.3801,
+      "size": 257,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/eyre-bfc73d43bcbdd5e2/lib-eyre.json": {
+      "hash": "fa336eba0b7db1649cfe458a63d75903db047e4302229dbbbddd1e03428c3847",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793200925960.7285,
+      "size": 622,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/eyre-ee0d49193df82fc3/lib-eyre.json": {
+      "hash": "6d97a1cea61fb493512b8ac4395f970f2a4796da254b3b91749a4dfe3cde2101",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793201523815.1208,
+      "size": 622,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foldhash-e49708f79593ba6d/lib-foldhash.json": {
+      "hash": "244cadf9cd5f1a89e4766bb5c48c664a6d6e98c9da5661a7138479d0180a9e86",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793201522297.0813,
+      "size": 380,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foldhash-e5ff8da46991854d/lib-foldhash.json": {
+      "hash": "b62e06e017e10b49465b6541421ef9f4650f3e628ec1a58e37da5cd0bd59cd46",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793200923597.1602,
+      "size": 382,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-229984476938f430/bin-foundry-opencode.json": {
+      "hash": "9dd31c1d8e11bf3ec669b1cd54bd25fb0c1cf2b86cc9a4a944026509f6d8bdbc",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793226619589.9578,
+      "size": 867,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-2c108192f731e9d1/test-bin-foundry-opencode.json": {
+      "hash": "5dec23c9e7acae4dcf846300212c88fdfe154017771cfceaf06cf0be83b5ec8f",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793227139132.203,
+      "size": 929,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-30297f093c6a0681/bin-foundry-opencode.json": {
+      "hash": "2ed0ef3fa3927526fde29eadeff9ae8e0715f28955d462d1688f9ecd4f593e7b",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793226622534.3472,
+      "size": 866,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-39f8b41c0949fa5b/test-bin-foundry-opencode.json": {
+      "hash": "5192c4c2ff067b3a183003e6def71bfec4cbbc6840878d8323fa2677995e4629",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793212143336.6987,
+      "size": 733,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-4c7e8fd8a461c084/bin-foundry-opencode.json": {
+      "hash": "070ad62dec6abc9134ae54706f692aaeaeb3652ccfc0b6846b6cd14672742a96",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793234599838.3428,
+      "size": 922,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-59bbce86c868eb23/test-bin-foundry-opencode.json": {
+      "hash": "5933dc15410cc85226ec460e88e22df5e7246d1bc5fb3577a45a7949a3a3b5bc",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793226620557.2002,
+      "size": 872,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-79b6fa23dcfbba5e/bin-foundry-opencode.json": {
+      "hash": "090385090765baae0052a89dd45b2ce59d2dca17024417b5f58085f4f1218ac9",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793201856619.8408,
+      "size": 727,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-8be39e2befa1456f/bin-foundry-opencode.json": {
+      "hash": "5b92c4bec35051b51742004fe12750738d313d60012a7d821e6c5f9e7b7f989c",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793212144899.7417,
+      "size": 728,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-a7533e1536ff51ed/bin-foundry-opencode.json": {
+      "hash": "db0a6914deba7ec8362e36c738f282b5d11762779bdd2e36e750762316b8faed",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793226518519.6436,
+      "size": 867,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-b71cddaf3c28f4c2/test-bin-foundry-opencode.json": {
+      "hash": "cb882442197ee8a87a2cc35fd655c8ab6fd7486a1a90776eae6ec16253d1cb79",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793226619590.857,
+      "size": 873,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-d651e201eceb8654/bin-foundry-opencode.json": {
+      "hash": "264735be267305bbe2560aa1f635269af49094f803ed58d2db30c90408c45dd7",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793226958102.7078,
+      "size": 923,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-dc68bd2fe2534291/test-bin-foundry-opencode.json": {
+      "hash": "c385bf56ae4e186e9c2dca5670851c37683cc4a5dd73f8968feb132d643380ba",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793201712733.2573,
+      "size": 734,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-f5aa9d32d9ead01a/bin-foundry-opencode.json": {
+      "hash": "f261511b310fbb9a43c37a5d070002443738310511da38bb5eb867f7a2d9a88e",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793227139085.7905,
+      "size": 923,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/foundry-opencode-f8849da922a3f578/test-bin-foundry-opencode.json": {
+      "hash": "fa5ab2a43716e7d393f38592f9974a8354b3812cf558d0b3ca3206a1ab20da9b",
+      "chunkCount": 11,
+      "indexedAt": 1793235803659,
+      "mtime": 1793227139937.3381,
+      "size": 928,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/gimli-49622df5b2ed03b7/lib-gimli.json": {
+      "hash": "a1522aeff561a7a9fb5a7ed43eab51a018f5838320af0b0a17d8588a0a3fb847",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793201524236.5107,
+      "size": 498,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/gimli-ba6930154b3c1020/lib-gimli.json": {
+      "hash": "a1350e584b72ab9b87862780a81061e67f630e6a623e2e4995c6bc6da0eac938",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200926111.4045,
+      "size": 500,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/hashbrown-57f2b222d7e9e776/lib-hashbrown.json": {
+      "hash": "41038b3d46ef93c1170a1ec1ee488df3f25821e03a138fac4295920eaceb9ed1",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200924072.865,
+      "size": 835,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/hashbrown-fe55fa3cb55d3f72/lib-hashbrown.json": {
+      "hash": "4937aa71b81d38e0f98cdbdd0db890fbc986ea5767a591efb88e6b2cd6f6cf76",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793201522765.2864,
+      "size": 837,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/heck-a1fb505269949798/lib-heck.json": {
+      "hash": "329f9b1dc9016a18eb560db34fef2af4692c6151482987b47d89180fc58479a9",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200923601.4973,
+      "size": 342,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ident_case-1ac3e0366fba724b/lib-ident_case.json": {
+      "hash": "2aba1d753fb9271076c3705a440561cd1f098ac1856b8de277ad5a3b210c5779",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200923587.508,
+      "size": 352,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/indenter-b26a2f4a428465a6/lib-indenter.json": {
+      "hash": "f71cbdba34a45c51ff40f3907e5350e13431b9cf7e60f2febe0d973fbbd9737b",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793201523619.6194,
+      "size": 377,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/indenter-e9ab87d89ccad56a/lib-indenter.json": {
+      "hash": "2c8079ae434a02d4c02de27427e18b7656d40af0ccd0bf65e711b691f21db389",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200925561.266,
+      "size": 379,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/indoc-12be20605449510a/lib-indoc.json": {
+      "hash": "900c46546020ca263118587dc0af1db15078c8af9a0863647f914a86dada63a2",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200924140.4182,
+      "size": 342,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/instability-1738a863f8a446aa/lib-instability.json": {
+      "hash": "74a8c030c398ad9dc99c6ce28d7980f8abc3f2fbcd898f6ddf11d3eebd9f4c4e",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793201524684.4355,
+      "size": 642,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/instability-d0242ed6e1eec40c/lib-instability.json": {
+      "hash": "d50d899c5cf7655dce8d91365dc793db66a50628e13775b58bc2b7f1ab263ea4",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200927651.6326,
+      "size": 643,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/is_terminal_polyfill-3f4822ffd33fb263/lib-is_terminal_polyfill.json": {
+      "hash": "6eac1dfc494805e1e047bfaf6619874c550a392fdd1dd12a19351d5f29686221",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793201523429.8596,
+      "size": 395,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/is_terminal_polyfill-6b5b8cb1d107b4d6/lib-is_terminal_polyfill.json": {
+      "hash": "3294df8d6409d89a8cca6d43a2903083a613509ecc7e5a7b3e7df373d49206ab",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200925341.5632,
+      "size": 395,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/itertools-467c3391abae38f1/lib-itertools.json": {
+      "hash": "7471afae0df060f77834170e2bfe2ece965da451b8e03c38bb0472c36129c7e9",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793201523464.9993,
+      "size": 470,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/itertools-5b47446a950f5db9/lib-itertools.json": {
+      "hash": "01deb070cbbd99c99bfbafa9366846afffc28736ee71a649faa0e8ceec66facd",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200924583.8384,
+      "size": 472,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/itoa-37e2ae4c6caf50c7/lib-itoa.json": {
+      "hash": "ac662136947a9bb0f542a6bf90066c12c2b710926c6d9131a81aa4bb876f4302",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793201522320.8215,
+      "size": 352,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/itoa-ec00fe56a1f158c1/lib-itoa.json": {
+      "hash": "053b35ec9aabe2bab86a61c4c223fff065df5d8714007755afa48cbd994469b8",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200923798.9673,
+      "size": 354,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/jsonc-parser-5960922017610739/lib-jsonc_parser.json": {
+      "hash": "eee7596e7d2e5f7cbb1e700c5fd84929179b97469fc98c475846aedb2ddd7587",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793201524522.894,
+      "size": 553,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/jsonc-parser-d9c52a3b208531c2/lib-jsonc_parser.json": {
+      "hash": "f925ba807491ccde22dd5a6873060416d2f43fbda99f14119af9bd5a8b59af07",
+      "chunkCount": 11,
+      "indexedAt": 1793235803660,
+      "mtime": 1793200928065.5107,
+      "size": 555,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/kasuari-719edaa1b8d98255/lib-kasuari.json": {
+      "hash": "2ba7a891e1007fc25f8500e536dfce50b5f077bd12b3b2d1e00696e9b666bdb2",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200927232.7761,
+      "size": 536,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/kasuari-c1d4b0e304036f6a/lib-kasuari.json": {
+      "hash": "30c02fdc5f68a57a176118075fabe8ecf51fbbdc9340e7d8367caccc1c28ff90",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793201522930.3645,
+      "size": 535,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/lazy_static-cf0de29df7a72fa8/lib-lazy_static.json": {
+      "hash": "cad5d55896a9e578ac0ae183eb9ea44fe4d61b0e36134c34c2226514680bf9f3",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793201522365.6885,
+      "size": 379,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/lazy_static-d7dc3d38fecb146f/lib-lazy_static.json": {
+      "hash": "429b1b9d21ce78d8a15ce0aaf5429cf0645eb349c750502f213f6d2346f63473",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924212.9668,
+      "size": 381,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/libc-4dadd2072ccaef9f/lib-libc.json": {
+      "hash": "88a8b596805b3ae01ff29cd1793e4aa690baf6febf11b88a4865c696e77ec10f",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924809.5278,
+      "size": 565,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/libc-68f51597f6faf3b1/lib-libc.json": {
+      "hash": "0fb4a05c57292f12138eb7f557ec6ebc76ae324eb63883421a6f730817f1c76e",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793201522835.1492,
+      "size": 565,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/libc-77d548c60ba9ac16/build-script-build-script-build.json": {
+      "hash": "2b5e2a8fe82816a620a76dfaa6846d56b64a74e8a5f141cca58bf147d60bcaf4",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924101.5095,
+      "size": 518,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/libc-919b524de6c494ed/run-build-script-build-script-build.json": {
+      "hash": "2f0d9129e241cbbd9d1cfaa4d4b0362eb0e9c3d38567753d62052839dfb857e4",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924263.1262,
+      "size": 464,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/line-clipping-3924219c7f034236/lib-line_clipping.json": {
+      "hash": "7f0d9ef9de6c2d6903dc87251664a5abc24f7009c2f6f28c250f84d01156cb93",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793201522856.6064,
+      "size": 419,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/line-clipping-d2c7a458dcae4166/lib-line_clipping.json": {
+      "hash": "179ad3f7165dab4294eb83beb817dd73f3be1aff6b5433d8bb0bb9616cfa795a",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924948.4385,
+      "size": 417,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/litrs-67ec4efaceffe5fc/lib-litrs.json": {
+      "hash": "9643e77a87df386fcd16bcd6b5337c84c3b2013bc43c909c20f39c752cbca936",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924642.3315,
+      "size": 393,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/lock_api-94d9dca09dbc948c/lib-lock_api.json": {
+      "hash": "545e1e00c88b218c1473ffed62c3824a1e0a63ca5a35f4e478e7dfb4cda583dc",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793201522555.267,
+      "size": 520,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/lock_api-e8b1e24ed149e84d/lib-lock_api.json": {
+      "hash": "31f2705caedf3749257387103ba00cdca032b3824176e53898a8db6af8949802",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924380.0466,
+      "size": 523,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/log-37c8e83bc270379d/lib-log.json": {
+      "hash": "e4684cc753e5b2bf7f398d9edcac9a786475c53c07aedd73bf4f5ae6abfd5782",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793201522468.271,
+      "size": 841,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/log-dad6160df8355294/lib-log.json": {
+      "hash": "d1b9863ee6bae7fd7895c53756bc0eeff27413c032c4e12e7c31d9794aacbb6d",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924345.4175,
+      "size": 843,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/lru-3865733402ab54b8/lib-lru.json": {
+      "hash": "753ca279f488b992efafb462b5cd6bee099a825efc6f6001fd617d91e764fde2",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793201522884.5059,
+      "size": 461,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/lru-548b00a952edd91a/lib-lru.json": {
+      "hash": "b9f1b6892b81636bf972d8b6e7cf0f9ce033ce2052c6f232995a67821f7c116f",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924150.829,
+      "size": 462,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/memchr-6b1e11802461c7ce/lib-memchr.json": {
+      "hash": "0b343dfa8432c60e8f13968c943dea097d0e8574c641c037ea7215bbdc35d2a0",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200924771.746,
+      "size": 462,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/memchr-e5a5d40cbc870987/lib-memchr.json": {
+      "hash": "73cfb726ccc14e0ead2df285ad52b747aae1e0bb80ce82c1bb5c41d93e4d1e1a",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793201522865.4763,
+      "size": 460,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/miniz_oxide-0c1ac6a359980f4e/lib-miniz_oxide.json": {
+      "hash": "f8eadc5efb20aa47924ad8351a122f5e77233a06929d407d1f47557978aa2a74",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793200925555.1733,
+      "size": 550,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/miniz_oxide-1a818e4f38cdedad/lib-miniz_oxide.json": {
+      "hash": "b8ca9cb788a2be3affb00279bbaf10f7591f1925165a8520aeb9465b09a3fda8",
+      "chunkCount": 11,
+      "indexedAt": 1793235803661,
+      "mtime": 1793201523559.3052,
+      "size": 550,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/mio-04ef87f8f442f5f6/lib-mio.json": {
+      "hash": "22ea7e85788a2922a95f38bdc98f15c8915a5c881daeed5a494a965720dda527",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793200925194.3718,
+      "size": 557,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/mio-6a47eae9fa21fd99/lib-mio.json": {
+      "hash": "1bb68584a1e54f41488b99c37f1dfb6a26015cfc316d3bc3997accacf220b3f9",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793201523332.6719,
+      "size": 557,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/num-conv-85ce808546e5fcc5/lib-num_conv.json": {
+      "hash": "106e71689db79fa765e59433be5fb2ca3d93ab0199c1ca6a676b7023118337c6",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793201522673.0635,
+      "size": 349,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/num-conv-e0a7714e5fbb1a6d/lib-num_conv.json": {
+      "hash": "e7103bd8aeb2abde9e86679596adae3f781ac12700fb6bde065191ef327e808c",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793200924481.3616,
+      "size": 347,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/num_threads-7f219d25f09e893f/lib-num_threads.json": {
+      "hash": "ade9a5cbda0d0e35b59b2efbf35a1493aea37d13e4526873fd605b89d3bcbae1",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793200924881.65,
+      "size": 410,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/num_threads-fd7254f21cd4eb3a/lib-num_threads.json": {
+      "hash": "3dd994514666f7f20b461d2bb27711d9d024d6fa2c25d2e742430fc181f7a672",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793201522939.424,
+      "size": 408,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/object-1e2067658b3ed96d/run-build-script-build-script-build.json": {
+      "hash": "e0ba91021ea326922a40d15a41133cb7ce82be55fdf94b57c84679de1861af83",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793200924739.5813,
+      "size": 258,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/object-7f5a6eccba0f45a2/lib-object.json": {
+      "hash": "400c45634bf8986d713791aad8c1adf69257fc6435888da290a7624d5eaff922",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793201524738.5562,
+      "size": 889,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/object-93498f1887e1ee7a/lib-object.json": {
+      "hash": "0496a6d2897f20625cb795fe0d3af421e632a04f30051a75d6e9d2df10bfb658",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793200926889.2815,
+      "size": 888,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/object-b0bbe2eb84b1b37c/build-script-build-script-build.json": {
+      "hash": "8e8e197909f3cc4c3851768338b1b3f9414c46814b63b7939cd4ef940de53325",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793200924614.7598,
+      "size": 784,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/once_cell-257fb6c433de0106/lib-once_cell.json": {
+      "hash": "d2f87425cae4e40785493850e699a1b124cb2dfaa6929c6b5148199e63d3d941",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793200923790.526,
+      "size": 529,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/once_cell-98b31ac20c653026/lib-once_cell.json": {
+      "hash": "f9c26f9280aefd4566b660707b0197931ec1e057d1a69490e0dc70133a038d7b",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793201522313.8862,
+      "size": 527,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/owo-colors-aabaf1771e358c5b/lib-owo_colors.json": {
+      "hash": "f8f4c560030c7b42b913a85aafaa5e7e74d9dec887fa8b43d7e615dde099bbac",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793200925957.7402,
+      "size": 404,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/owo-colors-fa85322f0f491441/lib-owo_colors.json": {
+      "hash": "c0d608ca0023114fb9c944ead5df757aff4c69a557474502eb27b32eec6156d4",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793201523880.631,
+      "size": 405,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/parking_lot-4d9ea23905a04de6/lib-parking_lot.json": {
+      "hash": "fa7c356679e8c7e0d344cd2ccdb8dbdf03c584a78c88ef5e095f5e59c6cc45b4",
+      "chunkCount": 11,
+      "indexedAt": 1793235803662,
+      "mtime": 1793201523321.3098,
+      "size": 622,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/parking_lot-7c6e22020289584a/lib-parking_lot.json": {
+      "hash": "024fe2516a2b4b666296668fc2e2871a16c3bf75c6f7290c30f62dc7661e0508",
+      "chunkCount": 11,
+      "indexedAt": 1793235828137,
+      "mtime": 1793200925190.1482,
+      "size": 624,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/parking_lot_core-35c7ac017e6df3ab/build-script-build-script-build.json": {
+      "hash": "59fa033dd0efdce7272ef8e2b7bdcbbf977ec7be8ee5253a824ff702b100e0c4",
+      "chunkCount": 11,
+      "indexedAt": 1793235828137,
+      "mtime": 1793200924103.3337,
+      "size": 440,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/parking_lot_core-664c212469c00594/run-build-script-build-script-build.json": {
+      "hash": "91c1ba0d4d6401312b229413b025b6534ecd3d982070f2c5268dfeb5f1cd3f65",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924261.0857,
+      "size": 336,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/parking_lot_core-82196cbaed2525f2/lib-parking_lot_core.json": {
+      "hash": "afe0cbe1ecdb467600086b25cd10bec2f912213c8b3d28df0b7164d17549e976",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924974.4915,
+      "size": 674,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/parking_lot_core-c05d16963be7f979/lib-parking_lot_core.json": {
+      "hash": "f88689bce94e2d3f779df095077161fa4431b9f5c430f16cfb6324731f2a1715",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793201523013.0608,
+      "size": 671,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/pin-project-lite-461222c9f582af3d/lib-pin_project_lite.json": {
+      "hash": "f3deb3c234681a78847c31e16f86c3d53beeb6ee4b9f1d045ec9e64e49ce62f3",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793201522634.994,
+      "size": 366,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/pin-project-lite-6cb8e44a5b387b9c/lib-pin_project_lite.json": {
+      "hash": "154f9f7a075f9b61bc20250d88958fd1c12d577107bcc5cdc5624db3e1744f42",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924593.85,
+      "size": 366,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/powerfmt-0138a767e69b5fc6/lib-powerfmt.json": {
+      "hash": "c038594b4084ecf0a13f98e145e5dda77fff1e2fcd49c2685facbbcaf64da0fa",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793201522677.3252,
+      "size": 394,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/powerfmt-f2c6bcc6b306682a/lib-powerfmt.json": {
+      "hash": "eea8672a68f32f33b183e2695800fd1a13404cc4ba59aab5c5142a7b41710180",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924447.5234,
+      "size": 394,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/proc-macro2-47fdff15429a92c3/lib-proc_macro2.json": {
+      "hash": "f940f9f48d7bfa430514f7417b5aae6a50fe15b486135abe61ab4564eb90cdd7",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924810.0261,
+      "size": 574,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/proc-macro2-864b87d4aeeb0cf2/run-build-script-build-script-build.json": {
+      "hash": "eddbb20ea550c9f63c992123ee4959dc4a093552e25ea9c8bbbfa630f0483f38",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924409.2773,
+      "size": 486,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/proc-macro2-a3ac6c0d3ff1f28e/build-script-build-script-build.json": {
+      "hash": "b6ecaddea07935dd1c0141b0ee75980e1c39d7e9b9c1c805e421f23ded03e7b5",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924101.0872,
+      "size": 457,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/quote-09f0d1a0f1f6b791/run-build-script-build-script-build.json": {
+      "hash": "0b09696b6f86535e9f6d4e6e21f360722b362f5357e1eef778cf61f7b069f6aa",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924243.3066,
+      "size": 324,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/quote-0ed1355ceaa9012e/lib-quote.json": {
+      "hash": "757b77172c0d74a9e8cf87f154f2adece136480904705077ab59d7738dab7784",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924894.074,
+      "size": 527,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/quote-33a626eab5144306/build-script-build-script-build.json": {
+      "hash": "14099f15f7b942070496a091b3b3dd9e35753ad593c55899a794eb8f05cad498",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200924101.4612,
+      "size": 418,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-3a6d79481f63e238/lib-ratatui.json": {
+      "hash": "ee9e50bd8877ca4d0758c0130186443c8538ef7ceb3e85b04dbbecf90f6da805",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793201525181.6575,
+      "size": 1193,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-98586deddf577f32/lib-ratatui.json": {
+      "hash": "2338b63ea716b5a1ab6f1bb82ddc6f4bd897e35d1ecc846abf9131113e1c02c7",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200928223.0635,
+      "size": 1196,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-core-0c5b22814e58893b/lib-ratatui_core.json": {
+      "hash": "e1e45e5e084b08a1a2bc469ec59c12c3faa9219259dac270b63db4d00719b661",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200927701.1477,
+      "size": 1326,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-core-ef5944d274a0bb46/lib-ratatui_core.json": {
+      "hash": "3ab54e16ddcd8fad8a8078bf1a4eb0cfb735ddb6435bdeddc6c124b426dbeb76",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793201524081.3616,
+      "size": 1328,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-crossterm-881ef79213feafa4/lib-ratatui_crossterm.json": {
+      "hash": "794bf5d03996f74923686dc1098629eb0527366d0fd53dd29b34fac62b8b6e31",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793200927816.2993,
+      "size": 841,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-crossterm-d0581520e287e0a2/lib-ratatui_crossterm.json": {
+      "hash": "7bbbd8171f0d6d2a704c045762d517ca524ea145053eb8e0c518e032402cfae4",
+      "chunkCount": 11,
+      "indexedAt": 1793235828138,
+      "mtime": 1793201524875.4119,
+      "size": 839,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-macros-3b5a59803328c1e9/lib-ratatui_macros.json": {
+      "hash": "978a554f54bf2e29d382f30b780c1cd80b24fb358d481b0bff70576274333dc7",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793201525130.6785,
+      "size": 488,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-macros-bc3fbe6874db2d1b/lib-ratatui_macros.json": {
+      "hash": "6e5541ec570ca509f616a3e91810e555d037666f8563623808966ea013a2535a",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200928144.7124,
+      "size": 492,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-widgets-5ea8991abe5db990/lib-ratatui_widgets.json": {
+      "hash": "637bfbef052051ec7197a40da48a898fb8727ae4020eae2ceb61b3086a0e2479",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793201525094.344,
+      "size": 1193,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ratatui-widgets-b8eb1301e33344b0/lib-ratatui_widgets.json": {
+      "hash": "03bc42da783f9479b4b6a37807d81fe550e1472e7a3286280596e5d2aa14f98a",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200928221.4492,
+      "size": 1194,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/rustc-demangle-228500133775cb3d/lib-rustc_demangle.json": {
+      "hash": "3f101d38d7bf8f2170a36469ea5a80735854cbfd03f2c61cf0da786fec123de2",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200925868.1707,
+      "size": 423,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/rustc-demangle-295d834c7db15904/lib-rustc_demangle.json": {
+      "hash": "eda1062eb97772cc030eeab48722335fcbb71861e2b39b4ce51906dd6314fda1",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793201523699.528,
+      "size": 421,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/rustix-30a07d405f75f0d6/build-script-build-script-build.json": {
+      "hash": "1575111f7fe0f54159611a69bcb5bcf0e69276e3eb29f91b6b0cf990d3df2e36",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200924351.9226,
+      "size": 882,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/rustix-4e862c7ac116ec67/lib-rustix.json": {
+      "hash": "d3bbefdd33fe73a6172ebe92ac58e930bcb7455844f8bc311f284e6249298802",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200925333.5713,
+      "size": 1110,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/rustix-70a170135128d862/run-build-script-build-script-build.json": {
+      "hash": "ce8dbd3805f848759a7b973f58af576bdff3a7bde3d11129f08ae59c206178bc",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200924558.7258,
+      "size": 674,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/rustix-a8360ba3eb073b56/lib-rustix.json": {
+      "hash": "27280d07298ecf3bdeba1e1b3a26ba8380dbb0bea33254dccba52d9b9d5c71d5",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793201523506.253,
+      "size": 1110,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/rustversion-3c7f81ff7c132f01/build-script-build-script-build.json": {
+      "hash": "dc28db80cb3924a30ab260c72631b34d4edd75e8c2ab6fcc305c44c99edb9812",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200924103.5615,
+      "size": 372,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/rustversion-93ebaaf463829e75/lib-rustversion.json": {
+      "hash": "b013a3624d1961ca0ece3773721798fbfad2df8febb81a8ed49cc76a3046ac95",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200924598.271,
+      "size": 423,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/rustversion-ac5409ab7bb65a4a/run-build-script-build-script-build.json": {
+      "hash": "853319373f1c3056c424a84d92a4c3bce84be5c03a518b7891ca77764b04d1c9",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200924249.476,
+      "size": 338,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ryu-e8ae712bb376bc87/lib-ryu.json": {
+      "hash": "b0249e53c4e685bb89b51d1a4f8aa2227bbc026fffb34cf8dceb0a554c0d7f9f",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200923899.5803,
+      "size": 363,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ryu-effde195a9fa17be/lib-ryu.json": {
+      "hash": "2b0a65b3f804963926228bbbdca2b312de8feef4500dea4f7eea6279945c8894",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793201522334.8186,
+      "size": 361,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/scopeguard-5044899b4e0f32d9/lib-scopeguard.json": {
+      "hash": "46fd7703af1eea6ddcc61da921b5f581757c3a97753995abbff0d334fd7ed1f1",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793201522387.0562,
+      "size": 374,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/scopeguard-ceaaf6fd03d37e0e/lib-scopeguard.json": {
+      "hash": "50720af4bc688520a6682e8c6cd5c877817d4c258a0f9412110cc9a862c87c45",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200924222.2063,
+      "size": 376,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde-2aa1669738976979/build-script-build-script-build.json": {
+      "hash": "efd28c9222b728480fcea56a8cfcc10b0a9a8276c698d34069f87b8906ce77d6",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200925246.582,
+      "size": 497,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde-373b73f04bf20b5c/run-build-script-build-script-build.json": {
+      "hash": "a1ee206ef798dd174a8d554864f4bcec1ce3a7db83a44b680eb6dcb47c92ef1f",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200925477.3008,
+      "size": 325,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde-39d47432c95d82e5/lib-serde.json": {
+      "hash": "47530c9718aa799a9074a33395c9cf0312b941b1d832d7838d4d84cc649d32fe",
+      "chunkCount": 11,
+      "indexedAt": 1793235828139,
+      "mtime": 1793200927640.1775,
+      "size": 671,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde-8c99844dbce2a22b/lib-serde.json": {
+      "hash": "ab99528116d487f8425fe511c8adc63f17851747ec7513910ed808c30056e74e",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793201524258.8855,
+      "size": 670,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_core-ce793ef98ce35180/run-build-script-build-script-build.json": {
+      "hash": "6bbf886c18f60739031985cc1c20388745cdc330f27a607c3fcf89028b3ed4b4",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200924413.5913,
+      "size": 330,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_core-dc817e46c8e8e578/build-script-build-script-build.json": {
+      "hash": "37727118b5f36a8dcac0ca51f737b9808a20c514cd7f188f5ccb9d08345df7d7",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200924293.4565,
+      "size": 453,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_core-eca9789af7287962/lib-serde_core.json": {
+      "hash": "d121415c7d62be9525f6c9457c40beb8500161670ad0572466e9aa669c40bfca",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200925844.3257,
+      "size": 507,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_core-ecef7557c0738397/lib-serde_core.json": {
+      "hash": "876a1b41819bcada6eef053e0381233b32826d7a45b56fc7326a0ce664b425f2",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793201524065.4783,
+      "size": 505,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_derive-b17adb25bf88626b/lib-serde_derive.json": {
+      "hash": "9972c017dbfd6375377f43fe8e30e9a03e5b425f751b36a7e1712df282d4537f",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200927349.49,
+      "size": 579,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_json-1ade83a71e014269/build-script-build-script-build.json": {
+      "hash": "5b82fe6dda965dbdf8d8b4301ebc82bb1d0b7b7d6b5b109beaffbe5a97965375",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200925721.7954,
+      "size": 537,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_json-361ec20e04e2a8f1/run-build-script-build-script-build.json": {
+      "hash": "018cb63fbd53cacc2cdb679397836bccb3923af4c23095b4d2d7b459b4f5550f",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200925804.546,
+      "size": 329,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_json-9aaa31b5520f6a6c/lib-serde_json.json": {
+      "hash": "3a036715ee0abe8ba2f523ec21905803a4fb6cc784462b759e908da8086591e3",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793201524360.3289,
+      "size": 819,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_json-9bb27eba312c652a/lib-serde_json.json": {
+      "hash": "e737d6acf3557cf2e50865bbebcd15ee22f40ae2ee2c7eb5bcfa84c47e0d3dbf",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200926236.6033,
+      "size": 819,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/sharded-slab-39daefa9c173a68a/lib-sharded_slab.json": {
+      "hash": "425630831dd9fd3db8f3e4a811d9165682f5a285959cdca08b7075feab82a33f",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793201522903.6738,
+      "size": 426,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/sharded-slab-8a7e61e58812c66d/lib-sharded_slab.json": {
+      "hash": "66e3d53275a1326e3c1ba23a31211d5aece95ed4ed7c34ec796cc86c20c154d1",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200924602.6196,
+      "size": 427,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/signal-hook-00d6885240c58a6c/build-script-build-script-build.json": {
+      "hash": "297e94c08d85d9f603c1fe3d077295ee5b0746ce4b42e545fbea0988c5f4c760",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200924098.1208,
+      "size": 503,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/signal-hook-1daf2a21f0eb6417/run-build-script-build-script-build.json": {
+      "hash": "c797bae413f1ef064e0564b34468ebc4532ca58d03375b2802fb22ecb422c764",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200924218.4495,
+      "size": 258,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/signal-hook-35aed7dd6682aa4d/lib-signal_hook.json": {
+      "hash": "eef63263f5f4ff47a83614b65c537b0a91b4668fa50693313094363e1cc98936",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793201523386.7925,
+      "size": 681,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/signal-hook-fa2b290ad4148a58/lib-signal_hook.json": {
+      "hash": "c819a5d1bd687b746ba524e2c0c41bdf963ae1e6e78f7f352be63be0c6f38ca0",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200925248.1362,
+      "size": 682,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/signal-hook-mio-4434d83c69912f1f/lib-signal_hook_mio.json": {
+      "hash": "2e99c046f62bbf5975b724511a87f5952b2f1e934eee6926e355180687e55dd3",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200925277.9578,
+      "size": 705,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/signal-hook-mio-894f9877eae425e0/lib-signal_hook_mio.json": {
+      "hash": "563c582f9aaa477de537b4ca7b2f292b7f9b924d0c2f510d53894446502898b4",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793201523460.0332,
+      "size": 701,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/signal-hook-registry-270298a05e1ffc92/lib-signal_hook_registry.json": {
+      "hash": "a6d069f5030e37ca9d2dfbe32b0d5da109fb4201f5c9f38ad90f99eab4dc73d1",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793200925091.6743,
+      "size": 487,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/signal-hook-registry-6ab251e825236c3b/lib-signal_hook_registry.json": {
+      "hash": "29c2cc882ccf864089aeea5a35fdeaede3faf80886ed431be0a131ce8a832fb4",
+      "chunkCount": 11,
+      "indexedAt": 1793235828140,
+      "mtime": 1793201523224.0098,
+      "size": 486,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/smallvec-650b110e221327f7/lib-smallvec.json": {
+      "hash": "26a2bb97ca6e8519b70a699dabc0505a6a64d7470292fcc192782fbf26ba841d",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793201522554.8198,
+      "size": 564,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/smallvec-78ac92176ab39aed/lib-smallvec.json": {
+      "hash": "612a35c2aa4f7d2ecf65779b196bea051ac515f1588ba6a458a6c812cea6b280",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200924172.0251,
+      "size": 566,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/static_assertions-12f4638e9ad761bf/lib-static_assertions.json": {
+      "hash": "1e49ef5e2845292368016911338dc131fb30a5b34cf6e975c5611f7a28984965",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200923875.1824,
+      "size": 378,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/static_assertions-37adefdf1a76d24c/lib-static_assertions.json": {
+      "hash": "0357ee2af037c61c2b29add4f5884e6d46ba1bd1e2e15e816633d7d221f3124f",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793201522356.3682,
+      "size": 376,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/strsim-9988e2093fcad752/lib-strsim.json": {
+      "hash": "d3ef89f01b991d912df90a3e2fd24ccf90e7fb71e7fc54333544f6beae333f65",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793201523664.1082,
+      "size": 343,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/strsim-9ac91b5e64ea8282/lib-strsim.json": {
+      "hash": "654961788f5e6990bf36efdd1e19275730d0407f819406804ebc1953cc8fd42b",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793201522482.5042,
+      "size": 345,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/strsim-ffd2b17ed7811c88/lib-strsim.json": {
+      "hash": "5929e191a66423a7ed98a587e63150588bdc2c0982df54ce32bb219ed4604a45",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200923818.2546,
+      "size": 345,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/strum-1bd04938829aa047/lib-strum.json": {
+      "hash": "aed00dd92f434bfc6900ccf26689389f34b71fd370de51dffd7a864b3c0456f9",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200926685.4631,
+      "size": 504,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/strum-7d0f2a09bd250ab4/lib-strum.json": {
+      "hash": "e5df057fbaafe1cd176c1f6176d14ceaa86f613879ea1d76433ebf44c763030c",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793201522369.8586,
+      "size": 502,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/strum_macros-191a0169b03b1667/lib-strum_macros.json": {
+      "hash": "7b4f3d73515f4c920a3e061ad08b7ae3ddf7a90295298addbb46990b4e5aea2a",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200926514.8784,
+      "size": 587,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/syn-484cb9a121bd3601/lib-syn.json": {
+      "hash": "67ecfe56381e4e6904b744017b6aba2f8fc92dfed5561289f64dc01d96b4f067",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200926457.0874,
+      "size": 791,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/syn-eb12c43c539e1a56/lib-syn.json": {
+      "hash": "11dea8dd87f759147f8489d09a040d8fbfc4fd271b2d86e7b46d8224f4793977",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200925910.72,
+      "size": 763,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/thiserror-1ac2398a49dddde2/build-script-build-script-build.json": {
+      "hash": "297377e41fdb15a93cbabe3985bb208e8c4f5cb6dcdafe0ee08d6a874f3ade19",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200924101.8616,
+      "size": 396,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/thiserror-581c1cc4f20caa97/lib-thiserror.json": {
+      "hash": "2d5e8dac03c0b2bd61348626ed414a8eaa8a7be18e548c1098e18e86132de158",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200927041.5547,
+      "size": 512,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/thiserror-77d3de41dcacdc30/run-build-script-build-script-build.json": {
+      "hash": "6cd047b6d5c37afe8ac429149bde50daa9052552b98381083fafdf87749fc501",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200924370.5945,
+      "size": 394,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/thiserror-7bdeaf2b5c183b65/lib-thiserror.json": {
+      "hash": "ede36170b9d7a7c8d068122be7f3608f54df1f77a219c34fdc8d81d72aba1856",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793201522283.4775,
+      "size": 510,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/thiserror-impl-5b8cc4fa967c8fa4/lib-thiserror_impl.json": {
+      "hash": "98d3059f984a3b3a1adb9574322da02ed14ceba3b87346316d8add4d8def4323",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200926895.1719,
+      "size": 534,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/thread_local-141eb36a95859bfe/lib-thread_local.json": {
+      "hash": "9a98074b0ae163b8557827197ae48c29a545a2aaacb134dcbd5167a1ae108088",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793201522673.7969,
+      "size": 423,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/thread_local-6050fe1a8538f859/lib-thread_local.json": {
+      "hash": "e8782b74e33a0fbf7d0339dd633e41b4fa0654331c04055ebd56547dc1dda957",
+      "chunkCount": 11,
+      "indexedAt": 1793235828141,
+      "mtime": 1793200924399.568,
+      "size": 426,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/time-33af138d52605caf/lib-time.json": {
+      "hash": "4a20baf9f52f3df2a152c72271175a4dd52bd1b1a6aa9c52f9d51f1eb58e59c7",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793200925543.561,
+      "size": 981,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/time-core-103cc65283287e82/lib-time_core.json": {
+      "hash": "c7d5bfbb9a3016b0369aeb35c0e103791b6500b2587310ab4117d554ee3e0d20",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793200924602.0422,
+      "size": 368,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/time-core-870374e4f5391f24/lib-time_core.json": {
+      "hash": "f4a5e022a0e33a1372e15479bd9123e9c0d3f03587a5d0f3a8bc3c97c59485c1",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793201522761.9932,
+      "size": 368,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/time-efab7c2517ad0284/lib-time.json": {
+      "hash": "099184a6afeeafc313a443126c0897ef477ffd4ad4b4eebd109774c5c79dd631",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793201523949.983,
+      "size": 983,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/tracing-bb82666a6b280845/lib-tracing.json": {
+      "hash": "76290e900af2ec868a9a504784db5218d3c0b936441b684d317dd33f666926d3",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793200924763.8958,
+      "size": 892,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/tracing-core-6a967cec7739b43f/lib-tracing_core.json": {
+      "hash": "fd865552fc490643f59e7bd8a434d3ba4950f8b72e7ddb0cc95874d1cbd28868",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793201522542.6465,
+      "size": 501,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/tracing-core-e37cdc59afa05c23/lib-tracing_core.json": {
+      "hash": "bfad5c03c4dd0b4f98bc3e2137c0b08c3ddbe679308a99651feb4ccc8d784424",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793200924179.2236,
+      "size": 499,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/tracing-d631823a8a68c7a5/lib-tracing.json": {
+      "hash": "e7b6842285d5c62c8e6e90fbd9fcaa4feba6c58b531082aae5764fcd9b31d0a0",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793201522782.2207,
+      "size": 893,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/tracing-error-31d9b67a34603e49/lib-tracing_error.json": {
+      "hash": "12da2d58d8f82c145173240e18d2f788fad57f37b6fb212a3665629f88f1679c",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793200925492.0498,
+      "size": 544,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/tracing-error-b342288cbd84cc10/lib-tracing_error.json": {
+      "hash": "59a5d8ef4333877e1774aa609bee99e43133a951d57a2c7e8e6733fc6cd62886",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793201523692.102,
+      "size": 542,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/tracing-subscriber-1728a29c9b50e1e4/lib-tracing_subscriber.json": {
+      "hash": "c1611ff47e8447a4185ce0096ae853f83dccd47b80af7bb8a1bd2e48081a6570",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793200925496.1118,
+      "size": 1020,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/tracing-subscriber-d1e1b77be0099db2/lib-tracing_subscriber.json": {
+      "hash": "98f3e55d5ecd1ad1b17996893bf65422f5ff2bdf630e8d394839f46c67d1bb45",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793201523610.3425,
+      "size": 1021,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/unicode-ident-8648716a61a1c80b/lib-unicode_ident.json": {
+      "hash": "b40f27e474d2d6949f2936bb97892ddfbf21e61553b77f43a5254a62211e0c33",
+      "chunkCount": 11,
+      "indexedAt": 1793235838581,
+      "mtime": 1793200923591.287,
+      "size": 359,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/unicode-segmentation-37933abde922ed25/lib-unicode_segmentation.json": {
+      "hash": "b630ceb266337520841e0cd59caf47f0430d87f353ea553a18157ca5e319b7cf",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793201522548.4814,
+      "size": 381,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/unicode-segmentation-8c83abd555d6757f/lib-unicode_segmentation.json": {
+      "hash": "e89833c9b65a1b42b603f875d8612956c3d98c55114c49e838f23ca14e84a196",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793200923698.939,
+      "size": 383,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/unicode-segmentation-975e1b61e574bce3/lib-unicode_segmentation.json": {
+      "hash": "eca81a81355e9fa992c1065380ef3e7fcacd86da498a205006fa3fc292523cf3",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793201522624.524,
+      "size": 383,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/unicode-truncate-67e6c6295d56337a/lib-unicode_truncate.json": {
+      "hash": "e213ccbfa7e4c05e86d54ab31c9a061ba2932c682c9fdef232f63c2934d7c70d",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793201523552.9277,
+      "size": 589,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/unicode-truncate-bac294037d3292dc/lib-unicode_truncate.json": {
+      "hash": "ad17acddbb73042e1fa0fea038ed305b5405896ea8f8db8cc33cf13e79d1551c",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793200924653.4033,
+      "size": 592,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/unicode-width-1f13ff63bd087d98/lib-unicode_width.json": {
+      "hash": "a67615b5ec85125e54d639395d0958a79eafa9c96eb82ee89ea68ae32c756be2",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793200923878.6191,
+      "size": 452,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/unicode-width-ec083b67c67a32e0/lib-unicode_width.json": {
+      "hash": "25eb630956573a74e98e4c163ee3d50e11adae90ee148444c6897dfb95f4846a",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793201522385.313,
+      "size": 450,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/utf8parse-9bd7ffe9f266aa14/lib-utf8parse.json": {
+      "hash": "c20223fc24e61b94ff8d704bfb8b9e9129c023093e8885abd5680b6c0eece43d",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793201522736.8347,
+      "size": 385,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/utf8parse-c489c56a95b4b02e/lib-utf8parse.json": {
+      "hash": "9a565e61e0840c4e39d4f25ca31889ca696d263da1bf15f8d491d45e41f3ba26",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793200924514.9934,
+      "size": 387,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/zmij-4dc00db4ecd0468e/lib-zmij.json": {
+      "hash": "3066009e869c54a2ef77ad7ea11ecd6c6711cf06ee9b66b0c6585b4f141b1697",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793200925827.138,
+      "size": 424,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/zmij-884393edd6e7bacb/run-build-script-build-script-build.json": {
+      "hash": "eb25a287d9db30cf591adc35dc73dcee4d74f436c0eba5a9f42a7cd13e33e6d5",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793200925591.7773,
+      "size": 325,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/zmij-8fee8c86f8fefd56/build-script-build-script-build.json": {
+      "hash": "6e7441025a0ec1b501e45d7502e59f1a6c545bf16bbcfb10da1d69ea822d4bcb",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793200925449.0554,
+      "size": 376,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/zmij-cfdcc4c2c841ae7c/lib-zmij.json": {
+      "hash": "55c525d7a992a30a5141d302275ebf289705f227ddb5198d076ee8ab0427cc0e",
+      "chunkCount": 11,
+      "indexedAt": 1793235838582,
+      "mtime": 1793201523918.7412,
+      "size": 422,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/package.json": {
+      "hash": "221a8f831cdf0a2b2588e72a87d3375657834092d19480d812ae5d1b892415e2",
+      "chunkCount": 4,
+      "indexedAt": 1793235838582,
+      "mtime": 1793200192716.4937,
+      "size": 153,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/plugins/lms-responses-compat/index.js": {
+      "hash": "2a019e9892386023b0a736285b030ef60b3904564440033680f4b21c3b8710c3",
+      "chunkCount": 1,
+      "indexedAt": 1793235838582,
+      "mtime": 1793213568677.8943,
+      "size": 1920,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/plugins/lms-responses-compat/models.json": {
+      "hash": "c58a0c7a47a1243f2399583ce90ab6a2d3b2f0d27dceedeeffc06ef8a0887863",
+      "chunkCount": 2,
+      "indexedAt": 1793235838582,
+      "mtime": 1793213568678.0251,
+      "size": 783,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/plugins/lms-responses-compat/request.js": {
+      "hash": "bc8f53498f1b5967ab08945fa62e3521466077aa43bd4f9bbd77b423903d6c1f",
+      "chunkCount": 3,
+      "indexedAt": 1793235838582,
+      "mtime": 1793200192716.8757,
+      "size": 1205,
+      "descriptionFailed": false
+    },
+    "/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/test/migration.test.js": {
+      "hash": "e3b71fef29241e84a2593dcd5b5a664732139805b3444e29a867f8e864593881",
+      "chunkCount": 12,
+      "indexedAt": 1793235838582,
+      "mtime": 1793227714958.398,
+      "size": 10610,
+      "descriptionFailed": false
+    }
+  },
+  "schemaVersion": 3,
+  "lastIndexedAt": 1793235838595,
+  "lastGitCommit": "d50f1bc4ed7e41332741ae526ae37ae3b5d1ed37"
+}
