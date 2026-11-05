@@ -37,6 +37,19 @@ test("native config preserves proxy model IDs, title model, permissions, and dis
   assert.equal(config.model, "palantir-openai/gpt-6-sol");
   assert.equal(config.agents.title.model, "palantir-openai/gpt-6-luna");
   assert.equal(config.providers["palantir-openai"].models["gpt-5.6-sol"].modelID, "ri.language-model-service..language-model.gpt-5-6-sol");
+  assert.deepEqual(config.providers["palantir-openai"].models["gpt-6-1-sol"], {
+    name: "Foundry GPT-6.1 Sol", limit: { context: 1050000, output: 128000 }, modelID: "ri.language-model-service..language-model.gpt-6-1-sol",
+  });
+  for (const [key, rid, output] of [
+    ["gemini-4-argon", "ri.language-model-service..language-model.gemini-4-argon", 32768],
+    ["gemini-3-8-flash", "ri.language-model-service..language-model.gemini-3-8-flash", 65536],
+  ]) {
+    const model = config.providers["palantir-google"].models[key];
+    assert.equal(model.modelID, rid);
+    assert.deepEqual(model.limit, { context: 1048576, output });
+    assert.equal(model.capabilities.tools, true);
+  }
+  assert.equal(config.providers["palantir-google"].package, "@opencode/ai/providers/google");
   assert.equal(config.providers["palantir-anthropic"].models["claude-opus-5-5"].modelID, "ri.language-model-service..language-model.anthropic-claude-5-5-opus");
   if (config.mcp?.servers?.palantir) assert.equal(config.mcp.servers.palantir.disabled, true);
   assert.ok(config.permissions.some(rule => rule.action === "external_directory" && rule.effect === "ask"));
@@ -54,13 +67,15 @@ test("v2 model transform retains the v1 allowlists without filtering unrelated p
     list: (id) => [{ id: allowed[id][0] }, { id: "unsupported-model" }],
     remove: (id, model) => removed.push([id, model]),
   });
-  assert.deepEqual(removed, [["palantir-openai", "unsupported-model"], ["palantir-anthropic", "unsupported-model"]]);
+  assert.deepEqual(removed, [["palantir-openai", "unsupported-model"], ["palantir-google", "unsupported-model"], ["palantir-anthropic", "unsupported-model"]]);
 });
 
 test("proxy provider IDs cannot select saved vendor OAuth accounts", () => {
-  assert.deepEqual(Object.keys(config.providers), ["palantir-openai", "palantir-anthropic"]);
+  assert.deepEqual(Object.keys(config.providers), ["palantir-openai", "palantir-google", "palantir-anthropic"]);
   assert.equal(config.providers["palantir-openai"].canonical, "openai");
   assert.equal(config.providers["palantir-anthropic"].canonical, "anthropic");
+  assert.equal(config.providers["palantir-google"].canonical, "google");
+  assert.ok(config.policies.some(rule => rule.action === "provider.use" && rule.resource === "palantir-google" && rule.effect === "allow"));
   assert.ok(config.policies.some(rule => rule.action === "integration.use" && rule.resource === "plugin:context-mode" && rule.effect === "deny"));
   assert.ok(config.plugins.includes("-context-mode"));
 });
@@ -135,6 +150,48 @@ test("Anthropic HTTP requests drop proxy-incompatible cache markers for every re
     assert.equal(body.messages[0].content[0].input.cache_control, "keep");
     assert.equal(event.request.headers.get("Authorization"), "Bearer stack-token");
     assert.equal(event.request.signal.aborted, signal.aborted);
+  }
+});
+
+test("Google proxy requests keep Gemini tool and thought data but use Foundry bearer auth and SSE", async () => {
+  const { hook } = await loadPlugin(providers);
+  const base = providers["palantir-google"].settings.baseURL;
+  for (const model of Object.values(config.providers["palantir-google"].models)) {
+    for (const kind of ["primary", "compaction", "title", "generate"]) {
+      const controller = new AbortController();
+      const body = {
+        contents: [{ role: "model", parts: [{ functionCall: { name: "lookup", args: { query: "example" } }, thoughtSignature: "signed-thought" }] }],
+        tools: [{ functionDeclarations: [{ name: "lookup", parameters: { type: "OBJECT", properties: { query: { type: "STRING" } } } }] }],
+        generationConfig: { maxOutputTokens: model.limit.output },
+      };
+      const request = new Request(`${base}/models/${model.modelID}:streamGenerateContent?key=not-for-foundry`, {
+        method: "POST", headers: { "x-goog-api-key": "remove-me", Authorization: "Bearer stack-token", "X-Test": "kept" },
+        body: JSON.stringify(body), signal: controller.signal,
+      });
+      const event = { model: { providerID: "palantir-google", id: model.modelID }, kind, request };
+      await hook(event);
+      const url = new URL(event.request.url);
+      assert.equal(url.pathname, `${new URL(base).pathname}/models/${model.modelID}:streamGenerateContent`);
+      assert.equal(url.searchParams.get("alt"), "sse");
+      assert.equal(url.searchParams.has("key"), false);
+      assert.equal(event.request.headers.get("x-goog-api-key"), null);
+      assert.equal(event.request.headers.get("Authorization"), "Bearer stack-token");
+      assert.equal(event.request.headers.get("X-Test"), "kept");
+      assert.deepEqual(await event.request.json(), body);
+      controller.abort();
+      assert.equal(event.request.signal.aborted, true);
+    }
+    const request = new Request(`${base}/models/${model.modelID}:generateContent`, { method: "POST", headers: { Authorization: "Bearer stack-token", "x-goog-api-key": "remove-me" }, body: "{}" });
+    const event = { model: { providerID: "palantir-google", id: model.modelID }, request };
+    await hook(event);
+    assert.equal(new URL(event.request.url).searchParams.has("alt"), false);
+    assert.equal(event.request.headers.get("x-goog-api-key"), null);
+  }
+  for (const url of ["https://elsewhere.example/models/other:streamGenerateContent", `${base}/unrelated/models/other:generateContent`]) {
+    const request = new Request(url, { method: "POST", headers: { "x-goog-api-key": "leave-alone" }, body: "{}" });
+    const event = { model: { providerID: "palantir-google" }, request };
+    await hook(event);
+    assert.equal(event.request, request);
   }
 });
 

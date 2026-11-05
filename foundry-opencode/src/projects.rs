@@ -30,6 +30,9 @@ pub struct Catalog {
     pub default: Option<Stack>,
     pub stacks: Vec<Stack>,
     pub projects: Vec<Project>,
+    /// Install the `git sync-worktrees` alias (opt-in).
+    #[serde(default)]
+    pub sync_alias: bool,
     #[serde(skip)]
     pub tokens: BTreeMap<String, String>,
 }
@@ -78,6 +81,35 @@ pub fn private_token(path: &Path) -> eyre::Result<String> {
 }
 
 impl Catalog {
+    pub fn saved(home: &Path) -> eyre::Result<Self> {
+        if fs::symlink_metadata(location(home))
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
+        {
+            eyre::bail!("No saved project catalog; run update without --yes to configure it");
+        }
+        let catalog = Self::load(home)?;
+        eyre::ensure!(
+            catalog.default.is_some() || !catalog.stacks.is_empty() || !catalog.projects.is_empty(),
+            "Saved project catalog is empty; run update without --yes to configure it"
+        );
+        catalog.validate(home)?;
+        let mut paths = std::collections::BTreeSet::new();
+        for project in &catalog.projects {
+            eyre::ensure!(
+                paths.insert(&project.path),
+                "Duplicate saved repository {}",
+                project.path.display()
+            );
+            preflight(&project.path).wrap_err_with(|| {
+                format!(
+                    "Saved repository {} needs review in the update wizard",
+                    project.path.display()
+                )
+            })?;
+        }
+        Ok(catalog)
+    }
+
     pub fn validate(&self, home: &Path) -> eyre::Result<()> {
         let path = location(home);
         match fs::symlink_metadata(&path) {
@@ -324,7 +356,7 @@ pub fn is_repo(path: &Path) -> eyre::Result<bool> {
 pub fn project_config(home: &Path, stack: &Stack) -> Value {
     let mut config = stack::config(&stack.url);
     let token = format!("{{file:{}}}", token_file(home, &stack.id).display());
-    for provider in ["palantir-openai", "palantir-anthropic"] {
+    for provider in ["palantir-openai", "palantir-anthropic", "palantir-google"] {
         config["providers"][provider]["settings"]["apiKey"] = token.clone().into();
         config["providers"][provider]["headers"]["Authorization"] =
             format!("Bearer {token}").into();
@@ -351,6 +383,14 @@ pub fn preflight(repo: &Path) -> eyre::Result<()> {
         "{} is not a repository root",
         repo.display()
     );
+    if let Some(main) = crate::worktrees::main_of(repo)? {
+        eyre::bail!(
+            "{} is a Git worktree of {}; select {} instead. Its worktrees share that configuration (foundry-opencode sync-worktrees)",
+            repo.display(),
+            main.display(),
+            main.display()
+        );
+    }
     let open = repo.join(".opencode");
     match fs::symlink_metadata(&open) {
         Ok(meta) => eyre::ensure!(
@@ -679,6 +719,18 @@ pub fn collect(
             rag,
         });
     }
+    if preset.is_none()
+        && ui::step_checkbox(
+            terminal,
+            "Git worktrees",
+            "Worktrees of a selected repository share its .opencode configuration and keep their own RAG index. Optionally add `git sync-worktrees`, a Git shortcut for `foundry-opencode sync-worktrees`, which moves every worktree to the latest default branch, links the shared configuration and reindexes RAG.",
+            "Install the git sync-worktrees alias",
+            &mut catalog.sync_alias,
+            false,
+        )? != ui::Nav::Next
+    {
+        return Err(Cancelled.into());
+    }
     if let Some(repo) = preset {
         let selected: Vec<_> = projects.iter().map(|item| &item.path).collect();
         eyre::ensure!(
@@ -719,6 +771,14 @@ mod tests {
         assert_eq!(
             doc["mcp"]["servers"]["palantir"]["environment"]["FOUNDRY_TOKEN"],
             doc["providers"]["palantir-openai"]["settings"]["apiKey"]
+        );
+        assert_eq!(
+            doc["providers"]["palantir-google"]["settings"]["apiKey"],
+            doc["providers"]["palantir-openai"]["settings"]["apiKey"]
+        );
+        assert_eq!(
+            doc["providers"]["palantir-google"]["headers"]["Authorization"],
+            "Bearer {file:/Users/example/.config/foundry-opencode/tokens/default}"
         );
     }
 
@@ -790,6 +850,37 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[test]
+    fn worktrees_point_to_their_main_checkout_instead_of_becoming_projects() {
+        let root = ops::backup_path(&std::env::temp_dir().join("project-worktree-test"))
+            .with_extension("d");
+        let main = root.join("main");
+        fs::create_dir_all(&main).unwrap();
+        let git = |args: &[&str]| {
+            assert!(
+                Command::new("git")
+                    .args(["-c", "user.name=t", "-c", "user.email=t@example.com"])
+                    .args(["-c", "commit.gpgsign=false"])
+                    .args(args)
+                    .current_dir(&main)
+                    .status()
+                    .unwrap()
+                    .success()
+            )
+        };
+        git(&["init", "-q"]);
+        git(&["commit", "-q", "--allow-empty", "-m", "start"]);
+        git(&["worktree", "add", "-q", "--detach", "../linked"]);
+        assert!(preflight(&main).is_ok());
+        let error = preflight(&root.join("linked")).unwrap_err().to_string();
+        assert!(error.contains("is a Git worktree of"), "{error}");
+        assert!(
+            error.contains(&main.canonicalize().unwrap().display().to_string()),
+            "{error}"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn read_config(path: &Path) -> Value {
         serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
     }
@@ -831,6 +922,63 @@ mod tests {
                 0o600
             );
         }
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn saved_defaults_keep_assignments_and_refuse_invalid_repositories_or_tokens() {
+        let home = ops::backup_path(&std::env::temp_dir().join("saved-update-test"));
+        fs::create_dir_all(home.join("repo")).unwrap();
+        let home = home.canonicalize().unwrap();
+        assert!(Catalog::saved(&home).is_err());
+        let repo = home.join("repo");
+        assert!(
+            Command::new("git")
+                .args(["init", "-q"])
+                .arg(&repo)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let mut catalog = Catalog {
+            default: Some(Stack {
+                id: "default".into(),
+                name: "Global default".into(),
+                url: "https://example.com".into(),
+            }),
+            projects: vec![Project {
+                path: repo.clone(),
+                stack: "default".into(),
+                rag: false,
+            }],
+            ..Catalog::default()
+        };
+        catalog.tokens.insert("default".into(), "private".into());
+        catalog.save(&home).unwrap();
+        let before = fs::read(location(&home)).unwrap();
+        let loaded = Catalog::saved(&home).unwrap();
+        assert_eq!(loaded.tokens["default"], "private");
+        assert_eq!(loaded.projects[0].path, repo);
+        assert!(!loaded.projects[0].rag);
+        assert_eq!(fs::read(location(&home)).unwrap(), before);
+        assert!(!repo.join(".opencode").exists());
+
+        catalog.projects.push(catalog.projects[0].clone());
+        catalog.save(&home).unwrap();
+        assert!(Catalog::saved(&home).is_err());
+        catalog.projects.pop();
+        catalog.save(&home).unwrap();
+
+        fs::remove_file(token_file(&home, "default")).unwrap();
+        assert!(Catalog::saved(&home).is_err());
+        catalog.save(&home).unwrap();
+        catalog.projects[0].path = home.join("missing-repository");
+        catalog.save(&home).unwrap();
+        assert!(Catalog::saved(&home).is_err());
+        catalog.projects[0].path = repo;
+        catalog.projects[0].rag = true;
+        catalog.save(&home).unwrap();
+        assert!(Catalog::saved(&home).unwrap().projects[0].rag);
         fs::remove_dir_all(home).unwrap();
     }
 
