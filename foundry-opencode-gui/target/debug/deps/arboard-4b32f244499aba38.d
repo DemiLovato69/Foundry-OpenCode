@@ -1,0 +1,10 @@
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/arboard-4b32f244499aba38.d: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/common.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/platform/mod.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/platform/osx.rs
+
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/libarboard-4b32f244499aba38.rlib: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/common.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/platform/mod.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/platform/osx.rs
+
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/libarboard-4b32f244499aba38.rmeta: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/common.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/platform/mod.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/platform/osx.rs
+
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/lib.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/common.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/platform/mod.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.7.0/src/platform/osx.rs:

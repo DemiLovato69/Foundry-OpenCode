@@ -1,0 +1,12 @@
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/thiserror-ba1db875f0a86082.d: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/aserror.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/display.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/var.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/private.rs /Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/build/thiserror-f25adc3e9207cf80/out/private.rs
+
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/libthiserror-ba1db875f0a86082.rmeta: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/aserror.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/display.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/var.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/private.rs /Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/build/thiserror-f25adc3e9207cf80/out/private.rs
+
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/lib.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/aserror.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/display.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/var.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/private.rs:
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/build/thiserror-f25adc3e9207cf80/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/build/thiserror-f25adc3e9207cf80/out

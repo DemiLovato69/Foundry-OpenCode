@@ -1,0 +1,1 @@
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/foundry-opencode-gui: /Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/src/main.rs

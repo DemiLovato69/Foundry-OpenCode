@@ -11,3 +11,4 @@ cli.json
 
 /target
 /foundry-opencode/target/
+/foundry-opencode-gui/target/

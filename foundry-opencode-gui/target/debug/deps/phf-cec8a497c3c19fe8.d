@@ -1,0 +1,11 @@
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/phf-cec8a497c3c19fe8.d: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/map.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/ordered_map.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/ordered_set.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/set.rs
+
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/libphf-cec8a497c3c19fe8.rlib: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/map.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/ordered_map.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/ordered_set.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/set.rs
+
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/libphf-cec8a497c3c19fe8.rmeta: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/map.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/ordered_map.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/ordered_set.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/set.rs
+
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/lib.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/map.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/ordered_map.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/ordered_set.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/src/set.rs:

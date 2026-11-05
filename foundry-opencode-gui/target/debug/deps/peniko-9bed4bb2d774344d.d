@@ -1,0 +1,11 @@
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/peniko-9bed4bb2d774344d.d: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/blend.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/brush.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/gradient.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/image.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/style.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/impl_bytemuck.rs
+
+/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/libpeniko-9bed4bb2d774344d.rmeta: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/lib.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/blend.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/brush.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/gradient.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/image.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/style.rs /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/impl_bytemuck.rs
+
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/lib.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/blend.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/brush.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/gradient.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/image.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/style.rs:
+/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/impl_bytemuck.rs:
