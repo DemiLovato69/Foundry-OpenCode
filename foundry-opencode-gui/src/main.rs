@@ -39,6 +39,7 @@ struct FoundryOpencodeInstaller {
     installation_settings: InstallationSettings,
     page: u32,
     page_title: String,
+    input_text: String,
 }
 
 impl Default for FoundryOpencodeInstaller {
@@ -47,6 +48,7 @@ impl Default for FoundryOpencodeInstaller {
             installation_settings: InstallationSettings::default(),
             page: 0,
             page_title: "Foundry Opencode Installer".into(),
+            input_text: String::new(),
         }
     }
 }
@@ -59,6 +61,7 @@ trait Pages {
 impl Pages for FoundryOpencodeInstaller {
     fn page_0(&mut self, ui: &mut egui::Ui) {
         self.page_title = "Foundry Opencode Installer - Page 0".into();
+        ui.label("Do you want to install OpenChamber?");
         ui.with_layout(
             egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
             |ui| {
@@ -68,48 +71,47 @@ impl Pages for FoundryOpencodeInstaller {
                 );
             },
         );
-        ui.label("Page 0");
     }
 
     fn page_1(&mut self, ui: &mut egui::Ui) {
         self.page_title = "Foundry Opencode Installer - Page 1".into();
-        ui.label("Page 1");
+        ui.label("What is the airspeed velocity of an unladen swallow?");
+
+        // 1. Set the exact bounding width/height you want your input field to occupy.
+        // We give it a comfortable width (e.g., 300.0) and a single-line height (e.g., 24.0).
+        let input_size = egui::vec2(300.0, 24.0);
+
+        // 2. Bound the available UI space so 'centered_and_justified' doesn't blow up full-screen.
+        ui.allocate_ui(input_size, |ui| {
+            ui.with_layout(
+                egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                |ui| {
+                    ui.text_edit_singleline(&mut self.input_text);
+                },
+            );
+        });
+
+        // 3. This safely consumes whatever is left at the bottom of the page
+        ui.allocate_space(egui::vec2(0.0, ui.available_height()));
+
+        // self.page_title = "Foundry Opencode Installer - Page 1".into();
+        // ui.label("What is the airspeed velocity of an unladen swallow?");
+        // ui.with_layout(
+        //     egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+        //     |ui| {
+        //         ui.text_edit_singleline(&mut self.input_text);
+        //     },
+        // );
+        // ui.allocate_space(egui::vec2(0.0, ui.available_height()));
     }
 }
 
 impl eframe::App for FoundryOpencodeInstaller {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ui, |ui| {
-            // Double scale
-            ui.ctx().set_pixels_per_point(3.0);
-
-            ui.heading(&self.page_title);
-
-            match self.page {
-                0 => self.page_0(ui),
-                1 => self.page_1(ui),
-                _ => {
-                    std::thread::spawn(|| {
-                        let confirmed = rfd::MessageDialog::new()
-                            .set_title("Success")
-                            .set_description("Operation completed successfully.")
-                            .set_buttons(rfd::MessageButtons::Ok)
-                            .set_level(rfd::MessageLevel::Warning)
-                            .show();
-
-                        if confirmed == rfd::MessageDialogResult::Ok {
-                            exit(0);
-                        }
-                    });
-                }
-            }
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+        egui::Panel::bottom("bottom")
+            .resizable(false)
+            .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    // let name_label = ui.label("Your name: ");
-                    // ui.text_edit_singleline(&mut self.name)
-                    //     .labelled_by(name_label.id);
-                    // ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
                     let mut back_button_text = "Back";
                     if self.page == 0 {
                         back_button_text = "Exit"
@@ -142,11 +144,31 @@ impl eframe::App for FoundryOpencodeInstaller {
                     });
                 });
             });
-            // ui.label(format!("Hello '{}', age {}", self.name, self.age));
 
-            // ui.image(egui::include_image!(
-            //     "../../../crates/egui/assets/ferris.png"
-            // ));
+        egui::CentralPanel::default().show(ui, |ui| {
+            // Double scale
+            ui.ctx().set_pixels_per_point(3.0);
+
+            ui.heading(&self.page_title);
+
+            match self.page {
+                0 => self.page_0(ui),
+                1 => self.page_1(ui),
+                _ => {
+                    std::thread::spawn(|| {
+                        let confirmed = rfd::MessageDialog::new()
+                            .set_title("Success")
+                            .set_description("Operation completed successfully.")
+                            .set_buttons(rfd::MessageButtons::Ok)
+                            .set_level(rfd::MessageLevel::Warning)
+                            .show();
+
+                        if confirmed == rfd::MessageDialogResult::Ok {
+                            exit(0);
+                        }
+                    });
+                }
+            }
         });
     }
 }
