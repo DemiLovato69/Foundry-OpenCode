@@ -1,0 +1,872 @@
+[2026-10-29T01:02:25.627Z] [config] Config: /Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/.opencode/opencode-rag.log
+
+[2026-10-29T01:02:25.627Z] [config]   Embedding provider: openai
+
+[2026-10-29T01:02:25.628Z] [config]   Embedding model:    ri.language-model-service..language-model.text-embedding-3-large_azure
+
+[2026-10-29T01:02:25.628Z] [config]   Vector store:       ./.opencode/rag_db
+
+[2026-10-29T01:02:25.628Z] [index] 
+Indexing workspace...
+
+[2026-10-29T01:02:25.628Z] [index]   Vector dimension:   3072
+
+[2026-10-29T01:02:25.628Z] [index] Scanning: /Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode
+
+[2026-10-29T01:02:25.629Z] [index] Manifest loaded: missing, 0 entries
+
+[2026-10-29T01:02:25.630Z] [index] Walking directory tree...
+
+[2026-10-29T01:02:25.649Z] [index] Traversed 100 directories... (/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/ident_case-1ac3e0366fba724b)
+
+[2026-10-29T01:02:25.664Z] [index] Traversed 200 directories... (/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode/target/debug/.fingerprint/serde_json-9bb27eba312c652a)
+
+[2026-10-29T01:02:25.833Z] [index] Traversed 300 directories... (/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/plugins)
+
+[2026-10-29T01:02:25.833Z] [index] Found 271 matching files in 0.2s (302 dirs traversed)
+
+[2026-10-29T01:02:25.849Z] [index] Scanned 271/271 files...
+
+[2026-10-29T01:02:25.850Z] [index] Scan complete: 271 files processed in 0.0s
+
+[2026-10-29T01:02:25.850Z] [index] Workspace scan complete: 271 files in 0.2s
+
+[2026-10-29T01:02:25.850Z] [index] Querying vector store for existing chunk count...
+
+[2026-10-29T01:02:25.854Z] [index] Store has 0 existing chunks (0.0s)
+
+[2026-10-29T01:02:25.854Z] [index] Chunking 271 file(s)...
+
+[2026-10-29T01:02:25.929Z] [index]   Chunking: 13/271 files (4.8%)
+
+[2026-10-29T01:02:25.946Z] [index]   Chunking: 26/271 files (9.6%)
+
+[2026-10-29T01:02:25.948Z] [index]   Chunking: 39/271 files (14.4%)
+
+[2026-10-29T01:02:25.950Z] [index]   Chunking: 52/271 files (19.2%)
+
+[2026-10-29T01:02:25.952Z] [index]   Chunking: 65/271 files (24.0%)
+
+[2026-10-29T01:02:25.955Z] [index]   Chunking: 78/271 files (28.8%)
+
+[2026-10-29T01:02:25.956Z] [index] Chunking complete: 271 files in 0.1s
+
+[2026-10-29T01:02:25.956Z] [index] Embedding phase: 904 texts in batches of 32...
+
+[2026-10-29T01:02:28.399Z] [index] Embedding  (chunk 32/904) — 872/904 remaining (96.5%)
+
+[2026-10-29T01:02:29.387Z] [index] Embedding  (chunk 64/904) — 840/904 remaining (92.9%)
+
+[2026-10-29T01:02:30.585Z] [index] Embedding  (chunk 96/904) — 808/904 remaining (89.4%)
+
+[2026-10-29T01:02:32.350Z] [index] Embedding  (chunk 128/904) — 776/904 remaining (85.8%)
+
+[2026-10-29T01:02:32.790Z] [index] Embedding  (chunk 160/904) — 744/904 remaining (82.3%)
+
+[2026-10-29T01:02:34.061Z] [index] Embedding  (chunk 192/904) — 712/904 remaining (78.8%)
+
+[2026-10-29T01:02:35.421Z] [index] Embedding  (chunk 224/904) — 680/904 remaining (75.2%)
+
+[2026-10-29T01:02:36.206Z] [index] Embedding  (chunk 256/904) — 648/904 remaining (71.7%)
+
+[2026-10-29T01:02:37.442Z] [index] Embedding  (chunk 288/904) — 616/904 remaining (68.1%)
+
+[2026-10-29T01:02:38.040Z] [index] Embedding  (chunk 320/904) — 584/904 remaining (64.6%)
+
+[2026-10-29T01:02:39.231Z] [index] Embedding  (chunk 352/904) — 552/904 remaining (61.1%)
+
+[2026-10-29T01:02:40.365Z] [index] Embedding  (chunk 384/904) — 520/904 remaining (57.5%)
+
+[2026-10-29T01:02:41.051Z] [index] Embedding  (chunk 416/904) — 488/904 remaining (54.0%)
+
+[2026-10-29T01:02:42.130Z] [index] Embedding  (chunk 448/904) — 456/904 remaining (50.4%)
+
+[2026-10-29T01:02:43.194Z] [index] Embedding  (chunk 480/904) — 424/904 remaining (46.9%)
+
+[2026-10-29T01:02:44.396Z] [index] Embedding  (chunk 512/904) — 392/904 remaining (43.4%)
+
+[2026-10-29T01:02:45.809Z] [index] Embedding  (chunk 544/904) — 360/904 remaining (39.8%)
+
+[2026-10-29T01:02:46.218Z] [index] Embedding  (chunk 576/904) — 328/904 remaining (36.3%)
+
+[2026-10-29T01:02:47.636Z] [index] Embedding  (chunk 608/904) — 296/904 remaining (32.7%)
+
+[2026-10-29T01:02:48.630Z] [index] Embedding  (chunk 640/904) — 264/904 remaining (29.2%)
+
+[2026-10-29T01:02:49.262Z] [index] Embedding  (chunk 672/904) — 232/904 remaining (25.7%)
+
+[2026-10-29T01:02:50.239Z] [index] Embedding  (chunk 704/904) — 200/904 remaining (22.1%)
+
+[2026-10-29T01:02:50.793Z] [index] Embedding  (chunk 736/904) — 168/904 remaining (18.6%)
+
+[2026-10-29T01:02:51.618Z] [index] Embedding  (chunk 768/904) — 136/904 remaining (15.0%)
+
+[2026-10-29T01:02:52.864Z] [index] Embedding  (chunk 800/904) — 104/904 remaining (11.5%)
+
+[2026-10-29T01:02:53.378Z] [index] Embedding  (chunk 832/904) — 72/904 remaining (8.0%)
+
+[2026-10-29T01:02:55.306Z] [index] Embedding  (chunk 864/904) — 40/904 remaining (4.4%)
+
+[2026-10-29T01:02:55.947Z] [index] Embedding  (chunk 872/904) — 32/904 remaining (3.5%)
+
+[2026-10-29T01:02:56.901Z] [index] Embedding  (chunk 904/904) — 0/904 remaining (0.0%)
+
+[2026-10-29T01:02:56.902Z] [index] Embedding complete: 904 texts in 30.9s
+
+[2026-10-29T01:02:56.902Z] [index] Store phase: storing 80 file(s) into vector database...
+
+[2026-10-29T01:02:56.905Z] [index]   Chunking: 91/271 files (33.6%)
+
+[2026-10-29T01:02:56.906Z] [index]   Chunking: 104/271 files (38.4%)
+
+[2026-10-29T01:02:56.908Z] [index]   Chunking: 117/271 files (43.2%)
+
+[2026-10-29T01:02:56.910Z] [index]   Chunking: 130/271 files (48.0%)
+
+[2026-10-29T01:02:56.911Z] [index]   Chunking: 143/271 files (52.8%)
+
+[2026-10-29T01:02:56.913Z] [index]   Chunking: 156/271 files (57.6%)
+
+[2026-10-29T01:02:56.913Z] [index] Embedding phase: 880 texts in batches of 32...
+
+[2026-10-29T01:02:56.994Z] [index] Storing .github/workflows/release.yml (chunk 1/80) — 79/80 remaining (98.8%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing README.md (chunk 2/80) — 78/80 remaining (97.5%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing agents/ai-fde.md (chunk 3/80) — 77/80 remaining (96.3%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing agents/stackoverflow.md (chunk 4/80) — 76/80 remaining (95.0%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing commands/ponytail-audit.md (chunk 5/80) — 75/80 remaining (93.8%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing commands/ponytail-debt.md (chunk 6/80) — 74/80 remaining (92.5%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing commands/ponytail-help.md (chunk 7/80) — 73/80 remaining (91.3%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing commands/ponytail-review.md (chunk 8/80) — 72/80 remaining (90.0%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing commands/ponytail.md (chunk 9/80) — 71/80 remaining (88.8%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/Cargo.toml (chunk 10/80) — 70/80 remaining (87.5%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/README.md (chunk 11/80) — 69/80 remaining (86.3%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/src/cleanup.rs (chunk 12/80) — 68/80 remaining (85.0%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/src/main.rs (chunk 13/80) — 67/80 remaining (83.8%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/src/ops.rs (chunk 14/80) — 66/80 remaining (82.5%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/src/rag-cli.mjs (chunk 15/80) — 65/80 remaining (81.3%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/src/rag-patch.mjs (chunk 16/80) — 64/80 remaining (80.0%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/src/rag.rs (chunk 17/80) — 63/80 remaining (78.8%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/src/stack.rs (chunk 18/80) — 62/80 remaining (77.5%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/src/ui.rs (chunk 19/80) — 61/80 remaining (76.3%)
+
+[2026-10-29T01:02:56.994Z] [index] Storing foundry-opencode/target/.rustc_info.json (chunk 20/80) — 60/80 remaining (75.0%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/addr2line-6ad628010a300a2e/lib-addr2line.json (chunk 21/80) — 59/80 remaining (73.8%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/addr2line-b5e5c85a7aa9f4d6/lib-addr2line.json (chunk 22/80) — 58/80 remaining (72.5%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/adler2-80698922634b7c3a/lib-adler2.json (chunk 23/80) — 57/80 remaining (71.3%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/adler2-99d50fde753c230a/lib-adler2.json (chunk 24/80) — 56/80 remaining (70.0%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/allocator-api2-0c80f7826e4d7e2d/lib-allocator_api2.json (chunk 25/80) — 55/80 remaining (68.8%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/allocator-api2-5c22aa61c512de9e/lib-allocator_api2.json (chunk 26/80) — 54/80 remaining (67.5%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/anstream-1d2e8e25f822af16/lib-anstream.json (chunk 27/80) — 53/80 remaining (66.3%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/anstream-6887a319d76b22fd/lib-anstream.json (chunk 28/80) — 52/80 remaining (65.0%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/anstyle-0b1703ca36eca22d/lib-anstyle.json (chunk 29/80) — 51/80 remaining (63.7%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/anstyle-f71e9e19747527fa/lib-anstyle.json (chunk 30/80) — 50/80 remaining (62.5%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/anstyle-parse-111943d24fd46302/lib-anstyle_parse.json (chunk 31/80) — 49/80 remaining (61.3%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/anstyle-parse-430fa3a94426e1b8/lib-anstyle_parse.json (chunk 32/80) — 48/80 remaining (60.0%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/anstyle-query-9d75d1931acf1ebf/lib-anstyle_query.json (chunk 33/80) — 47/80 remaining (58.8%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/anstyle-query-d960cd4a95b23ceb/lib-anstyle_query.json (chunk 34/80) — 46/80 remaining (57.5%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/autocfg-3791343adbc7fdcd/lib-autocfg.json (chunk 35/80) — 45/80 remaining (56.3%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/backtrace-8ab9c60a2c6a88d4/lib-backtrace.json (chunk 36/80) — 44/80 remaining (55.0%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/backtrace-cbc79b3195014556/lib-backtrace.json (chunk 37/80) — 43/80 remaining (53.8%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/bitflags-ad434670d6c019f8/lib-bitflags.json (chunk 38/80) — 42/80 remaining (52.5%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/bitflags-c2973591c174539a/lib-bitflags.json (chunk 39/80) — 41/80 remaining (51.2%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/castaway-145ae28755c6126f/lib-castaway.json (chunk 40/80) — 40/80 remaining (50.0%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/castaway-37fed69cfe334485/lib-castaway.json (chunk 41/80) — 39/80 remaining (48.8%)
+
+[2026-10-29T01:02:56.995Z] [index] Storing foundry-opencode/target/debug/.fingerprint/cfg-if-52ec2228f4c14b18/lib-cfg_if.json (chunk 42/80) — 38/80 remaining (47.5%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/cfg-if-9646dc4634849171/lib-cfg_if.json (chunk 43/80) — 37/80 remaining (46.3%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/clap-23cf4f80049d3d0b/lib-clap.json (chunk 44/80) — 36/80 remaining (45.0%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/clap-40ec95fcc7ffa701/lib-clap.json (chunk 45/80) — 35/80 remaining (43.8%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/clap_builder-afd9cf8b23c30be9/lib-clap_builder.json (chunk 46/80) — 34/80 remaining (42.5%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/clap_builder-e6dd51058837b85b/lib-clap_builder.json (chunk 47/80) — 33/80 remaining (41.3%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/clap_derive-b431997db758c48e/lib-clap_derive.json (chunk 48/80) — 32/80 remaining (40.0%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/clap_lex-07672f77556a7534/lib-clap_lex.json (chunk 49/80) — 31/80 remaining (38.8%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/clap_lex-10fe6b4fc6ed1c66/lib-clap_lex.json (chunk 50/80) — 30/80 remaining (37.5%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/color-eyre-60d630d496cce0e0/lib-color_eyre.json (chunk 51/80) — 29/80 remaining (36.3%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/color-eyre-7632bbedfbc7763e/lib-color_eyre.json (chunk 52/80) — 28/80 remaining (35.0%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/color-spantrace-399e44e9baba590f/build-script-build-script-build.json (chunk 53/80) — 27/80 remaining (33.8%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/color-spantrace-3fdeef8531d1302e/lib-color_spantrace.json (chunk 54/80) — 26/80 remaining (32.5%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/color-spantrace-734b06f12d93b979/lib-color_spantrace.json (chunk 55/80) — 25/80 remaining (31.3%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/color-spantrace-e4847295c13e844c/run-build-script-build-script-build.json (chunk 56/80) — 24/80 remaining (30.0%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/colorchoice-179c2f0c9365a8fc/lib-colorchoice.json (chunk 57/80) — 23/80 remaining (28.7%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/colorchoice-bc72a4eff42c8a48/lib-colorchoice.json (chunk 58/80) — 22/80 remaining (27.5%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/compact_str-e17c5c31aa98f90a/lib-compact_str.json (chunk 59/80) — 21/80 remaining (26.3%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/compact_str-f66760acb6a0cc59/lib-compact_str.json (chunk 60/80) — 20/80 remaining (25.0%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/convert_case-6f9f5983a389da27/lib-convert_case.json (chunk 61/80) — 19/80 remaining (23.8%)
+
+[2026-10-29T01:02:56.996Z] [index] Storing foundry-opencode/target/debug/.fingerprint/convert_case-f52ee3b81fe9bd57/lib-convert_case.json (chunk 62/80) — 18/80 remaining (22.5%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/critical-section-41b41af5696383e0/lib-critical_section.json (chunk 63/80) — 17/80 remaining (21.3%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/critical-section-8e4662bdbd8e14c8/lib-critical_section.json (chunk 64/80) — 16/80 remaining (20.0%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/crossterm-5818c10aa029db05/lib-crossterm.json (chunk 65/80) — 15/80 remaining (18.8%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/crossterm-f7a0791f3369192f/lib-crossterm.json (chunk 66/80) — 14/80 remaining (17.5%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/darling-ae1a7e0ce543a02c/lib-darling.json (chunk 67/80) — 13/80 remaining (16.3%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/darling-dcee3660283064e5/lib-darling.json (chunk 68/80) — 12/80 remaining (15.0%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/darling_core-4824544a092175b3/lib-darling_core.json (chunk 69/80) — 11/80 remaining (13.8%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/darling_core-5cdc3d97e1f58dc5/lib-darling_core.json (chunk 70/80) — 10/80 remaining (12.5%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/darling_macro-85f3a66410a96277/lib-darling_macro.json (chunk 71/80) — 9/80 remaining (11.3%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/darling_macro-9f7a7cf4eaee5b23/lib-darling_macro.json (chunk 72/80) — 8/80 remaining (10.0%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/deranged-33094d32c7a45dfa/lib-deranged.json (chunk 73/80) — 7/80 remaining (8.8%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/deranged-ddc8b80a8e0a8026/lib-deranged.json (chunk 74/80) — 6/80 remaining (7.5%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/derive_more-5b8d8836a73b7ef4/lib-derive_more.json (chunk 75/80) — 5/80 remaining (6.3%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/derive_more-cd72889b1165b51a/lib-derive_more.json (chunk 76/80) — 4/80 remaining (5.0%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/derive_more-impl-76fa4f32c5a17681/lib-derive_more_impl.json (chunk 77/80) — 3/80 remaining (3.8%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/derive_more-impl-a020c31f7ca5f73e/lib-derive_more_impl.json (chunk 78/80) — 2/80 remaining (2.5%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/document-features-f27de7a9bbeaec87/lib-document_features.json (chunk 79/80) — 1/80 remaining (1.3%)
+
+[2026-10-29T01:02:56.997Z] [index] Storing foundry-opencode/target/debug/.fingerprint/either-6f040be04afb0530/lib-either.json (chunk 80/80) — 0/80 remaining (0.0%)
+
+[2026-10-29T01:02:56.997Z] [index] Store phase: 80 files stored in 0.1s (running total 904 chunks)
+
+[2026-10-29T01:02:58.964Z] [index] Embedding  (chunk 32/880) — 848/880 remaining (96.4%)
+
+[2026-10-29T01:02:59.464Z] [index] Embedding  (chunk 64/880) — 816/880 remaining (92.7%)
+
+[2026-10-29T01:03:00.455Z] [index] Embedding  (chunk 96/880) — 784/880 remaining (89.1%)
+
+[2026-10-29T01:03:01.084Z] [index] Embedding  (chunk 128/880) — 752/880 remaining (85.5%)
+
+[2026-10-29T01:03:02.452Z] [index] Embedding  (chunk 160/880) — 720/880 remaining (81.8%)
+
+[2026-10-29T01:03:03.128Z] [index] Embedding  (chunk 192/880) — 688/880 remaining (78.2%)
+
+[2026-10-29T01:03:04.737Z] [index] Embedding  (chunk 224/880) — 656/880 remaining (74.5%)
+
+[2026-10-29T01:03:05.383Z] [index] Embedding  (chunk 256/880) — 624/880 remaining (70.9%)
+
+[2026-10-29T01:03:06.543Z] [index] Embedding  (chunk 288/880) — 592/880 remaining (67.3%)
+
+[2026-10-29T01:03:08.086Z] [index] Embedding  (chunk 320/880) — 560/880 remaining (63.6%)
+
+[2026-10-29T01:03:08.677Z] [index] Embedding  (chunk 352/880) — 528/880 remaining (60.0%)
+
+[2026-10-29T01:03:10.171Z] [index] Embedding  (chunk 384/880) — 496/880 remaining (56.4%)
+
+[2026-10-29T01:03:10.584Z] [index] Embedding  (chunk 416/880) — 464/880 remaining (52.7%)
+
+[2026-10-29T01:03:11.569Z] [index] Embedding  (chunk 448/880) — 432/880 remaining (49.1%)
+
+[2026-10-29T01:03:12.219Z] [index] Embedding  (chunk 480/880) — 400/880 remaining (45.5%)
+
+[2026-10-29T01:03:13.269Z] [index] Embedding  (chunk 512/880) — 368/880 remaining (41.8%)
+
+[2026-10-29T01:03:14.161Z] [index] Embedding  (chunk 544/880) — 336/880 remaining (38.2%)
+
+[2026-10-29T01:03:14.614Z] [index] Embedding  (chunk 576/880) — 304/880 remaining (34.5%)
+
+[2026-10-29T01:03:16.677Z] [index] Embedding  (chunk 608/880) — 272/880 remaining (30.9%)
+
+[2026-10-29T01:03:16.959Z] [index] Embedding  (chunk 640/880) — 240/880 remaining (27.3%)
+
+[2026-10-29T01:03:18.725Z] [index] Embedding  (chunk 672/880) — 208/880 remaining (23.6%)
+
+[2026-10-29T01:03:19.655Z] [index] Embedding  (chunk 704/880) — 176/880 remaining (20.0%)
+
+[2026-10-29T01:03:19.943Z] [index] Embedding  (chunk 736/880) — 144/880 remaining (16.4%)
+
+[2026-10-29T01:03:21.142Z] [index] Embedding  (chunk 768/880) — 112/880 remaining (12.7%)
+
+[2026-10-29T01:03:21.739Z] [index] Embedding  (chunk 800/880) — 80/880 remaining (9.1%)
+
+[2026-10-29T01:03:22.596Z] [index] Embedding  (chunk 832/880) — 48/880 remaining (5.5%)
+
+[2026-10-29T01:03:22.971Z] [index] Embedding  (chunk 864/880) — 16/880 remaining (1.8%)
+
+[2026-10-29T01:03:23.584Z] [index] Embedding  (chunk 880/880) — 0/880 remaining (0.0%)
+
+[2026-10-29T01:03:23.584Z] [index] Embedding complete: 880 texts in 26.7s
+
+[2026-10-29T01:03:23.584Z] [index] Store phase: storing 80 file(s) into vector database...
+
+[2026-10-29T01:03:23.598Z] [index]   Chunking: 169/271 files (62.4%)
+
+[2026-10-29T01:03:23.600Z] [index]   Chunking: 182/271 files (67.2%)
+
+[2026-10-29T01:03:23.602Z] [index]   Chunking: 195/271 files (72.0%)
+
+[2026-10-29T01:03:23.603Z] [index]   Chunking: 208/271 files (76.8%)
+
+[2026-10-29T01:03:23.605Z] [index]   Chunking: 221/271 files (81.5%)
+
+[2026-10-29T01:03:23.606Z] [index]   Chunking: 234/271 files (86.3%)
+
+[2026-10-29T01:03:23.606Z] [index] Embedding phase: 880 texts in batches of 32...
+
+[2026-10-29T01:03:23.658Z] [index] Storing foundry-opencode/target/debug/.fingerprint/either-cc7259d0c9076fa2/lib-either.json (chunk 1/80) — 79/80 remaining (98.8%)
+
+[2026-10-29T01:03:23.658Z] [index] Storing foundry-opencode/target/debug/.fingerprint/equivalent-c0cb0bb1acb43b8b/lib-equivalent.json (chunk 2/80) — 78/80 remaining (97.5%)
+
+[2026-10-29T01:03:23.658Z] [index] Storing foundry-opencode/target/debug/.fingerprint/equivalent-deeb1c8d783bdf16/lib-equivalent.json (chunk 3/80) — 77/80 remaining (96.3%)
+
+[2026-10-29T01:03:23.658Z] [index] Storing foundry-opencode/target/debug/.fingerprint/errno-7541482e08e497ff/lib-errno.json (chunk 4/80) — 76/80 remaining (95.0%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/errno-84f0b29a9ccce089/lib-errno.json (chunk 5/80) — 75/80 remaining (93.8%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/eyre-2cf3998b8a53b608/build-script-build-script-build.json (chunk 6/80) — 74/80 remaining (92.5%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/eyre-56241e9ab40246eb/run-build-script-build-script-build.json (chunk 7/80) — 73/80 remaining (91.3%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/eyre-bfc73d43bcbdd5e2/lib-eyre.json (chunk 8/80) — 72/80 remaining (90.0%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/eyre-ee0d49193df82fc3/lib-eyre.json (chunk 9/80) — 71/80 remaining (88.8%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foldhash-e49708f79593ba6d/lib-foldhash.json (chunk 10/80) — 70/80 remaining (87.5%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foldhash-e5ff8da46991854d/lib-foldhash.json (chunk 11/80) — 69/80 remaining (86.3%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-229984476938f430/bin-foundry-opencode.json (chunk 12/80) — 68/80 remaining (85.0%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-2c108192f731e9d1/test-bin-foundry-opencode.json (chunk 13/80) — 67/80 remaining (83.8%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-30297f093c6a0681/bin-foundry-opencode.json (chunk 14/80) — 66/80 remaining (82.5%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-39f8b41c0949fa5b/test-bin-foundry-opencode.json (chunk 15/80) — 65/80 remaining (81.3%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-4c7e8fd8a461c084/bin-foundry-opencode.json (chunk 16/80) — 64/80 remaining (80.0%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-59bbce86c868eb23/test-bin-foundry-opencode.json (chunk 17/80) — 63/80 remaining (78.8%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-79b6fa23dcfbba5e/bin-foundry-opencode.json (chunk 18/80) — 62/80 remaining (77.5%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-8be39e2befa1456f/bin-foundry-opencode.json (chunk 19/80) — 61/80 remaining (76.3%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-a7533e1536ff51ed/bin-foundry-opencode.json (chunk 20/80) — 60/80 remaining (75.0%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-b71cddaf3c28f4c2/test-bin-foundry-opencode.json (chunk 21/80) — 59/80 remaining (73.8%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-d651e201eceb8654/bin-foundry-opencode.json (chunk 22/80) — 58/80 remaining (72.5%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-dc68bd2fe2534291/test-bin-foundry-opencode.json (chunk 23/80) — 57/80 remaining (71.3%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-f5aa9d32d9ead01a/bin-foundry-opencode.json (chunk 24/80) — 56/80 remaining (70.0%)
+
+[2026-10-29T01:03:23.659Z] [index] Storing foundry-opencode/target/debug/.fingerprint/foundry-opencode-f8849da922a3f578/test-bin-foundry-opencode.json (chunk 25/80) — 55/80 remaining (68.8%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/gimli-49622df5b2ed03b7/lib-gimli.json (chunk 26/80) — 54/80 remaining (67.5%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/gimli-ba6930154b3c1020/lib-gimli.json (chunk 27/80) — 53/80 remaining (66.3%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/hashbrown-57f2b222d7e9e776/lib-hashbrown.json (chunk 28/80) — 52/80 remaining (65.0%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/hashbrown-fe55fa3cb55d3f72/lib-hashbrown.json (chunk 29/80) — 51/80 remaining (63.7%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/heck-a1fb505269949798/lib-heck.json (chunk 30/80) — 50/80 remaining (62.5%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ident_case-1ac3e0366fba724b/lib-ident_case.json (chunk 31/80) — 49/80 remaining (61.3%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/indenter-b26a2f4a428465a6/lib-indenter.json (chunk 32/80) — 48/80 remaining (60.0%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/indenter-e9ab87d89ccad56a/lib-indenter.json (chunk 33/80) — 47/80 remaining (58.8%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/indoc-12be20605449510a/lib-indoc.json (chunk 34/80) — 46/80 remaining (57.5%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/instability-1738a863f8a446aa/lib-instability.json (chunk 35/80) — 45/80 remaining (56.3%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/instability-d0242ed6e1eec40c/lib-instability.json (chunk 36/80) — 44/80 remaining (55.0%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/is_terminal_polyfill-3f4822ffd33fb263/lib-is_terminal_polyfill.json (chunk 37/80) — 43/80 remaining (53.8%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/is_terminal_polyfill-6b5b8cb1d107b4d6/lib-is_terminal_polyfill.json (chunk 38/80) — 42/80 remaining (52.5%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/itertools-467c3391abae38f1/lib-itertools.json (chunk 39/80) — 41/80 remaining (51.2%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/itertools-5b47446a950f5db9/lib-itertools.json (chunk 40/80) — 40/80 remaining (50.0%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/itoa-37e2ae4c6caf50c7/lib-itoa.json (chunk 41/80) — 39/80 remaining (48.8%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/itoa-ec00fe56a1f158c1/lib-itoa.json (chunk 42/80) — 38/80 remaining (47.5%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/jsonc-parser-5960922017610739/lib-jsonc_parser.json (chunk 43/80) — 37/80 remaining (46.3%)
+
+[2026-10-29T01:03:23.660Z] [index] Storing foundry-opencode/target/debug/.fingerprint/jsonc-parser-d9c52a3b208531c2/lib-jsonc_parser.json (chunk 44/80) — 36/80 remaining (45.0%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/kasuari-719edaa1b8d98255/lib-kasuari.json (chunk 45/80) — 35/80 remaining (43.8%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/kasuari-c1d4b0e304036f6a/lib-kasuari.json (chunk 46/80) — 34/80 remaining (42.5%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/lazy_static-cf0de29df7a72fa8/lib-lazy_static.json (chunk 47/80) — 33/80 remaining (41.3%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/lazy_static-d7dc3d38fecb146f/lib-lazy_static.json (chunk 48/80) — 32/80 remaining (40.0%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/libc-4dadd2072ccaef9f/lib-libc.json (chunk 49/80) — 31/80 remaining (38.8%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/libc-68f51597f6faf3b1/lib-libc.json (chunk 50/80) — 30/80 remaining (37.5%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/libc-77d548c60ba9ac16/build-script-build-script-build.json (chunk 51/80) — 29/80 remaining (36.3%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/libc-919b524de6c494ed/run-build-script-build-script-build.json (chunk 52/80) — 28/80 remaining (35.0%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/line-clipping-3924219c7f034236/lib-line_clipping.json (chunk 53/80) — 27/80 remaining (33.8%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/line-clipping-d2c7a458dcae4166/lib-line_clipping.json (chunk 54/80) — 26/80 remaining (32.5%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/litrs-67ec4efaceffe5fc/lib-litrs.json (chunk 55/80) — 25/80 remaining (31.3%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/lock_api-94d9dca09dbc948c/lib-lock_api.json (chunk 56/80) — 24/80 remaining (30.0%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/lock_api-e8b1e24ed149e84d/lib-lock_api.json (chunk 57/80) — 23/80 remaining (28.7%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/log-37c8e83bc270379d/lib-log.json (chunk 58/80) — 22/80 remaining (27.5%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/log-dad6160df8355294/lib-log.json (chunk 59/80) — 21/80 remaining (26.3%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/lru-3865733402ab54b8/lib-lru.json (chunk 60/80) — 20/80 remaining (25.0%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/lru-548b00a952edd91a/lib-lru.json (chunk 61/80) — 19/80 remaining (23.8%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/memchr-6b1e11802461c7ce/lib-memchr.json (chunk 62/80) — 18/80 remaining (22.5%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/memchr-e5a5d40cbc870987/lib-memchr.json (chunk 63/80) — 17/80 remaining (21.3%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/miniz_oxide-0c1ac6a359980f4e/lib-miniz_oxide.json (chunk 64/80) — 16/80 remaining (20.0%)
+
+[2026-10-29T01:03:23.661Z] [index] Storing foundry-opencode/target/debug/.fingerprint/miniz_oxide-1a818e4f38cdedad/lib-miniz_oxide.json (chunk 65/80) — 15/80 remaining (18.8%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/mio-04ef87f8f442f5f6/lib-mio.json (chunk 66/80) — 14/80 remaining (17.5%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/mio-6a47eae9fa21fd99/lib-mio.json (chunk 67/80) — 13/80 remaining (16.3%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/num-conv-85ce808546e5fcc5/lib-num_conv.json (chunk 68/80) — 12/80 remaining (15.0%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/num-conv-e0a7714e5fbb1a6d/lib-num_conv.json (chunk 69/80) — 11/80 remaining (13.8%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/num_threads-7f219d25f09e893f/lib-num_threads.json (chunk 70/80) — 10/80 remaining (12.5%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/num_threads-fd7254f21cd4eb3a/lib-num_threads.json (chunk 71/80) — 9/80 remaining (11.3%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/object-1e2067658b3ed96d/run-build-script-build-script-build.json (chunk 72/80) — 8/80 remaining (10.0%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/object-7f5a6eccba0f45a2/lib-object.json (chunk 73/80) — 7/80 remaining (8.8%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/object-93498f1887e1ee7a/lib-object.json (chunk 74/80) — 6/80 remaining (7.5%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/object-b0bbe2eb84b1b37c/build-script-build-script-build.json (chunk 75/80) — 5/80 remaining (6.3%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/once_cell-257fb6c433de0106/lib-once_cell.json (chunk 76/80) — 4/80 remaining (5.0%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/once_cell-98b31ac20c653026/lib-once_cell.json (chunk 77/80) — 3/80 remaining (3.8%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/owo-colors-aabaf1771e358c5b/lib-owo_colors.json (chunk 78/80) — 2/80 remaining (2.5%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/owo-colors-fa85322f0f491441/lib-owo_colors.json (chunk 79/80) — 1/80 remaining (1.3%)
+
+[2026-10-29T01:03:23.662Z] [index] Storing foundry-opencode/target/debug/.fingerprint/parking_lot-4d9ea23905a04de6/lib-parking_lot.json (chunk 80/80) — 0/80 remaining (0.0%)
+
+[2026-10-29T01:03:23.662Z] [index] Store phase: 80 files stored in 0.1s (running total 1784 chunks)
+
+[2026-10-29T01:03:25.776Z] [index] Embedding  (chunk 32/880) — 848/880 remaining (96.4%)
+
+[2026-10-29T01:03:26.258Z] [index] Embedding  (chunk 64/880) — 816/880 remaining (92.7%)
+
+[2026-10-29T01:03:27.450Z] [index] Embedding  (chunk 96/880) — 784/880 remaining (89.1%)
+
+[2026-10-29T01:03:28.570Z] [index] Embedding  (chunk 128/880) — 752/880 remaining (85.5%)
+
+[2026-10-29T01:03:29.358Z] [index] Embedding  (chunk 160/880) — 720/880 remaining (81.8%)
+
+[2026-10-29T01:03:29.987Z] [index] Embedding  (chunk 192/880) — 688/880 remaining (78.2%)
+
+[2026-10-29T01:03:31.010Z] [index] Embedding  (chunk 224/880) — 656/880 remaining (74.5%)
+
+[2026-10-29T01:03:31.095Z] [index] Embedding  (chunk 256/880) — 624/880 remaining (70.9%)
+
+[2026-10-29T01:03:33.224Z] [index] Embedding  (chunk 288/880) — 592/880 remaining (67.3%)
+
+[2026-10-29T01:03:34.140Z] [index] Embedding  (chunk 320/880) — 560/880 remaining (63.6%)
+
+[2026-10-29T01:03:35.085Z] [index] Embedding  (chunk 352/880) — 528/880 remaining (60.0%)
+
+[2026-10-29T01:03:36.059Z] [index] Embedding  (chunk 384/880) — 496/880 remaining (56.4%)
+
+[2026-10-29T01:03:36.854Z] [index] Embedding  (chunk 416/880) — 464/880 remaining (52.7%)
+
+[2026-10-29T01:03:37.734Z] [index] Embedding  (chunk 448/880) — 432/880 remaining (49.1%)
+
+[2026-10-29T01:03:38.404Z] [index] Embedding  (chunk 480/880) — 400/880 remaining (45.5%)
+
+[2026-10-29T01:03:38.788Z] [index] Embedding  (chunk 512/880) — 368/880 remaining (41.8%)
+
+[2026-10-29T01:03:39.964Z] [index] Embedding  (chunk 544/880) — 336/880 remaining (38.2%)
+
+[2026-10-29T01:03:40.883Z] [index] Embedding  (chunk 576/880) — 304/880 remaining (34.5%)
+
+[2026-10-29T01:03:41.041Z] [index] Embedding  (chunk 608/880) — 272/880 remaining (30.9%)
+
+[2026-10-29T01:03:42.387Z] [index] Embedding  (chunk 640/880) — 240/880 remaining (27.3%)
+
+[2026-10-29T01:03:42.984Z] [index] Embedding  (chunk 672/880) — 208/880 remaining (23.6%)
+
+[2026-10-29T01:03:44.145Z] [index] Embedding  (chunk 704/880) — 176/880 remaining (20.0%)
+
+[2026-10-29T01:03:44.823Z] [index] Embedding  (chunk 736/880) — 144/880 remaining (16.4%)
+
+[2026-10-29T01:03:45.765Z] [index] Embedding  (chunk 768/880) — 112/880 remaining (12.7%)
+
+[2026-10-29T01:03:46.606Z] [index] Embedding  (chunk 800/880) — 80/880 remaining (9.1%)
+
+[2026-10-29T01:03:47.165Z] [index] Embedding  (chunk 832/880) — 48/880 remaining (5.5%)
+
+[2026-10-29T01:03:47.868Z] [index] Embedding  (chunk 864/880) — 16/880 remaining (1.8%)
+
+[2026-10-29T01:03:48.069Z] [index] Embedding  (chunk 880/880) — 0/880 remaining (0.0%)
+
+[2026-10-29T01:03:48.069Z] [index] Embedding complete: 880 texts in 24.5s
+
+[2026-10-29T01:03:48.070Z] [index] Store phase: storing 80 file(s) into vector database...
+
+[2026-10-29T01:03:48.082Z] [index]   Chunking: 247/271 files (91.1%)
+
+[2026-10-29T01:03:48.084Z] [index]   Chunking: 260/271 files (95.9%)
+
+[2026-10-29T01:03:48.088Z] [index]   Chunking: 271/271 files (100.0%)
+
+[2026-10-29T01:03:48.088Z] [index] Embedding phase: 308 texts in batches of 32...
+
+[2026-10-29T01:03:48.137Z] [index] Storing foundry-opencode/target/debug/.fingerprint/parking_lot-7c6e22020289584a/lib-parking_lot.json (chunk 1/80) — 79/80 remaining (98.8%)
+
+[2026-10-29T01:03:48.137Z] [index] Storing foundry-opencode/target/debug/.fingerprint/parking_lot_core-35c7ac017e6df3ab/build-script-build-script-build.json (chunk 2/80) — 78/80 remaining (97.5%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/parking_lot_core-664c212469c00594/run-build-script-build-script-build.json (chunk 3/80) — 77/80 remaining (96.3%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/parking_lot_core-82196cbaed2525f2/lib-parking_lot_core.json (chunk 4/80) — 76/80 remaining (95.0%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/parking_lot_core-c05d16963be7f979/lib-parking_lot_core.json (chunk 5/80) — 75/80 remaining (93.8%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/pin-project-lite-461222c9f582af3d/lib-pin_project_lite.json (chunk 6/80) — 74/80 remaining (92.5%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/pin-project-lite-6cb8e44a5b387b9c/lib-pin_project_lite.json (chunk 7/80) — 73/80 remaining (91.3%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/powerfmt-0138a767e69b5fc6/lib-powerfmt.json (chunk 8/80) — 72/80 remaining (90.0%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/powerfmt-f2c6bcc6b306682a/lib-powerfmt.json (chunk 9/80) — 71/80 remaining (88.8%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/proc-macro2-47fdff15429a92c3/lib-proc_macro2.json (chunk 10/80) — 70/80 remaining (87.5%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/proc-macro2-864b87d4aeeb0cf2/run-build-script-build-script-build.json (chunk 11/80) — 69/80 remaining (86.3%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/proc-macro2-a3ac6c0d3ff1f28e/build-script-build-script-build.json (chunk 12/80) — 68/80 remaining (85.0%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/quote-09f0d1a0f1f6b791/run-build-script-build-script-build.json (chunk 13/80) — 67/80 remaining (83.8%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/quote-0ed1355ceaa9012e/lib-quote.json (chunk 14/80) — 66/80 remaining (82.5%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/quote-33a626eab5144306/build-script-build-script-build.json (chunk 15/80) — 65/80 remaining (81.3%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-3a6d79481f63e238/lib-ratatui.json (chunk 16/80) — 64/80 remaining (80.0%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-98586deddf577f32/lib-ratatui.json (chunk 17/80) — 63/80 remaining (78.8%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-core-0c5b22814e58893b/lib-ratatui_core.json (chunk 18/80) — 62/80 remaining (77.5%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-core-ef5944d274a0bb46/lib-ratatui_core.json (chunk 19/80) — 61/80 remaining (76.3%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-crossterm-881ef79213feafa4/lib-ratatui_crossterm.json (chunk 20/80) — 60/80 remaining (75.0%)
+
+[2026-10-29T01:03:48.138Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-crossterm-d0581520e287e0a2/lib-ratatui_crossterm.json (chunk 21/80) — 59/80 remaining (73.8%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-macros-3b5a59803328c1e9/lib-ratatui_macros.json (chunk 22/80) — 58/80 remaining (72.5%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-macros-bc3fbe6874db2d1b/lib-ratatui_macros.json (chunk 23/80) — 57/80 remaining (71.3%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-widgets-5ea8991abe5db990/lib-ratatui_widgets.json (chunk 24/80) — 56/80 remaining (70.0%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ratatui-widgets-b8eb1301e33344b0/lib-ratatui_widgets.json (chunk 25/80) — 55/80 remaining (68.8%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/rustc-demangle-228500133775cb3d/lib-rustc_demangle.json (chunk 26/80) — 54/80 remaining (67.5%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/rustc-demangle-295d834c7db15904/lib-rustc_demangle.json (chunk 27/80) — 53/80 remaining (66.3%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/rustix-30a07d405f75f0d6/build-script-build-script-build.json (chunk 28/80) — 52/80 remaining (65.0%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/rustix-4e862c7ac116ec67/lib-rustix.json (chunk 29/80) — 51/80 remaining (63.7%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/rustix-70a170135128d862/run-build-script-build-script-build.json (chunk 30/80) — 50/80 remaining (62.5%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/rustix-a8360ba3eb073b56/lib-rustix.json (chunk 31/80) — 49/80 remaining (61.3%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/rustversion-3c7f81ff7c132f01/build-script-build-script-build.json (chunk 32/80) — 48/80 remaining (60.0%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/rustversion-93ebaaf463829e75/lib-rustversion.json (chunk 33/80) — 47/80 remaining (58.8%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/rustversion-ac5409ab7bb65a4a/run-build-script-build-script-build.json (chunk 34/80) — 46/80 remaining (57.5%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ryu-e8ae712bb376bc87/lib-ryu.json (chunk 35/80) — 45/80 remaining (56.3%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/ryu-effde195a9fa17be/lib-ryu.json (chunk 36/80) — 44/80 remaining (55.0%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/scopeguard-5044899b4e0f32d9/lib-scopeguard.json (chunk 37/80) — 43/80 remaining (53.8%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/scopeguard-ceaaf6fd03d37e0e/lib-scopeguard.json (chunk 38/80) — 42/80 remaining (52.5%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde-2aa1669738976979/build-script-build-script-build.json (chunk 39/80) — 41/80 remaining (51.2%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde-373b73f04bf20b5c/run-build-script-build-script-build.json (chunk 40/80) — 40/80 remaining (50.0%)
+
+[2026-10-29T01:03:48.139Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde-39d47432c95d82e5/lib-serde.json (chunk 41/80) — 39/80 remaining (48.8%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde-8c99844dbce2a22b/lib-serde.json (chunk 42/80) — 38/80 remaining (47.5%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde_core-ce793ef98ce35180/run-build-script-build-script-build.json (chunk 43/80) — 37/80 remaining (46.3%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde_core-dc817e46c8e8e578/build-script-build-script-build.json (chunk 44/80) — 36/80 remaining (45.0%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde_core-eca9789af7287962/lib-serde_core.json (chunk 45/80) — 35/80 remaining (43.8%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde_core-ecef7557c0738397/lib-serde_core.json (chunk 46/80) — 34/80 remaining (42.5%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde_derive-b17adb25bf88626b/lib-serde_derive.json (chunk 47/80) — 33/80 remaining (41.3%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde_json-1ade83a71e014269/build-script-build-script-build.json (chunk 48/80) — 32/80 remaining (40.0%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde_json-361ec20e04e2a8f1/run-build-script-build-script-build.json (chunk 49/80) — 31/80 remaining (38.8%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde_json-9aaa31b5520f6a6c/lib-serde_json.json (chunk 50/80) — 30/80 remaining (37.5%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/serde_json-9bb27eba312c652a/lib-serde_json.json (chunk 51/80) — 29/80 remaining (36.3%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/sharded-slab-39daefa9c173a68a/lib-sharded_slab.json (chunk 52/80) — 28/80 remaining (35.0%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/sharded-slab-8a7e61e58812c66d/lib-sharded_slab.json (chunk 53/80) — 27/80 remaining (33.8%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/signal-hook-00d6885240c58a6c/build-script-build-script-build.json (chunk 54/80) — 26/80 remaining (32.5%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/signal-hook-1daf2a21f0eb6417/run-build-script-build-script-build.json (chunk 55/80) — 25/80 remaining (31.3%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/signal-hook-35aed7dd6682aa4d/lib-signal_hook.json (chunk 56/80) — 24/80 remaining (30.0%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/signal-hook-fa2b290ad4148a58/lib-signal_hook.json (chunk 57/80) — 23/80 remaining (28.7%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/signal-hook-mio-4434d83c69912f1f/lib-signal_hook_mio.json (chunk 58/80) — 22/80 remaining (27.5%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/signal-hook-mio-894f9877eae425e0/lib-signal_hook_mio.json (chunk 59/80) — 21/80 remaining (26.3%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/signal-hook-registry-270298a05e1ffc92/lib-signal_hook_registry.json (chunk 60/80) — 20/80 remaining (25.0%)
+
+[2026-10-29T01:03:48.140Z] [index] Storing foundry-opencode/target/debug/.fingerprint/signal-hook-registry-6ab251e825236c3b/lib-signal_hook_registry.json (chunk 61/80) — 19/80 remaining (23.8%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/smallvec-650b110e221327f7/lib-smallvec.json (chunk 62/80) — 18/80 remaining (22.5%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/smallvec-78ac92176ab39aed/lib-smallvec.json (chunk 63/80) — 17/80 remaining (21.3%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/static_assertions-12f4638e9ad761bf/lib-static_assertions.json (chunk 64/80) — 16/80 remaining (20.0%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/static_assertions-37adefdf1a76d24c/lib-static_assertions.json (chunk 65/80) — 15/80 remaining (18.8%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/strsim-9988e2093fcad752/lib-strsim.json (chunk 66/80) — 14/80 remaining (17.5%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/strsim-9ac91b5e64ea8282/lib-strsim.json (chunk 67/80) — 13/80 remaining (16.3%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/strsim-ffd2b17ed7811c88/lib-strsim.json (chunk 68/80) — 12/80 remaining (15.0%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/strum-1bd04938829aa047/lib-strum.json (chunk 69/80) — 11/80 remaining (13.8%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/strum-7d0f2a09bd250ab4/lib-strum.json (chunk 70/80) — 10/80 remaining (12.5%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/strum_macros-191a0169b03b1667/lib-strum_macros.json (chunk 71/80) — 9/80 remaining (11.3%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/syn-484cb9a121bd3601/lib-syn.json (chunk 72/80) — 8/80 remaining (10.0%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/syn-eb12c43c539e1a56/lib-syn.json (chunk 73/80) — 7/80 remaining (8.8%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/thiserror-1ac2398a49dddde2/build-script-build-script-build.json (chunk 74/80) — 6/80 remaining (7.5%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/thiserror-581c1cc4f20caa97/lib-thiserror.json (chunk 75/80) — 5/80 remaining (6.3%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/thiserror-77d3de41dcacdc30/run-build-script-build-script-build.json (chunk 76/80) — 4/80 remaining (5.0%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/thiserror-7bdeaf2b5c183b65/lib-thiserror.json (chunk 77/80) — 3/80 remaining (3.8%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/thiserror-impl-5b8cc4fa967c8fa4/lib-thiserror_impl.json (chunk 78/80) — 2/80 remaining (2.5%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/thread_local-141eb36a95859bfe/lib-thread_local.json (chunk 79/80) — 1/80 remaining (1.3%)
+
+[2026-10-29T01:03:48.141Z] [index] Storing foundry-opencode/target/debug/.fingerprint/thread_local-6050fe1a8538f859/lib-thread_local.json (chunk 80/80) — 0/80 remaining (0.0%)
+
+[2026-10-29T01:03:48.141Z] [index] Store phase: 80 files stored in 0.1s (running total 2664 chunks)
+
+[2026-10-29T01:03:49.745Z] [index] Embedding  (chunk 32/308) — 276/308 remaining (89.6%)
+
+[2026-10-29T01:03:50.391Z] [index] Embedding  (chunk 64/308) — 244/308 remaining (79.2%)
+
+[2026-10-29T01:03:51.737Z] [index] Embedding  (chunk 96/308) — 212/308 remaining (68.8%)
+
+[2026-10-29T01:03:52.094Z] [index] Embedding  (chunk 128/308) — 180/308 remaining (58.4%)
+
+[2026-10-29T01:03:53.626Z] [index] Embedding  (chunk 160/308) — 148/308 remaining (48.1%)
+
+[2026-10-29T01:03:54.889Z] [index] Embedding  (chunk 192/308) — 116/308 remaining (37.7%)
+
+[2026-10-29T01:03:56.280Z] [index] Embedding  (chunk 224/308) — 84/308 remaining (27.3%)
+
+[2026-10-29T01:03:57.041Z] [index] Embedding  (chunk 256/308) — 52/308 remaining (16.9%)
+
+[2026-10-29T01:03:58.256Z] [index] Embedding  (chunk 288/308) — 20/308 remaining (6.5%)
+
+[2026-10-29T01:03:58.558Z] [index] Embedding  (chunk 308/308) — 0/308 remaining (0.0%)
+
+[2026-10-29T01:03:58.558Z] [index] Embedding complete: 308 texts in 10.5s
+
+[2026-10-29T01:03:58.558Z] [index] Store phase: storing 31 file(s) into vector database...
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/time-33af138d52605caf/lib-time.json (chunk 1/31) — 30/31 remaining (96.8%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/time-core-103cc65283287e82/lib-time_core.json (chunk 2/31) — 29/31 remaining (93.5%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/time-core-870374e4f5391f24/lib-time_core.json (chunk 3/31) — 28/31 remaining (90.3%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/time-efab7c2517ad0284/lib-time.json (chunk 4/31) — 27/31 remaining (87.1%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/tracing-bb82666a6b280845/lib-tracing.json (chunk 5/31) — 26/31 remaining (83.9%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/tracing-core-6a967cec7739b43f/lib-tracing_core.json (chunk 6/31) — 25/31 remaining (80.6%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/tracing-core-e37cdc59afa05c23/lib-tracing_core.json (chunk 7/31) — 24/31 remaining (77.4%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/tracing-d631823a8a68c7a5/lib-tracing.json (chunk 8/31) — 23/31 remaining (74.2%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/tracing-error-31d9b67a34603e49/lib-tracing_error.json (chunk 9/31) — 22/31 remaining (71.0%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/tracing-error-b342288cbd84cc10/lib-tracing_error.json (chunk 10/31) — 21/31 remaining (67.7%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/tracing-subscriber-1728a29c9b50e1e4/lib-tracing_subscriber.json (chunk 11/31) — 20/31 remaining (64.5%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/tracing-subscriber-d1e1b77be0099db2/lib-tracing_subscriber.json (chunk 12/31) — 19/31 remaining (61.3%)
+
+[2026-10-29T01:03:58.581Z] [index] Storing foundry-opencode/target/debug/.fingerprint/unicode-ident-8648716a61a1c80b/lib-unicode_ident.json (chunk 13/31) — 18/31 remaining (58.1%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/unicode-segmentation-37933abde922ed25/lib-unicode_segmentation.json (chunk 14/31) — 17/31 remaining (54.8%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/unicode-segmentation-8c83abd555d6757f/lib-unicode_segmentation.json (chunk 15/31) — 16/31 remaining (51.6%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/unicode-segmentation-975e1b61e574bce3/lib-unicode_segmentation.json (chunk 16/31) — 15/31 remaining (48.4%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/unicode-truncate-67e6c6295d56337a/lib-unicode_truncate.json (chunk 17/31) — 14/31 remaining (45.2%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/unicode-truncate-bac294037d3292dc/lib-unicode_truncate.json (chunk 18/31) — 13/31 remaining (41.9%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/unicode-width-1f13ff63bd087d98/lib-unicode_width.json (chunk 19/31) — 12/31 remaining (38.7%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/unicode-width-ec083b67c67a32e0/lib-unicode_width.json (chunk 20/31) — 11/31 remaining (35.5%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/utf8parse-9bd7ffe9f266aa14/lib-utf8parse.json (chunk 21/31) — 10/31 remaining (32.3%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/utf8parse-c489c56a95b4b02e/lib-utf8parse.json (chunk 22/31) — 9/31 remaining (29.0%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/zmij-4dc00db4ecd0468e/lib-zmij.json (chunk 23/31) — 8/31 remaining (25.8%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/zmij-884393edd6e7bacb/run-build-script-build-script-build.json (chunk 24/31) — 7/31 remaining (22.6%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/zmij-8fee8c86f8fefd56/build-script-build-script-build.json (chunk 25/31) — 6/31 remaining (19.4%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing foundry-opencode/target/debug/.fingerprint/zmij-cfdcc4c2c841ae7c/lib-zmij.json (chunk 26/31) — 5/31 remaining (16.1%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing package.json (chunk 27/31) — 4/31 remaining (12.9%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing plugins/lms-responses-compat/index.js (chunk 28/31) — 3/31 remaining (9.7%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing plugins/lms-responses-compat/models.json (chunk 29/31) — 2/31 remaining (6.5%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing plugins/lms-responses-compat/request.js (chunk 30/31) — 1/31 remaining (3.2%)
+
+[2026-10-29T01:03:58.582Z] [index] Storing test/migration.test.js (chunk 31/31) — 0/31 remaining (0.0%)
+
+[2026-10-29T01:03:58.582Z] [index] Store phase: 31 files stored in 0.0s (running total 2972 chunks)
+
+[2026-10-29T01:03:58.595Z] [index] Index pass complete: 2972 total chunks (271 files processed)
+
+[2026-10-29T01:03:58.631Z] [index] Optimizing vector store (compacting fragments, pruning old versions)...
+
+[2026-10-29T01:03:58.658Z] [index] Vector store optimized in 0.0s
+
+[2026-10-29T01:03:58.659Z] [index]   New:              271
+
+[2026-10-29T01:03:58.659Z] [index]   Modified:         0
+
+[2026-10-29T01:03:58.659Z] [index]   Unchanged:        0
+
+[2026-10-29T01:03:58.659Z] [index]   Deleted:          0
+
+[2026-10-29T01:03:58.659Z] [index]   Removed:          0
+
+[2026-10-29T01:03:58.659Z] [index]   Empty skipped:    0
+
+[2026-10-29T01:03:58.659Z] [index]   Small skipped:    0
+
+[2026-10-29T01:03:58.659Z] [index]   Chunks written:   2972
+
+[2026-10-29T01:03:58.659Z] [index] 
+Indexing complete. 2972 chunks stored (1m 33s).
+
