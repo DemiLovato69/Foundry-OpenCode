@@ -1,5 +1,0 @@
-/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/egui_system_font_provider-579a0461e9c51d2f.d: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/egui_system_font_provider-0.37.0/src/lib.rs
-
-/Users/DRomanowski/Projects/Clear-Construction/Foundry-OpenCode/foundry-opencode-gui/target/debug/deps/libegui_system_font_provider-579a0461e9c51d2f.rmeta: /Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/egui_system_font_provider-0.37.0/src/lib.rs
-
-/Users/DRomanowski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/egui_system_font_provider-0.37.0/src/lib.rs:
