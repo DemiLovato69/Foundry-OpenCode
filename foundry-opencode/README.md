@@ -6,8 +6,13 @@ macOS installer for OpenCode V2 and Foundry. Requires Homebrew, Git, and HTTPS a
 foundry-opencode                # install
 foundry-opencode install        # guided installation and repository setup
 foundry-opencode update         # refresh packages/configs and repository assignments
+foundry-opencode update -y      # accept all saved defaults without the wizard
+foundry-opencode update -y --dry-run # preview saved defaults without changes
 foundry-opencode init           # configure this Git repository
 foundry-opencode init-rag       # configure/index RAG in this project
+foundry-opencode sync-worktrees [--gen-rag]  # move worktrees to the default branch, link .opencode (and reindex RAG)
+foundry-opencode add-worktree [--gen-rag] <git worktree add options>  # add a worktree with linked .opencode (and RAG)
+foundry-opencode generate-rag [--all]  # (re)generate RAG for this checkout (or every checkout)
 foundry-opencode repair-plugins # retire a verified legacy V1 RAG plugin
 foundry-opencode uninstall      # review and remove managed data (irreversible)
 foundry-opencode reset          # stop OpenCode/OpenChamber and clear OpenCode cache
@@ -17,6 +22,8 @@ foundry-opencode --dry-run update
 ## Project setup
 
 The wizard starts with a **Foundry stacks** list: configure the optional Global default, add named stacks, and edit their HTTPS hosts and masked private tokens. Next, use the single tree to mark **Git repository roots**. For every selected repo, choose one configured stack and whether to initialize RAG. Update reopens these saved assignments. A named stack cannot be removed while it is assigned to a saved project.
+
+Update first offers an unchecked **Accept all loaded defaults and update** checkbox. Checking it, or passing `update -y`/`--yes`, uses the saved stack credentials, repository assignments and RAG choices without editing or confirmation screens. Invalid or missing saved settings stop before updates begin. `update -y --dry-run` prints a redacted read-only preview. The shortcut finishes without waiting for a completion-screen keypress; Git authentication or an administrator password may still be required.
 
 The tree supports Up/Down to highlight, Enter to expand/collapse, Right to expand, Left to collapse or move to a parent, Space to mark, S to search, `/` to enter a path, and Tab to switch between the tree and search. Hidden Finder or dot-prefixed folders are omitted unless entered by their full path. Invalid or inaccessible folders do not close the wizard.
 
@@ -30,9 +37,13 @@ Install upgrades Homebrew OpenCode (verified V2), optionally installs OpenChambe
 
 ## RAG
 
-Select **Initialize RAG** for a repository, or run `foundry-opencode init-rag` from its root after assigning a stack. Node.js and npm are required. The installer writes pinned RAG dependencies and `.opencode/rag.json`, indexes the project, and enables the RAG MCP server only after a successful setup. Failed indexing leaves the existing index and setup files for review/retry. Manual reindexing uses `node .opencode/rag-cli.mjs index` from the project root. A known older CLI helper is backed up before upgrading; edited or unrecognized RAG files are not overwritten. The V1 automatic watcher is unavailable in OpenCode V2.
+Select **Initialize RAG** for a repository, or run `foundry-opencode init-rag` from its root after assigning a stack. Node.js and npm are required. The installer writes pinned RAG dependencies and `.opencode/rag.json` (which skips build caches, `.palantir` and generated SDK folders), indexes the project, and enables the RAG MCP server only after a successful setup. Failed indexing leaves the existing index and setup files for review/retry. Manual reindexing uses `node .opencode/rag-cli.mjs index` from the project root. A known older CLI helper is backed up before upgrading; edited or unrecognized RAG files are not overwritten. The V1 automatic watcher is unavailable in OpenCode V2.
 
 `repair-plugins` can back up the known V1 `.opencode/plugins/rag-plugin.js` outside the auto-load folder. It refuses unfamiliar or edited plugins. The global configuration disables the incompatible `context-mode` plugin.
+
+## Worktrees
+
+Only a repository's main checkout can be selected; worktrees are refused with a pointer to it. Install/update link each worktree's `.opencode` entries to the main checkout's (the RAG index, logs and backups stay per worktree) and repair links a moved main checkout left dangling. `.opencode/*` (except the shared `.opencode/commands`) and `.openchamber` are ignored in each repository's `.gitignore` and its local `.git/info/exclude`, replacing any whole-folder `.opencode` rule; `commands` is never linked, and other files already committed there are reported, not removed. `sync-worktrees` uses the remote the main checkout's branch tracks (or the only remote, or `origin`) and moves every clean worktree to its latest default branch, flags branches, uncommitted work and unpushed commits without moving them, and links missing entries; `--gen-rag` also reindexes each checkout. `add-worktree` wraps `git worktree add` and links the new worktree; `generate-rag [--all]` reindexes this checkout or all of them. A worktree's first index is seeded from the main checkout's, so only differing files are embedded. The optional `git sync-worktrees` alias runs it; uninstall removes links, indexes, the exclude entry and the installer's alias.
 
 ## Safety
 

@@ -4,6 +4,7 @@ mod projects;
 mod rag;
 mod stack;
 mod ui;
+mod worktrees;
 
 use std::fs;
 use std::io::Read;
@@ -46,7 +47,7 @@ struct Args {
     command: Option<Mode>,
 }
 
-#[derive(Clone, Copy, Subcommand)]
+#[derive(Clone, Subcommand)]
 enum Mode {
     /// Configure a Git repository with its assigned Foundry stack
     Init,
@@ -54,8 +55,30 @@ enum Mode {
     InitRag,
     /// Retire a verified V1 RAG plugin in the current project
     RepairPlugins,
+    /// Move this repository's worktrees to the default branch and link .opencode
+    SyncWorktrees {
+        /// Also (re)generate each checkout's RAG index
+        #[arg(long)]
+        gen_rag: bool,
+    },
+    /// Run `git worktree add` with your options, then link .opencode into the new worktree
+    AddWorktree {
+        /// Options for `git worktree add`; add --gen-rag anywhere to also build its RAG index
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        options: Vec<String>,
+    },
+    /// (Re)generate the RAG index of the checkout you are in
+    GenerateRag {
+        /// Also every other checkout (main and worktrees) of this repository
+        #[arg(long)]
+        all: bool,
+    },
     /// Update packages, global config and assigned repositories
-    Update,
+    Update {
+        /// Accept saved stacks, repositories and RAG choices without opening the wizard
+        #[arg(short, long)]
+        yes: bool,
+    },
     /// Remove installed programs, configs, stack credentials and user data
     Uninstall,
     /// Stop OpenCode and OpenChamber and clear the OpenCode cache
@@ -70,14 +93,31 @@ enum Mode {
 
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
-    match args.command {
+    match &args.command {
+        Some(Mode::SyncWorktrees { gen_rag }) => {
+            return plain(|| worktrees::sync(&std::env::current_dir()?, args.dry_run, *gen_rag));
+        }
+        Some(Mode::AddWorktree { options }) => {
+            let (options, gen_rag, dry_run) = worktree_options(options);
+            return plain(|| {
+                worktrees::add(
+                    &std::env::current_dir()?,
+                    &options,
+                    gen_rag,
+                    dry_run || args.dry_run,
+                )
+            });
+        }
+        Some(Mode::GenerateRag { all }) => {
+            return plain(|| worktrees::generate(&std::env::current_dir()?, *all, args.dry_run));
+        }
         Some(Mode::Version) => {
             println!("{}", version());
             return Ok(());
         }
         Some(Mode::Usage) => {
             println!(
-                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and assign repositories to Foundry stacks\nfoundry-opencode update    Update tools, global config and project assignments\nfoundry-opencode repair-plugins Retire verified V1 RAG plugin in current project\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Configure a Git repository for a Foundry stack\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode --dry-run update  Preview project and config changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
+                "foundry-opencode           Install (same as install)\nfoundry-opencode install   Install tools and assign repositories to Foundry stacks\nfoundry-opencode update    Update tools, global config and project assignments\nfoundry-opencode update -y Accept saved defaults and update without the wizard\nfoundry-opencode repair-plugins Retire verified V1 RAG plugin in current project\nfoundry-opencode uninstall Remove tools, configs, credentials and user data\nfoundry-opencode reset     Stop OpenCode/OpenChamber and clear OpenCode cache\nfoundry-opencode init      Configure a Git repository for a Foundry stack\nfoundry-opencode init-rag  Configure and index RAG in the current project\nfoundry-opencode sync-worktrees [--gen-rag] Move worktrees to the default branch, link .opencode (and reindex RAG)\nfoundry-opencode add-worktree [--gen-rag] <git worktree add options> Add a worktree with linked .opencode (and its RAG index)\nfoundry-opencode generate-rag [--all] (Re)generate RAG for this checkout (or every checkout)\nfoundry-opencode --dry-run uninstall Preview full removal\nfoundry-opencode update -y --dry-run Preview saved defaults without changes\nfoundry-opencode version   Print version\nfoundry-opencode usage     Show these examples"
             );
             return Ok(());
         }
@@ -93,13 +133,14 @@ fn main() -> eyre::Result<()> {
     {
         eyre::bail!("Installation and updates require macOS and Homebrew");
     }
+    let mut quick_summary = None;
     let staged = match ratatui::run(|terminal| {
         execute!(std::io::stdout(), EnableMouseCapture)?;
-        let result = match args.command.unwrap_or(Mode::Install) {
+        let result = match args.command.clone().unwrap_or(Mode::Install) {
             Mode::Init => init(terminal, args.dry_run).map(|_| None),
             Mode::InitRag => init_rag(terminal, args.dry_run).map(|_| None),
             Mode::RepairPlugins => repair_plugins(terminal, args.dry_run).map(|_| None),
-            Mode::Update => update(terminal, args.dry_run),
+            Mode::Update { yes } => update(terminal, args.dry_run, yes, &mut quick_summary),
             Mode::Uninstall => uninstall(terminal, args.dry_run).map(|_| None),
             Mode::Reset => reset(terminal, args.dry_run).map(|_| None),
             Mode::Install => install(terminal, args.dry_run),
@@ -115,6 +156,9 @@ fn main() -> eyre::Result<()> {
         }
         Err(error) => return Err(error),
     };
+    if let Some(summary) = quick_summary {
+        println!("{summary}");
+    }
     if let Some(staged) = staged {
         ops::install_binary(&staged, std::path::Path::new(ops::BIN_PATH))?;
         println!("Installed foundry-opencode to {}", ops::BIN_PATH);
@@ -148,8 +192,39 @@ fn main() -> eyre::Result<()> {
     Ok(())
 }
 
+/// Runs a plain-output worktree command: exits 1 when it reports a failure, and quietly when its
+/// output is piped into `head`, instead of panicking on the closed pipe.
+fn plain(command: impl FnOnce() -> eyre::Result<bool>) -> eyre::Result<()> {
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+    if !command()? {
+        std::process::exit(1);
+    }
+    Ok(())
+}
+
+/// Separates this installer's `--gen-rag` and `--dry-run` from the `git worktree add` options;
+/// `git worktree add` has neither, so they are recognised anywhere.
+fn worktree_options(options: &[String]) -> (Vec<String>, bool, bool) {
+    let flag = |name: &str| options.iter().any(|option| option == name);
+    let rest = options
+        .iter()
+        .filter(|option| *option != "--gen-rag" && *option != "--dry-run")
+        .cloned()
+        .collect();
+    (rest, flag("--gen-rag"), flag("--dry-run"))
+}
+
 fn init_rag(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
     let cwd = std::env::current_dir()?;
+    if let Ok(Some(main)) = worktrees::main_of(&cwd) {
+        eyre::bail!(
+            "{} is a Git worktree of {}. Run init-rag there; this worktree then gets the shared setup and its own index from foundry-opencode generate-rag",
+            cwd.display(),
+            main.display()
+        );
+    }
     let (url, token) = stack::credentials(&cwd)?;
     let preview = rag::setup(&cwd, &url, true, |_, _| unreachable!())?;
     if ui::step_review(
@@ -311,6 +386,17 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
         total: 1 + usize::from(project.rag) * 2,
         output: Vec::new(),
     };
+    let upgraded = if project.rag {
+        upgrade_rag(
+            terminal,
+            &mut progress,
+            &cwd,
+            &stack.url,
+            &catalog.tokens[&stack.id],
+        )?
+    } else {
+        None
+    };
     let existing_rag = project.rag && rag::ready(&cwd, &stack.url);
     let backups = projects::write_project(&user_home, project, stack)?;
     let mut result = format!(
@@ -318,6 +404,9 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
         cwd.display(),
         backups.len()
     );
+    if let Some(message) = upgraded {
+        result.push_str(&format!("\n{message}"));
+    }
     if existing_rag {
         result.push_str("\nReused the existing RAG index.");
     } else if project.rag {
@@ -332,6 +421,9 @@ fn init(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> {
             }
             Err(error) => result.push_str(&format!("\nRAG incomplete: {error}")),
         }
+    }
+    for message in share_worktrees(&cwd) {
+        result.push_str(&format!("\n{message}"));
     }
     notice(terminal, "Project init — complete", &result)
 }
@@ -634,18 +726,30 @@ fn chamber_available(terminal: &mut DefaultTerminal) -> bool {
     }
 }
 
-fn optional_chamber(terminal: &mut DefaultTerminal, progress: &mut Progress) -> bool {
-    if chamber_available(terminal) {
-        if let Err(error) = brew_package(terminal, progress, "openchamber", true) {
-            let _ = notice(
-                terminal,
-                "OpenChamber upgrade skipped",
-                &format!("{error}. Continue setup; retry after quitting OpenChamber."),
-            );
+fn optional_chamber(terminal: &mut DefaultTerminal, progress: &mut Progress, quick: bool) -> bool {
+    if quick {
+        let skip = match chamber_running() {
+            Ok(false) => None,
+            Ok(true) => Some("OpenChamber is running; upgrade skipped".to_owned()),
+            Err(error) => Some(format!("OpenChamber upgrade skipped: {error}")),
+        };
+        if let Some(message) = skip {
+            progress.line(message.as_bytes());
             progress.done += 1;
             return false;
         }
-    } else {
+    } else if !chamber_available(terminal) {
+        progress.done += 1;
+        return false;
+    }
+    if let Err(error) = brew_package(terminal, progress, "openchamber", true) {
+        let message =
+            format!("OpenChamber upgrade skipped: {error}. Retry after quitting OpenChamber.");
+        if quick {
+            progress.line(message.as_bytes());
+        } else {
+            let _ = notice(terminal, "OpenChamber upgrade skipped", &message);
+        }
         progress.done += 1;
         return false;
     }
@@ -926,6 +1030,23 @@ fn uninstall(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> 
             targets.push(dir.join(name));
         }
     }
+    let mut repositories: Vec<PathBuf> = managed
+        .projects
+        .iter()
+        .map(|project| project.path.clone())
+        .chain(projects.iter().cloned())
+        .filter(|path| path.is_dir())
+        .collect();
+    repositories.sort();
+    repositories.dedup();
+    let shared: Vec<(PathBuf, PathBuf)> = repositories
+        .iter()
+        .flat_map(|repo| {
+            worktrees::linked(repo)
+                .into_iter()
+                .map(move |worktree| (repo.clone(), worktree))
+        })
+        .collect();
     let packages = ["opencode", "opencode-v1", "opencode-v2", "direnv"];
     let npm_packages = cleanup::npm_opencode()?;
     let mut review = format!(
@@ -942,6 +1063,30 @@ fn uninstall(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> 
             .collect::<Vec<_>>()
             .join("\n")
     );
+    if !shared.is_empty() {
+        review.push_str(&format!(
+            "\nShared .opencode links, RAG indexes and logs in Git worktrees:\n{}",
+            shared
+                .iter()
+                .map(|(_, worktree)| worktree.join(".opencode").display().to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+    let excluded: Vec<String> = repositories
+        .iter()
+        .filter(|repo| worktrees::excluded(repo))
+        .map(|repo| repo.display().to_string())
+        .collect();
+    if !excluded.is_empty() {
+        review.push_str(&format!(
+            "\nRemove this installer's .opencode/.openchamber entry from .git/info/exclude (.gitignore lines are kept) in:\n{}",
+            excluded.join("\n")
+        ));
+    }
+    if let Some(change) = worktrees::alias_plan(false, None)? {
+        review.push_str(&format!("\n{change}"));
+    }
     if dry_run {
         review.push_str("\nDry run: no changes.");
     }
@@ -1052,6 +1197,14 @@ fn uninstall(terminal: &mut DefaultTerminal, dry_run: bool) -> eyre::Result<()> 
     for project in &projects {
         remove_rag_entry(project)?;
     }
+    for (repo, worktree) in &shared {
+        worktrees::unlink(repo, worktree)?;
+    }
+    for repo in &repositories {
+        // A folder that is no longer a Git repository has no exclude entry to remove.
+        let _ = worktrees::unexclude(repo);
+    }
+    worktrees::set_alias(false, None)?;
     for path in targets {
         remove_safe(&path)?;
     }
@@ -1429,6 +1582,9 @@ fn collect_install_plan(
             review.push_str(&format!("\nDeselect {}: assignment removed; previous config is preserved for manual removal.", previous.path.display()));
         }
     }
+    if let Some(change) = worktrees::alias_plan(catalog.sync_alias, None)? {
+        review.push_str(&format!("\n{change}"));
+    }
     review.push_str("\nOther .opencode files and existing legacy stack configs are preserved. Tokens are redacted.");
     if dry_run {
         review.push_str("\nDry run: no files, packages, browser or credentials changed.");
@@ -1458,6 +1614,51 @@ fn collect_install_plan(
     }))
 }
 
+/// Upgrades an earlier installer `rag.json` in place, so RAG stays enabled, then reindexes so the
+/// new exclusions apply. A failed reindex keeps the previous index and RAG enabled.
+fn upgrade_rag(
+    terminal: &mut DefaultTerminal,
+    progress: &mut Progress,
+    project: &std::path::Path,
+    url: &str,
+    token: &str,
+) -> eyre::Result<Option<String>> {
+    if !rag::upgrade_config(project, url)? {
+        return Ok(None);
+    }
+    let mut node = Process::new("node");
+    node.args([".opencode/rag-cli.mjs", "index"])
+        .current_dir(project)
+        .env("OPENAI_API_KEY", token);
+    Ok(Some(
+        match run(
+            terminal,
+            progress,
+            "Reindexing with updated RAG settings",
+            node,
+        ) {
+            Ok(()) => format!(
+                "Updated RAG settings for {} (skips build caches and generated SDKs) and reindexed",
+                project.display()
+            ),
+            Err(error) => format!(
+                "Updated RAG settings for {}; reindex failed ({error}). RAG stays enabled with the previous index; retry with node .opencode/rag-cli.mjs index",
+                project.display()
+            ),
+        },
+    ))
+}
+
+/// Keeps local setup folders out of Git for a configured repository and links its worktrees.
+fn share_worktrees(repo: &std::path::Path) -> Vec<String> {
+    worktrees::share(repo).unwrap_or_else(|error| {
+        vec![format!(
+            "Worktree setup incomplete for {}: {error}",
+            repo.display()
+        )]
+    })
+}
+
 fn configure_projects(
     terminal: &mut DefaultTerminal,
     progress: &mut Progress,
@@ -1475,6 +1676,17 @@ fn configure_projects(
             terminal,
             &format!("Configuring repository {}", project.path.display()),
         )?;
+        let upgraded = if project.rag {
+            upgrade_rag(
+                terminal,
+                progress,
+                &project.path,
+                &chosen.url,
+                &catalog.tokens[&chosen.id],
+            )?
+        } else {
+            None
+        };
         let existing_rag = project.rag && rag::ready(&project.path, &chosen.url);
         let backups = projects::write_project(&user_home, project, chosen)?;
         result.push(format!(
@@ -1483,6 +1695,7 @@ fn configure_projects(
             chosen.name,
             backups.len()
         ));
+        result.extend(upgraded);
         if existing_rag {
             register_rag_project(&user_home, &project.path)?;
             result.push(format!(
@@ -1506,6 +1719,7 @@ fn configure_projects(
                 }
             }
         }
+        result.extend(share_worktrees(&project.path));
         progress.done += 1;
     }
     Ok(result)
@@ -1639,7 +1853,7 @@ fn install(
             progress.done += 1;
         }
         if !inventory.chamber || safe_to_move {
-            if !optional_chamber(terminal, &mut progress)
+            if !optional_chamber(terminal, &mut progress, false)
                 && let Some(backup) = chamber_backup
             {
                 let app = std::path::Path::new("/Applications/OpenChamber.app");
@@ -1693,7 +1907,8 @@ fn install(
     }
     ops::replace_config(&config, &staged, existing.then_some(backup.as_path()))?;
     catalog.save(&home()?)?;
-    let migration = configure_projects(terminal, &mut progress, &catalog)?;
+    let mut migration = configure_projects(terminal, &mut progress, &catalog)?;
+    migration.extend(worktrees::set_alias(catalog.sync_alias, None)?);
     remove_direnv(terminal, false)?;
     progress.show(terminal, "Installation complete")?;
     notice(
@@ -1731,9 +1946,32 @@ fn install(
 fn update(
     terminal: &mut DefaultTerminal,
     dry_run: bool,
+    yes: bool,
+    quick_summary: &mut Option<String>,
 ) -> eyre::Result<Option<ops::StagedBinary>> {
     let user_home = home()?;
-    let catalog = projects::collect(terminal, &user_home, dry_run, None)?;
+    let mut accept = false;
+    let quick = if yes {
+        true
+    } else {
+        if ui::step_checkbox(
+            terminal,
+            "Update options",
+            "Keep unchecked to review or edit stacks, repositories and RAG choices.",
+            "Accept all loaded defaults and update",
+            &mut accept,
+            true,
+        )? != ui::Nav::Next
+        {
+            return Err(Cancelled.into());
+        }
+        accept
+    };
+    let catalog = if quick {
+        projects::Catalog::saved(&user_home)?
+    } else {
+        projects::collect(terminal, &user_home, dry_run, None)?
+    };
     let config = user_home.join(".config/opencode");
     let existing = fs::symlink_metadata(&config).is_ok();
     let backup = ops::backup_path(&config);
@@ -1774,19 +2012,27 @@ fn update(
             details.push_str(&format!("\nDeselect {}: assignment removed; previous config is preserved for manual removal.", previous.path.display()));
         }
     }
+    if let Some(change) = worktrees::alias_plan(catalog.sync_alias, None)? {
+        details.push_str(&format!("\n{change}"));
+    }
     details.push_str(
         "\nExisting parent stack configs and unrelated .opencode files remain. Tokens redacted.",
     );
     if dry_run {
         details.push_str("\nDry run: no files, packages, browser or credentials changed.");
     }
-    if ui::step_review(terminal, "Review update", &details, dry_run, true, "Update")?
-        != ui::Nav::Next
+    if !quick
+        && ui::step_review(terminal, "Review update", &details, dry_run, true, "Update")?
+            != ui::Nav::Next
     {
         return Err(Cancelled.into());
     }
     if dry_run {
-        notice(terminal, "Dry-run complete", &details)?;
+        if quick {
+            *quick_summary = Some(details);
+        } else {
+            notice(terminal, "Dry-run complete", &details)?;
+        }
         return Ok(None);
     }
     let (binary, release_version) = busy(
@@ -1811,7 +2057,7 @@ fn update(
     brew_update(terminal, &mut progress)?;
     brew_package(terminal, &mut progress, "opencode", false)?;
     if chamber {
-        let _ = optional_chamber(terminal, &mut progress);
+        let _ = optional_chamber(terminal, &mut progress, quick);
     }
     let staged = ops::backup_path(&config);
     let make_clone = || {
@@ -1850,16 +2096,30 @@ fn update(
     }
     ops::replace_config(&config, &staged, existing.then_some(backup.as_path()))?;
     catalog.save(&user_home)?;
-    let results = configure_projects(terminal, &mut progress, &catalog)?;
+    let mut results = configure_projects(terminal, &mut progress, &catalog)?;
+    results.extend(worktrees::set_alias(catalog.sync_alias, None)?);
     remove_direnv(terminal, false)?;
-    notice(
-        terminal,
-        "Update — complete",
-        &format!(
-            "Repositories configured. Release {release_version} will replace the CLI in /usr/local/bin when you leave this screen.\n{}",
-            results.join("\n")
-        ),
-    )?;
+    let result = format!(
+        "Repositories configured. Release {release_version} {}.\n{}",
+        if quick {
+            "verified; installing the CLI next"
+        } else {
+            "will replace the CLI in /usr/local/bin when you leave this screen"
+        },
+        results.join("\n")
+    );
+    if quick {
+        let warnings = progress
+            .output
+            .iter()
+            .filter(|line| line.starts_with("OpenChamber"))
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n");
+        *quick_summary = Some(format!("{details}\n{result}\n{warnings}"));
+    } else {
+        notice(terminal, "Update — complete", &result)?;
+    }
     Ok(Some(binary))
 }
 
@@ -1883,6 +2143,57 @@ mod tests {
     }
 
     #[test]
+    fn worktree_commands_parse_their_flags_and_pass_git_options_through() {
+        let args = Args::try_parse_from([
+            "foundry-opencode",
+            "add-worktree",
+            "-b",
+            "topic",
+            "--gen-rag",
+            "../topic",
+            "--detach",
+        ])
+        .unwrap();
+        let Some(Mode::AddWorktree { options }) = args.command else {
+            panic!("expected add-worktree");
+        };
+        assert_eq!(
+            worktree_options(&options),
+            (
+                vec![
+                    "-b".into(),
+                    "topic".into(),
+                    "../topic".into(),
+                    "--detach".into()
+                ],
+                true,
+                false
+            )
+        );
+        let (_, gen_rag, dry_run) = worktree_options(&["--dry-run".into(), "../x".into()]);
+        assert!(!gen_rag && dry_run);
+        assert!(matches!(
+            Args::try_parse_from(["foundry-opencode", "sync-worktrees", "--gen-rag"])
+                .unwrap()
+                .command,
+            Some(Mode::SyncWorktrees { gen_rag: true })
+        ));
+        assert!(matches!(
+            Args::try_parse_from(["foundry-opencode", "sync-worktrees"])
+                .unwrap()
+                .command,
+            Some(Mode::SyncWorktrees { gen_rag: false })
+        ));
+        assert!(matches!(
+            Args::try_parse_from(["foundry-opencode", "generate-rag", "--all"])
+                .unwrap()
+                .command,
+            Some(Mode::GenerateRag { all: true })
+        ));
+        assert!(Args::try_parse_from(["foundry-opencode", "generate-rag", "--gen-rag"]).is_err());
+    }
+
+    #[test]
     fn dry_run_works_before_and_after_commands() {
         for args in [
             vec!["foundry-opencode", "--dry-run"],
@@ -1895,6 +2206,26 @@ mod tests {
         ] {
             assert!(Args::try_parse_from(args).unwrap().dry_run);
         }
+    }
+
+    #[test]
+    fn update_defaults_flags_are_update_only() {
+        for args in [
+            vec!["foundry-opencode", "update", "--yes"],
+            vec!["foundry-opencode", "update", "-y"],
+            vec!["foundry-opencode", "--dry-run", "update", "-y"],
+            vec!["foundry-opencode", "update", "--yes", "--dry-run"],
+        ] {
+            let args = Args::try_parse_from(args).unwrap();
+            assert!(matches!(args.command, Some(Mode::Update { yes: true })));
+        }
+        assert!(matches!(
+            Args::try_parse_from(["foundry-opencode", "update"])
+                .unwrap()
+                .command,
+            Some(Mode::Update { yes: false })
+        ));
+        assert!(Args::try_parse_from(["foundry-opencode", "install", "--yes"]).is_err());
     }
 
     #[test]
