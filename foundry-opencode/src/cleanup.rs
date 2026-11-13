@@ -6,7 +6,7 @@ use std::{
     process::Command,
 };
 
-#[derive(Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Inventory {
     pub brew_v1: Vec<String>,
     pub brew_v2: bool,
@@ -14,6 +14,52 @@ pub struct Inventory {
     pub files: Vec<PathBuf>,
     pub chamber: bool,
     pub unknown: Vec<PathBuf>,
+}
+
+impl Inventory {
+    pub fn migration_needed(&self) -> bool {
+        !self.brew_v1.is_empty()
+            || self.brew_v2
+            || !self.npm_v1.is_empty()
+            || !self.files.is_empty()
+            || self.chamber
+    }
+
+    pub fn within(&self, reviewed: &Self) -> bool {
+        self.brew_v1
+            .iter()
+            .all(|name| reviewed.brew_v1.contains(name))
+            && (!self.brew_v2 || reviewed.brew_v2)
+            && self
+                .npm_v1
+                .iter()
+                .all(|name| reviewed.npm_v1.contains(name))
+            && self.files.iter().all(|path| reviewed.files.contains(path))
+            && (!self.chamber || reviewed.chamber)
+    }
+}
+
+#[cfg(test)]
+mod migration_tests {
+    use super::*;
+
+    #[test]
+    fn migration_only_removes_items_shown_in_review_and_allows_retry_after_partial_removal() {
+        let reviewed = Inventory {
+            brew_v1: vec!["opencode-v1".into()],
+            brew_v2: true,
+            npm_v1: vec!["opencode-ai".into()],
+            files: vec![PathBuf::from("/home/test/bin/opencode")],
+            ..Inventory::default()
+        };
+        let mut current = reviewed.clone();
+        assert!(current.migration_needed() && current.within(&reviewed));
+        current.brew_v1.clear();
+        current.files.clear();
+        assert!(current.within(&reviewed));
+        current.npm_v1.push("unreviewed".into());
+        assert!(!current.within(&reviewed));
+    }
 }
 
 fn output(command: &mut Command) -> eyre::Result<String> {

@@ -96,6 +96,7 @@ pub struct Choices {
     pub operation: Operation,
     pub accept_saved_defaults: bool,
     pub install_openchamber: bool,
+    pub sync_alias: bool,
     pub use_global: bool,
     pub global: Stack,
     pub stacks: Vec<Stack>,
@@ -108,6 +109,7 @@ impl Default for Choices {
             operation: Operation::Install,
             accept_saved_defaults: false,
             install_openchamber: false,
+            sync_alias: false,
             use_global: false,
             global: Stack::global(),
             stacks: Vec::new(),
@@ -346,6 +348,17 @@ impl WizardState {
             self.step = Step::Review;
             return true;
         }
+        if self.step == Step::Welcome
+            && self.choices.operation == Operation::Update
+            && self.choices.global.raw_host.is_empty()
+            && self.choices.stacks.is_empty()
+            && self.choices.repositories.is_empty()
+            && let Some(saved) = &self.saved
+        {
+            let openchamber = self.choices.install_openchamber;
+            self.choices = saved.clone();
+            self.choices.install_openchamber = openchamber;
+        }
         if let Some(next) = self.step.next() {
             self.step = next;
             return true;
@@ -449,10 +462,12 @@ mod tests {
         state.back();
         assert!(!state.choices.repositories[0].rag);
         assert!(state.choices.install_openchamber);
-        assert!(state
-            .review_lines()
-            .iter()
-            .all(|line| !line.contains("secret")));
+        assert!(
+            state
+                .review_lines()
+                .iter()
+                .all(|line| !line.contains("secret"))
+        );
         assert!(matches!(state.status, Status::Disconnected));
         assert_eq!(state.redact("token: secret"), "token: [redacted]");
         assert!(state.advance());
@@ -507,6 +522,33 @@ mod tests {
         assert_eq!(state.step, Step::Welcome);
         state.add_stack();
         assert_eq!(state.choices.stacks[1].id, 1);
+    }
+
+    #[test]
+    fn editing_update_starts_with_saved_assignments() {
+        let mut state = WizardState::default();
+        state.choices.operation = Operation::Update;
+        let mut saved = Choices {
+            use_global: true,
+            sync_alias: true,
+            ..Choices::default()
+        };
+        saved.global.raw_host = "https://foundry.example".into();
+        saved.global.saved_token = true;
+        saved.repositories.push(Repository {
+            path: PathBuf::from("/tmp/saved"),
+            stack: Some(0),
+            rag: false,
+        });
+        state.saved = Some(saved);
+        assert!(state.advance());
+        assert_eq!(state.step, Step::Options);
+        assert_eq!(
+            state.choices.repositories[0].path,
+            PathBuf::from("/tmp/saved")
+        );
+        assert!(!state.choices.repositories[0].rag);
+        assert!(state.choices.sync_alias);
     }
 
     #[test]

@@ -2,17 +2,29 @@ use std::path::PathBuf;
 
 use eframe::egui;
 
+use crate::backend::Backend;
 use crate::state::{Operation, Outcome, Request, Stack, Status, Step, WizardState};
 
-#[derive(Default)]
 pub struct WizardApp {
     pub state: WizardState,
+    backend: Backend,
+}
+
+impl Default for WizardApp {
+    fn default() -> Self {
+        let (backend, saved, error) = Backend::load();
+        let mut state = WizardState::default();
+        state.backend_connected = backend.ready();
+        state.saved = saved;
+        state.error = error;
+        Self { state, backend }
+    }
 }
 
 impl WizardApp {
     fn welcome(&mut self, ui: &mut egui::Ui) {
         ui.heading("Set up Foundry OpenCode");
-        ui.label("Choose what to configure. The GUI does not run installer commands yet.");
+        ui.label("Choose what to configure. Review your choices before installation begins.");
         ui.radio_value(
             &mut self.state.choices.operation,
             Operation::Install,
@@ -33,7 +45,7 @@ impl WizardApp {
             );
             if self.state.saved.is_none() {
                 ui.label(
-                    "Saved settings are not supplied until the installer backend is connected.",
+                    "No saved configuration is available; configure a stack and folder below.",
                 );
             }
         }
@@ -45,6 +57,10 @@ impl WizardApp {
         ui.checkbox(
             &mut self.state.choices.install_openchamber,
             "Install OpenChamber (optional)",
+        );
+        ui.checkbox(
+            &mut self.state.choices.sync_alias,
+            "Install git sync-worktrees alias",
         );
     }
 
@@ -136,7 +152,8 @@ impl WizardApp {
                         )
                         .clicked()
                     {
-                        self.state.request = Some(Request::OpenTokenPage(stack.host().to_string().clone()));
+                        self.state.request =
+                            Some(Request::OpenTokenPage(stack.host().to_string().clone()));
                     }
                     if assigned {
                         ui.label("Reassign repositories before removing this stack.");
@@ -154,9 +171,7 @@ impl WizardApp {
 
     fn repositories(&mut self, ui: &mut egui::Ui) {
         ui.heading("Repositories");
-        ui.label(
-            "Choose project roots. Your backend will check them before changing files.",
-        );
+        ui.label("Choose project roots. Your backend will check them before changing files.");
         ui.horizontal(|ui| {
             if ui.button("Choose folder…").clicked()
                 && let Some(path) = rfd::FileDialog::new().pick_folder()
@@ -237,7 +252,74 @@ impl WizardApp {
 
     fn review(&mut self, ui: &mut egui::Ui) {
         ui.heading("Review your choices");
-        ui.label("Tokens are hidden. The installer backend must verify paths, credentials and backups before running.");
+        ui.label("Tokens are hidden. Existing configuration is backed up before replacement.");
+        match self
+            .backend
+            .inspection(self.state.choices.install_openchamber)
+        {
+            Ok(legacy) => {
+                if legacy.migration_needed() {
+                    ui.heading("Legacy installation migration");
+                }
+                for name in &legacy.brew_v1 {
+                    ui.label(format!("Uninstall Homebrew V1 {name}"));
+                }
+                if legacy.brew_v2 {
+                    ui.label("Uninstall Homebrew opencode-v2 before installing standard V2");
+                }
+                for name in &legacy.npm_v1 {
+                    ui.label(format!("Uninstall global npm V1 {name}"));
+                }
+                for path in &legacy.files {
+                    ui.label(format!("Move {} to Trash", path.display()));
+                }
+                if legacy.chamber {
+                    ui.label("Move unmanaged /Applications/OpenChamber.app to Trash");
+                }
+                for path in &legacy.unknown {
+                    ui.label(format!(
+                        "Leave unrecognized executable untouched: {}",
+                        path.display()
+                    ));
+                }
+            }
+            Err(error) => {
+                ui.colored_label(
+                    egui::Color32::RED,
+                    format!("Cannot inspect legacy installations: {error}"),
+                );
+            }
+        }
+        match self.backend.alias_preview(self.state.choices.sync_alias) {
+            Ok(Some(change)) => {
+                ui.label(change);
+            }
+            Err(error) => {
+                ui.colored_label(
+                    egui::Color32::RED,
+                    format!("Cannot inspect Git alias: {error}"),
+                );
+            }
+            _ => {}
+        }
+        let global = std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
+            .join(".config/opencode");
+        let mut backups = Vec::new();
+        if global.exists() {
+            backups.push(global);
+        }
+        for repo in &self.state.choices.repositories {
+            backups.extend(
+                foundry_opencode::projects::config_paths(&repo.path)
+                    .into_iter()
+                    .filter(|path| path.exists()),
+            );
+            let token = repo.path.join(".opencode/token");
+            if token.exists() {
+                backups.push(token);
+            }
+        }
+        self.state.backup_preview = backups;
         egui::ScrollArea::vertical().show(ui, |ui| {
             for line in self.state.review_lines() {
                 ui.label(line);
@@ -340,6 +422,7 @@ impl WizardApp {
                 }
                 Step::Result => {
                     if ui.button("Back to settings").clicked() {
+                        self.backend.refresh_review();
                         self.state.step = Step::Review;
                     }
                     if ui
@@ -412,6 +495,14 @@ impl WizardApp {
 
 impl eframe::App for WizardApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.backend.poll(&mut self.state);
+        if let Some(request) = self.state.request.take() {
+            self.backend.handle(request, &mut self.state);
+        }
+        if self.backend.running() {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(100));
+        }
         if ui.ctx().input(|input| input.key_pressed(egui::Key::Escape))
             && self.state.step != Step::Welcome
         {
