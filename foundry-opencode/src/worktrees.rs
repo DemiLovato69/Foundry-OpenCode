@@ -282,12 +282,92 @@ pub fn link(main: &Path, worktree: &Path) -> eyre::Result<usize> {
         .collect::<Result<Vec<_>, _>>()?;
     names.sort();
     let mut linked = 0;
+    let local_config = crate::stack::read_config(&source.join("opencode.json")).is_ok_and(|doc| {
+        doc["providers"]["palantir-openai"]["settings"]["apiKey"] == "{file:./token}"
+    });
+    let self_ignored = fs::read_to_string(source.join(".gitignore"))
+        .is_ok_and(|text| text.ends_with("*\n!commands/\n!commands/**\n"));
+    let mark = local_config && source.join("token").is_file();
+    if mark {
+        crate::projects::private_token(&source.join("token"))?;
+        let marker = target.join(".foundry-managed-worktree");
+        let existing = read_plain(&marker)?;
+        eyre::ensure!(
+            existing.is_empty() || existing == "foundry-opencode\n",
+            "Unrecognized worktree marker {}",
+            marker.display()
+        );
+    }
     for name in names {
         let path = target.join(&name);
-        if per_worktree(&name.to_string_lossy()) {
+        let local = name == "token" && local_config
+            || name == "opencode.json" && local_config
+            || name == ".gitignore" && self_ignored;
+        if per_worktree(&name.to_string_lossy()) || local {
             // Earlier releases linked shared folders too; each worktree uses its own copy.
             if SHARED.contains(&&*name.to_string_lossy()) && ours(&path, &source) {
                 fs::remove_file(&path)?;
+            }
+            if local {
+                if ours(&path, &source) {
+                    fs::remove_file(&path)?;
+                }
+                let from = source.join(&name);
+                let meta = fs::symlink_metadata(&from)?;
+                eyre::ensure!(
+                    meta.is_file() && !meta.file_type().is_symlink(),
+                    "Unsafe worktree source {}",
+                    from.display()
+                );
+                if name == "token" {
+                    crate::projects::private_token(&from)?;
+                }
+                let existing = match fs::symlink_metadata(&path) {
+                    Ok(meta) => {
+                        eyre::ensure!(
+                            meta.is_file() && !meta.file_type().is_symlink(),
+                            "Unsafe worktree file {}",
+                            path.display()
+                        );
+                        true
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+                    Err(error) => return Err(error.into()),
+                };
+                if existing && fs::read(&path)? == fs::read(&from)? {
+                    continue;
+                }
+                let staged = crate::ops::backup_path(&path);
+                fs::copy(&from, &staged)?;
+                if name == "token" {
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        fs::set_permissions(&staged, fs::Permissions::from_mode(0o600))?;
+                    }
+                }
+                if existing {
+                    let backup = crate::ops::backup_path(&path);
+                    fs::hard_link(&path, &backup)?;
+                    if name == "token" {
+                        let ledger = target.join(".foundry-managed-backups");
+                        let mut entries = read_plain(&ledger)?;
+                        entries.push_str(&format!(
+                            "{}\n",
+                            backup.file_name().unwrap().to_string_lossy()
+                        ));
+                        if let Err(error) = fs::write(&ledger, entries) {
+                            fs::remove_file(&backup)?;
+                            fs::remove_file(&staged)?;
+                            return Err(error.into());
+                        }
+                    }
+                }
+                if let Err(error) = fs::rename(&staged, &path) {
+                    let _ = fs::remove_file(staged);
+                    return Err(error.into());
+                }
+                linked += 1;
             }
             continue;
         }
@@ -301,6 +381,12 @@ pub fn link(main: &Path, worktree: &Path) -> eyre::Result<usize> {
             .wrap_err_with(|| format!("Could not link {}", path.display()))?;
         linked += 1;
     }
+    if mark && read_plain(&target.join(".foundry-managed-worktree"))?.is_empty() {
+        fs::write(
+            target.join(".foundry-managed-worktree"),
+            "foundry-opencode\n",
+        )?;
+    }
     Ok(linked)
 }
 
@@ -311,6 +397,33 @@ pub fn unlink(main: &Path, worktree: &Path) -> eyre::Result<()> {
     if !fs::symlink_metadata(&dir).is_ok_and(|meta| meta.is_dir() && !meta.file_type().is_symlink())
     {
         return Ok(());
+    }
+    let ledger = dir.join(".foundry-managed-backups");
+    let marker = dir.join(".foundry-managed-worktree");
+    if fs::symlink_metadata(&marker).is_ok() {
+        eyre::ensure!(
+            read_plain(&marker)? == "foundry-opencode\n",
+            "Unrecognized worktree marker {}",
+            marker.display()
+        );
+        fs::remove_file(marker)?;
+    }
+    if fs::symlink_metadata(&ledger).is_ok() {
+        for name in read_plain(&ledger)?.lines() {
+            eyre::ensure!(
+                name.starts_with("token.backup-") && !name.contains('/') && !name.contains('\\'),
+                "Unsafe token backup record"
+            );
+            let path = dir.join(name);
+            match fs::symlink_metadata(&path) {
+                Ok(meta) if meta.is_file() && !meta.file_type().is_symlink() => {
+                    fs::remove_file(path)?
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                _ => eyre::bail!("Unsafe recorded token backup {}", path.display()),
+            }
+        }
+        fs::remove_file(ledger)?;
     }
     for entry in fs::read_dir(&dir)? {
         let path = entry?.path();
@@ -342,8 +455,12 @@ pub fn linked(main: &Path) -> Vec<PathBuf> {
         .skip(1)
         .map(|worktree| worktree.path)
         .filter(|path| {
-            fs::read_dir(path.join(".opencode"))
-                .is_ok_and(|entries| entries.flatten().any(|entry| ours(&entry.path(), &source)))
+            let dir = path.join(".opencode");
+            fs::read_to_string(dir.join(".foundry-managed-worktree"))
+                .is_ok_and(|text| text == "foundry-opencode\n")
+                || fs::read_dir(&dir).is_ok_and(|entries| {
+                    entries.flatten().any(|entry| ours(&entry.path(), &source))
+                })
         })
         .collect()
 }
@@ -1074,6 +1191,125 @@ mod tests {
         assert_eq!(listed[0].path, main);
         assert_eq!(listed[0].branch.as_deref(), Some("main"));
         assert!(listed[1].branch.is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn copied_only_worktree_is_tracked_for_uninstall_without_shared_symlinks() {
+        let root = sandbox();
+        let main = root.join("main");
+        fs::create_dir(&main).unwrap();
+        run(&main, &["init", "-q"]);
+        fs::write(main.join("file"), "one").unwrap();
+        run(&main, &["add", "file"]);
+        run(&main, &["commit", "-qm", "one"]);
+        let linked = root.join("linked");
+        run(&main, &["worktree", "add", "-q", "--detach", "../linked"]);
+        fs::create_dir(main.join(".opencode")).unwrap();
+        fs::write(
+            main.join(".opencode/opencode.json"),
+            r#"{"providers":{"palantir-openai":{"settings":{"apiKey":"{file:./token}"}}}}"#,
+        )
+        .unwrap();
+        fs::write(main.join(".opencode/token"), "private").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(
+                main.join(".opencode/token"),
+                fs::Permissions::from_mode(0o600),
+            )
+            .unwrap();
+        }
+        fs::write(
+            main.join(".opencode/.gitignore"),
+            "*\n!commands/\n!commands/**\n",
+        )
+        .unwrap();
+        link(&main, &linked).unwrap();
+        assert_eq!(super::linked(&main), vec![linked.clone()]);
+        unlink(&main, &linked).unwrap();
+        assert!(super::linked(&main).is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn local_token_config_is_copied_per_worktree_not_symlinked() {
+        let root = sandbox();
+        let main = repository(&root);
+        let linked = root.join("linked");
+        run(&main, &["worktree", "add", "-q", "--detach", "../linked"]);
+        fs::write(
+            main.join(".opencode/opencode.json"),
+            r#"{"providers":{"palantir-openai":{"settings":{"baseURL":"https://example.com/language-model-service/api/proxy/openai/v1","apiKey":"{file:./token}"}}}}"#,
+        )
+        .unwrap();
+        fs::write(main.join(".opencode/token"), "private").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(
+                main.join(".opencode/token"),
+                fs::Permissions::from_mode(0o600),
+            )
+            .unwrap();
+        }
+        fs::write(
+            main.join(".opencode/.gitignore"),
+            "*\n!commands/\n!commands/**\n",
+        )
+        .unwrap();
+        link(&main, &linked).unwrap();
+        for name in ["opencode.json", "token", ".gitignore"] {
+            let path = linked.join(".opencode").join(name);
+            assert!(fs::symlink_metadata(&path).unwrap().is_file());
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(linked.join(".opencode/token"))
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600
+            );
+        }
+        assert_eq!(
+            crate::projects::private_token(&linked.join(".opencode/token")).unwrap(),
+            "private"
+        );
+        assert_eq!(crate::stack::credentials(&linked).unwrap().1, "private");
+        fs::write(main.join(".opencode/token"), "rotated").unwrap();
+        link(&main, &linked).unwrap();
+        assert_eq!(crate::stack::credentials(&linked).unwrap().1, "rotated");
+        assert!(
+            fs::read_dir(linked.join(".opencode"))
+                .unwrap()
+                .any(|entry| entry
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("token.backup-"))
+        );
+        let unrelated = linked.join(".opencode/token.backup-unrelated");
+        fs::write(&unrelated, "leave alone").unwrap();
+        unlink(&main, &linked).unwrap();
+        assert_eq!(fs::read_to_string(&unrelated).unwrap(), "leave alone");
+        assert!(!linked.join(".opencode/.foundry-managed-backups").exists());
+        assert!(
+            !fs::read_dir(linked.join(".opencode"))
+                .unwrap()
+                .any(|entry| {
+                    let path = entry.unwrap().path();
+                    path.file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .starts_with("token.backup-")
+                        && path != unrelated
+                })
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

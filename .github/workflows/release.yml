@@ -29,6 +29,12 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
+      - run: cargo fmt --check
+        working-directory: foundry-opencode-gui
+      - run: cargo clippy --locked --all-targets -- -D warnings
+        working-directory: foundry-opencode-gui
+      - run: cargo test --locked
+        working-directory: foundry-opencode-gui
 
   version:
     if: github.event_name == 'push'
@@ -70,6 +76,10 @@ jobs:
       - run: cargo build --locked --release --target ${{ matrix.target }}
         env:
           FOUNDRY_OPENCODE_VERSION: ${{ needs.version.outputs.number }}
+      - run: cargo build --locked --release --target ${{ matrix.target }}
+        working-directory: foundry-opencode-gui
+        env:
+          FOUNDRY_OPENCODE_VERSION: ${{ needs.version.outputs.number }}
       - name: Package binary
         run: |
           test "$(target/${{ matrix.target }}/release/foundry-opencode version)" = "${{ needs.version.outputs.number }}"
@@ -78,6 +88,31 @@ jobs:
         with:
           name: foundry-opencode-${{ matrix.target }}
           path: foundry-opencode/foundry-opencode-${{ matrix.target }}.tar.gz
+      - name: Package GUI app with matching CLI
+        run: |
+          mkdir -p FoundryOpenCode.app/Contents/MacOS FoundryOpenCode.app/Contents/Resources
+          cp foundry-opencode-gui/target/${{ matrix.target }}/release/foundry-opencode-gui FoundryOpenCode.app/Contents/MacOS/foundry-opencode-gui
+          cp foundry-opencode/target/${{ matrix.target }}/release/foundry-opencode FoundryOpenCode.app/Contents/Resources/foundry-opencode
+          cat > FoundryOpenCode.app/Contents/Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleExecutable</key><string>foundry-opencode-gui</string>
+            <key>CFBundleIdentifier</key><string>com.foundry-opencode.installer</string>
+            <key>CFBundleName</key><string>Foundry OpenCode Installer</string>
+            <key>CFBundleVersion</key><string>${{ needs.version.outputs.number }}</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict></plist>
+          PLIST
+          /usr/bin/plutil -lint FoundryOpenCode.app/Contents/Info.plist
+          test "$(FoundryOpenCode.app/Contents/Resources/foundry-opencode version)" = "${{ needs.version.outputs.number }}"
+          tar -czf foundry-opencode-gui-${{ matrix.target }}.tar.gz FoundryOpenCode.app
+        working-directory: ${{ github.workspace }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foundry-opencode-gui-${{ matrix.target }}
+          path: foundry-opencode-gui-${{ matrix.target }}.tar.gz
 
   release:
     if: github.event_name == 'push'
@@ -90,7 +125,7 @@ jobs:
         with:
           pattern: foundry-opencode-*
           merge-multiple: true
-      - name: Publish macOS binaries
+      - name: Publish macOS GUI installer and CLI
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
