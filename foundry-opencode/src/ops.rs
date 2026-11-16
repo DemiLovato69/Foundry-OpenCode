@@ -14,6 +14,12 @@ const RELEASES: &str = "https://api.github.com/repos/DemiLovato69/Foundry-OpenCo
 
 pub struct StagedBinary(PathBuf);
 
+impl StagedBinary {
+    pub fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
 impl Drop for StagedBinary {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.0);
@@ -239,7 +245,7 @@ pub fn install_binary(source: &StagedBinary, destination: &Path) -> eyre::Result
             Err(error) => return Err(error.into()),
         }
     }
-    // sudo runs only after the TUI restores the terminal, so macOS can prompt normally.
+    // CLI updates can prompt here; the GUI uses preauthorization instead.
     let script = "set -e; d=$(dirname \"$2\"); if [ -L \"$d\" ]; then exit 1; fi; if [ ! -d \"$d\" ]; then /usr/bin/install -d -m 0755 \"$d\"; fi; if [ -L \"$2\" ] || { [ -e \"$2\" ] && [ ! -f \"$2\" ]; }; then exit 1; fi; t=$(mktemp \"$2.tmp.XXXXXXXX\"); trap 'rm -f \"$t\"' EXIT; /usr/bin/install -m 0755 \"$1\" \"$t\"; /bin/mv -f \"$t\" \"$2\"";
     let status = Command::new("sudo")
         .args(["/bin/sh", "-c", script, "foundry-opencode"])

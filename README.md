@@ -5,45 +5,48 @@ OpenCode configuration for Palantir. Requires OpenCode v2; The configuration use
 # Install
 
 ## WARNING
-The installer backs up and replaces `~/.config/opencode` and the OpenCode config files in each selected Git repository after review. It does not delete unrelated `.opencode` files or repository contents. It removes confirmed V1 OpenCode packages before installing Homebrew OpenCode V2. OpenChamber is optional; existing sessions and app data are preserved.
+The GUI installer backs up and replaces `~/.config/opencode` and managed config files in each selected folder. It does not delete unrelated `.opencode` files or folder contents. OpenChamber is optional; existing sessions are preserved.
 
 ## Installation
-Download the [latest macOS release](https://github.com/DemiLovato69/Foundry-OpenCode/releases/latest) for Apple Silicon (`aarch64-apple-darwin`) or Intel (`x86_64-apple-darwin`), extract the binary, and run it from the extracted location. The installer offers to copy itself into `/usr/local/bin` for future use. Homebrew, Git, and HTTPS access to this public repository are required; a GitHub SSH key is not. OpenChamber is optional.
+Download the matching [GUI macOS release](https://github.com/DemiLovato69/Foundry-OpenCode/releases/latest) for Apple Silicon (`aarch64-apple-darwin`) or Intel (`x86_64-apple-darwin`) and open `FoundryOpenCode.app`. Its matching plain CLI is bundled and installed last to `/usr/local/bin/foundry-opencode`. Homebrew, Git and HTTPS access to the public config repository are required.
 
-**macOS security:** The release binaries are not signed or notarized. Check your downloaded archive with `shasum -a 256 foundry-opencode-<arch>.tar.gz` and compare it to the matching line in the release's `SHA256SUMS`. macOS may block the first launch; after attempting to run the binary, go to **System Settings → Privacy & Security → Open Anyway** only if you trust the release. Do not disable Gatekeeper or remove the quarantine attribute globally.
+**macOS security:** The release binaries are not signed or notarized. Check your downloaded GUI archive with `shasum -a 256 foundry-opencode-gui-<arch>.tar.gz` and compare it to the matching line in the release's `SHA256SUMS`. macOS may block the first launch; go to **System Settings → Privacy & Security → Open Anyway** only if you trust the release. Do not disable Gatekeeper or remove the quarantine attribute globally.
 
-Run `foundry-opencode` (equivalent to `foundry-opencode install`). The explorer is a single expandable directory tree. Arrows or a single click highlight without opening; Enter expands or collapses, Right expands, Left collapses or selects the parent, Space marks a folder, and C continues. Tab switches between the tree and its search/path field. Press S to filter visible directory names, or `/` to enter an absolute path; `~/`, `./`, and `../` paths also work. Path matches appear in the same tree; Enter opens a complete or arrow-highlighted path. Dot-prefixed and macOS Finder-invisible folders are hidden by default; type their full path to open them. Previously marked folders remain marked even when hidden. Inaccessible directories show an error without losing selections. No central projects directory or direnv is required. Existing direnv Zsh hooks, whitelist settings and installation are removed.
+The GUI accepts any existing folder, including one outside a Git repository. It collects Foundry stacks, optional OpenChamber, folder assignments, and per-folder RAG choices. It requests administrator authorization before making installation changes, while Homebrew and project setup run as your ordinary account.
 
-Before uninstalling a legacy OpenCode installation, the installer verifies that the standard Homebrew `opencode` formula targets V2. Unrecognized executables are reported but not deleted or allowed to block config setup. A Homebrew-managed `opencode-v2` is migrated to the standard V2 formula after confirmation.
+The installer verifies that the standard Homebrew `opencode` formula targets V2. The GUI reviews any recognized legacy V1 or `opencode-v2` packages before migrating them as the ordinary user. CLI users must first run `update --dry-run`, then explicitly pass `--migrate-legacy` with `update --yes` if removal is needed. Unrecognized executables are left untouched.
 
-Use the mouse or keyboard in the wizard. First configure the global default and named Foundry stacks, then mark Git repository roots in the tree. Assign a stack and optionally RAG to each selected repo. Those choices are saved for updates. Installing the CLI to `/usr/local/bin/foundry-opencode` may request an administrator password after closing the TUI.
+Use the mouse or keyboard in the GUI to assign a stack and optionally RAG to each folder. Those choices are saved for updates. Privilege is used only for the final CLI replacement.
 
-The optional global default also provides a fallback outside selected repositories. Each selected repo gets its own `.opencode/opencode.json`, referencing a private token under `~/.config/foundry-opencode/tokens/`; no token is written into a repo config. Known old stack credentials can be imported without executing `.envrc`. Legacy parent-stack configs and `.envrc` files are left in place for review: they may still affect unselected repositories. Tracked `.envrc` secrets require Git cleanup and token rotation.
+The optional global default also provides a fallback outside selected folders. Each selected folder gets its own `.opencode/opencode.json` referring to its private `.opencode/token` (mode `0600`), plus `.opencode/.gitignore` to ignore generated files even when Git is initialized later. Known old stack credentials can be imported without executing `.envrc`. Legacy parent-stack configs and `.envrc` files are left in place for review: they may still affect unselected repositories. Tracked secrets require Git cleanup and token rotation.
 
 ## After Install
 
 The installer provides many commands to make developer experience better.
 
-- Configure one Git repository
-*Run this command from the repository root*
+- Configure one folder (Git is optional)
+*Run this command from the selected folder*
 `foundry-opencode init`
 
-At the token prompt, select **Open Foundry token page** to open `https://<host>/workspace/settings/tokens`, create your token there, then paste it into the masked prompt. Opening the browser is optional and never happens just by entering the host.
+- Pass the current folder's private token only to an npm subprocess
+`foundry-opencode exec --foundry-token -- npm install`
+
+The GUI offers **Open token page** for `https://<host>/workspace/settings/tokens`; opening the browser is optional and never happens just by entering the host.
 
 - Update everything
-`foundry-opencode update`
+`foundry-opencode update --yes` (or use the GUI to change assignments)
 
-Update reopens the stack catalog and saved repo assignments. After the update-options screen, edit credentials in the stack catalog, add or remove projects in the tree, then review the backups and per-repo RAG choices. An existing repo config is replaced, not merged; unrelated `.opencode` files are preserved. The globally configured default model still applies unless the project overrides it.
+The GUI reopens saved stacks and folder assignments. A selected folder config is replaced with a backup; unrelated `.opencode` files are preserved. The global default model applies unless a project overrides it.
 
-To keep all saved stacks, tokens, repository assignments and per-repo RAG choices, check **Accept all loaded defaults and update** on update's first screen. Or run `foundry-opencode update -y` (`--yes`) to skip the wizard entirely; `update -y --dry-run` previews the saved update without changing anything. Missing or invalid saved settings stop the shortcut before any update. The command prints the redacted summary and finishes without an extra confirmation; Git authentication or administrator prompts may still appear.
+To keep all saved stacks, folder assignments and RAG choices, check **Accept loaded defaults and update** in the GUI or run `foundry-opencode update -y`. `update -y --dry-run` previews without writing. Missing or invalid saved settings stop the CLI instead of silently changing the selection.
 
-Update downloads the latest published macOS installer binary for your CPU, checks its release SHA-256 and version, and replaces `/usr/local/bin/foundry-opencode` after the wizard closes. Download or verification failures leave the existing binary untouched. The global config is cloned independently from `main`.
+The GUI release bundles a matching CLI. A CLI update downloads and verifies the latest CLI release; both paths replace global configs from `main` and install the CLI only after project setup completes.
 
 Palantir MCP runs `npx` with a command-local `--registry=https://registry.npmjs.org` so project `.npmrc` files can continue to use their Foundry registry. Install/update generate this launcher in the per-project configs and optional global fallback. After deployment, use `/mcps` to reconnect `palantir` and verify a tool call from the affected repo.
 
 If Anthropic fails with `INVALID_ARGUMENT` and `unrecognizedProperty=cache_control`, update the installed config: the compatibility plugin removes unsupported prompt-cache markers from Foundry-bound requests. Use `/reload` if needed, then retry; switching Anthropic models does not address this error.
 
-Host, token and path fields support mouse cursor positioning, arrows, Home/End, Delete/Backspace, and Ctrl+U or terminal-translated Cmd+Delete to delete to the beginning. Some terminals intercept Cmd shortcuts; use Ctrl+U there. Tokens stay masked.
+Tokens remain masked in the GUI; CLI review and progress redact them.
 
 If an older project reports `.opencode/plugins/rag-plugin.js` is not a V2 plugin, run `foundry-opencode repair-plugins` from that project (or `--dry-run` first). It backs up only the exact known V1 wrapper without removing the RAG index; edited plugins are left alone. Reindex manually with `node .opencode/rag-cli.mjs index` where that helper exists. If it is missing, review the project config and run `init-rag` to set up V2 RAG MCP support.
 The incompatible `context-mode` plugin is disabled by the global config. A missing `palantir-mcp` executable under npm's cache is a separate npm/MCP installation failure; inspect `opencode mcp list` and repair that package's installation rather than deleting OpenCode sessions or configuration.
@@ -54,7 +57,7 @@ The incompatible `context-mode` plugin is disabled by the global config. A missi
 `foundry-opencode sync-worktrees [--gen-rag]` moves every worktree to the latest default branch
 `foundry-opencode generate-rag [--all]` (re)generates RAG for this checkout, or every checkout
 
-Select only a repository's main checkout; the installer refuses its worktrees as separate projects. Each worktree gets a real `.opencode` folder whose config, scripts and dependencies are links to the main checkout's, so editing the config anywhere edits it everywhere. Its RAG index (`rag_db`), logs and backups stay its own. If the main checkout moves, the next sync repairs the links.
+Git worktree commands configure the main checkout and link shared dependencies and scripts. The config, token, and `.gitignore` are copied locally into a worktree so `{file:./token}` resolves there; RAG indexes (`rag_db`), logs and backups remain per-worktree. Ordinary non-Git folders are not processed as worktrees.
 
 `.opencode` and `.openchamber` hold one machine's setup and must never be committed, except `.opencode/commands`, which teams share through the repository. Install/update add `.opencode/*`, `!.opencode/commands/` and `.openchamber` to each selected repository's `.gitignore` (commit that change) and to its local, never-pushed `.git/info/exclude`, which applies in every worktree and branch right away. A rule ignoring `.opencode` as a whole would hide `commands` for good, so such a line is replaced, including the block earlier releases added. Worktrees never link `commands`: each has its own checked-out copy, and edits to it count as uncommitted work for `sync-worktrees`. Other files a repository already commits under `.opencode` or `.openchamber` are left in place and reported with the `git rm -r --cached` command to remove them; uninstall removes the exclude entry but keeps the `.gitignore` lines.
 
@@ -64,16 +67,16 @@ Select only a repository's main checkout; the installer refuses its worktrees as
 
 Indexing is incremental (output in `.opencode/sync-index.log`). A worktree without an index starts from a copy of the main checkout's index, re-pointed at the worktree, so only files that differ are embedded: seconds instead of minutes. Seeding needs the pinned RAG plugin version and an idle main index; otherwise it falls back to a full build. Every command exits non-zero if anything failed, and `--dry-run` previews without fetching or changing anything.
 
-Install/update can also add the opt-in Git alias `git sync-worktrees` for the same command; `git sync-worktrees --gen-rag` passes the option through. An existing different alias is replaced only after it is shown in the review. Uninstall removes worktree links and indexes, the exclude entry, and the alias if it is still the installer's.
+Install/update can also add the opt-in Git alias `git sync-worktrees` for the same command; `git sync-worktrees --gen-rag` passes the option through. Uninstall removes known worktree links and indexes, and removes the alias if it is still the installer's. Unrecorded token backups remain for manual review.
 
 New RAG setups also skip `.nx`, `.palantir`, `osdk-output` and `generated-imports`, which hold build caches, local ontology state and generated SDKs, and send 4 embedding requests at a time (about 1.7x faster than 2). Update upgrades an earlier installer `rag.json` in place with a backup and reindexes, keeping RAG enabled even if that reindex fails; a hand-edited one is left alone.
 
 - Remove installed tools, configs, credentials and session data permanently
-`foundry-opencode uninstall` (review first with `foundry-opencode uninstall --dry-run`)
+`foundry-opencode uninstall --yes` (review first with `foundry-opencode uninstall --dry-run`)
 
 - Re-run the install process
 *This backs up and replaces previous configs after confirmation*
-`foundry-opencode install`
+`foundry-opencode install --yes` (or launch the GUI)
 
 - Show the binary version or example commands
 `foundry-opencode version` / `foundry-opencode usage`
@@ -85,13 +88,11 @@ Releases are created automatically from successful merges to `main` (including c
 
 ## Configuration layout
 
-OpenCode loads `~/.config/opencode/opencode.jsonc` as a global base and each selected
-repository's `.opencode/opencode.json` as a more specific override. The installer
-stores credentials in private `~/.config/foundry-opencode/tokens/` files, not in
-`.envrc` or project JSON. Update backs up and replaces the global checkout and
-each selected repository config. Uninstall removes registered project configs,
-generated RAG files and OpenCode/OpenChamber user data; project directories and
-original config backups remain for manual recovery.
+OpenCode loads `~/.config/opencode/opencode.jsonc` as a global base and each
+selected folder's `.opencode/opencode.json` as a more specific override. The
+folder's private `.opencode/token` (mode `0600`) is referenced by `{file:./token}`;
+`.opencode/.gitignore` ignores local setup files even when Git is initialized later.
+Legacy central tokens are only migration sources, not active project references.
 
 New model selectors: `palantir-openai/gpt-6-1-sol`, `palantir-google/gemini-4-argon`,
 and `palantir-google/gemini-3-8-flash`. Gemini uses Foundry's beta Google proxy;

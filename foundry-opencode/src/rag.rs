@@ -11,7 +11,8 @@ const LEGACY_PLUGIN: &str = include_str!("legacy-rag-plugin.txt");
 const PATCH: &str = include_str!("rag-patch.mjs");
 const CLI: &str = include_str!("rag-cli.mjs");
 const LEGACY_CLI: &str = include_str!("rag-cli-legacy.mjs");
-const IGNORE: &str = "node_modules/\nrag_db/\nrag_db.backup-*/\nrag_db_tmp/\nopencode-rag.log\nruntime-overrides.json\n";
+const LEGACY_IGNORE: &str = "node_modules/\nrag_db/\nrag_db.backup-*/\nrag_db_tmp/\nopencode-rag.log\nruntime-overrides.json\n";
+const IGNORE: &str = "*\n!commands/\n!commands/**\n";
 // Build caches, local ontology state and generated SDKs churn on every build and crowd out source code.
 const EXCLUDE_DIRS: [&str; 11] = [
     "node_modules",
@@ -65,7 +66,11 @@ fn rag_config(base_url: &str, exclude_dirs: &[&str], concurrency: u32) -> String
 pub fn ready(project: &Path, base_url: &str) -> bool {
     files(project, base_url)
         .iter()
-        .all(|(path, expected)| fs::read_to_string(path).is_ok_and(|text| text == *expected))
+        .enumerate()
+        .all(|(index, (path, expected))| {
+            fs::read_to_string(path)
+                .is_ok_and(|text| text == *expected || index == 3 && text.ends_with(IGNORE))
+        })
         && project.join(".opencode/rag_db").is_dir()
         && project
             .join(".opencode/node_modules/opencode-rag-plugin/dist/cli/index.js")
@@ -163,6 +168,7 @@ fn setup_files(
     let mut missing = Vec::new();
     let mut legacy_cli = false;
     let mut legacy_rag = false;
+    let mut legacy_ignore = false;
     for (index, (path, expected)) in files.iter().enumerate() {
         match fs::symlink_metadata(path) {
             Ok(metadata) => {
@@ -175,6 +181,8 @@ fn setup_files(
                 eyre::ensure!(
                     existing == *expected
                         || index == 2 && existing == LEGACY_CLI
+                        || index == 3 && existing == LEGACY_IGNORE
+                        || index == 3 && existing.ends_with(IGNORE)
                         || index == 4 && earlier(&existing, base_url),
                     "{} differs from the installer RAG file; not changing it",
                     path.display()
@@ -184,6 +192,9 @@ fn setup_files(
                 }
                 if index == 4 && earlier(&existing, base_url) {
                     legacy_rag = true;
+                }
+                if index == 3 && existing == LEGACY_IGNORE {
+                    legacy_ignore = true;
                 }
                 reused += 1;
                 if index == 0 {
@@ -319,7 +330,7 @@ fn setup_files(
         }
         return Err(e);
     }
-    for (upgrade, index) in [(legacy_cli, 2), (legacy_rag, 4)] {
+    for (upgrade, index) in [(legacy_cli, 2), (legacy_ignore, 3), (legacy_rag, 4)] {
         if !upgrade {
             continue;
         }
@@ -536,7 +547,7 @@ mod tests {
             stack: "default".into(),
             rag: true,
         };
-        crate::projects::write_project(&root, &project, &stack).unwrap();
+        crate::projects::write_project(&root, &project, &stack, "private").unwrap();
         let config = crate::stack::read_config(&root.join(".opencode/opencode.json")).unwrap();
         assert_eq!(
             config["mcp"]["servers"]["rag"]["environment"]["OPENAI_API_KEY"],

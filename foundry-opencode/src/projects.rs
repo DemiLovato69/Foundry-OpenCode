@@ -5,11 +5,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use color_eyre::eyre::{self, Context};
-use ratatui::DefaultTerminal;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Cancelled, ops, rag, stack, ui};
+use crate::{ops, rag, stack};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Stack {
@@ -243,7 +242,30 @@ impl Catalog {
                 "Invalid saved stack {}",
                 item.name
             );
-            let token = match private_token(&token_file(home, &item.id)) {
+            let legacy = token_file(home, &item.id);
+            let project = catalog
+                .projects
+                .iter()
+                .find(|project| project.stack == item.id);
+            let source = if let Some(project) = project {
+                let local = project.path.join(".opencode/token");
+                if fs::symlink_metadata(&local).is_ok() {
+                    local
+                } else {
+                    let config = stack::read_config(&project.path.join(".opencode/opencode.json"));
+                    if config.is_ok_and(|doc| {
+                        doc["providers"]["palantir-openai"]["settings"]["apiKey"]
+                            == format!("{{file:{}}}", legacy.display())
+                    }) {
+                        legacy.clone()
+                    } else {
+                        local
+                    }
+                }
+            } else {
+                legacy
+            };
+            let token = match private_token(&source) {
                 Ok(token) => token,
                 Err(error)
                     if error
@@ -287,6 +309,9 @@ impl Catalog {
             fs::set_permissions(&folder, fs::Permissions::from_mode(0o700))?;
         }
         for item in self.choices() {
+            if self.projects.iter().any(|project| project.stack == item.id) {
+                continue;
+            }
             eyre::ensure!(
                 valid_id(&item.id) && ops::valid_url(&item.url),
                 "Invalid stack {}",
@@ -353,11 +378,11 @@ pub fn is_repo(path: &Path) -> eyre::Result<bool> {
             == path.canonicalize()?)
 }
 
-pub fn project_config(home: &Path, stack: &Stack) -> Value {
+pub fn project_config(_home: &Path, stack: &Stack) -> Value {
     let mut config = stack::config(&stack.url);
-    let token = format!("{{file:{}}}", token_file(home, &stack.id).display());
+    let token = "{file:./token}";
     for provider in ["palantir-openai", "palantir-anthropic", "palantir-google"] {
-        config["providers"][provider]["settings"]["apiKey"] = token.clone().into();
+        config["providers"][provider]["settings"]["apiKey"] = token.into();
         config["providers"][provider]["headers"]["Authorization"] =
             format!("Bearer {token}").into();
     }
@@ -378,12 +403,15 @@ pub fn config_paths(repo: &Path) -> Vec<PathBuf> {
 }
 
 pub fn preflight(repo: &Path) -> eyre::Result<()> {
+    let folder = fs::symlink_metadata(repo)?;
     eyre::ensure!(
-        is_repo(repo)?,
-        "{} is not a repository root",
+        folder.is_dir() && !folder.file_type().is_symlink(),
+        "{} is not a real directory",
         repo.display()
     );
-    if let Some(main) = crate::worktrees::main_of(repo)? {
+    if is_repo(repo).unwrap_or(false)
+        && let Some(main) = crate::worktrees::main_of(repo)?
+    {
         eyre::bail!(
             "{} is a Git worktree of {}; select {} instead. Its worktrees share that configuration (foundry-opencode sync-worktrees)",
             repo.display(),
@@ -412,14 +440,90 @@ pub fn preflight(repo: &Path) -> eyre::Result<()> {
             Err(error) => return Err(error.into()),
         }
     }
+    for path in [open.join("token"), open.join(".gitignore")] {
+        match fs::symlink_metadata(&path) {
+            Ok(meta) => eyre::ensure!(
+                meta.is_file() && !meta.file_type().is_symlink(),
+                "Unsafe local file {}",
+                path.display()
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    if open.join("token").exists() {
+        private_token(&open.join("token"))?;
+    }
+    if is_repo(repo).unwrap_or(false) {
+        let tracked = Command::new("git")
+            .args(["ls-files", "--error-unmatch", "--", ".opencode/token"])
+            .current_dir(repo)
+            .output()?;
+        eyre::ensure!(
+            !tracked.status.success(),
+            "{} is tracked by Git; untrack and rotate it before continuing",
+            open.join("token").display()
+        );
+    }
     Ok(())
 }
 
-pub fn write_project(home: &Path, project: &Project, stack: &Stack) -> eyre::Result<Vec<PathBuf>> {
+pub fn write_project(
+    home: &Path,
+    project: &Project,
+    stack: &Stack,
+    secret: &str,
+) -> eyre::Result<Vec<PathBuf>> {
     preflight(&project.path)?;
+    eyre::ensure!(
+        !secret.is_empty() && !secret.chars().any(char::is_control),
+        "Invalid Foundry token"
+    );
     let open = project.path.join(".opencode");
     let paths = config_paths(&project.path);
     fs::create_dir_all(&open)?;
+    let local_token = open.join("token");
+    let tracked = Command::new("git")
+        .args(["ls-files", "--error-unmatch", "--"])
+        .arg(&local_token)
+        .current_dir(&project.path)
+        .output();
+    eyre::ensure!(
+        !tracked.is_ok_and(|output| output.status.success()),
+        "{} is tracked by Git; untrack and rotate it before continuing",
+        local_token.display()
+    );
+    let ignore = open.join(".gitignore");
+    match fs::symlink_metadata(&ignore) {
+        Ok(meta) => eyre::ensure!(
+            meta.is_file() && !meta.file_type().is_symlink(),
+            "Unsafe ignore file {}",
+            ignore.display()
+        ),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    let existing_ignore = match fs::read_to_string(&ignore) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(error.into()),
+    };
+    const RULES: &str = "*\n!commands/\n!commands/**\n";
+    if !existing_ignore.ends_with(RULES) {
+        let staged_ignore = ops::backup_path(&ignore);
+        fs::write(
+            &staged_ignore,
+            format!(
+                "{existing_ignore}{}{RULES}",
+                if existing_ignore.is_empty() || existing_ignore.ends_with('\n') {
+                    ""
+                } else {
+                    "\n"
+                }
+            ),
+        )?;
+        fs::rename(staged_ignore, &ignore)?;
+    }
     let target = project.path.join(".opencode/opencode.json");
     let staged = ops::backup_path(&target);
     let mut config = project_config(home, stack);
@@ -432,6 +536,34 @@ pub fn write_project(home: &Path, project: &Project, stack: &Stack) -> eyre::Res
     fs::write(&staged, serde_json::to_vec_pretty(&config)?)?;
     let mut backups = Vec::<(PathBuf, PathBuf)>::new();
     let result = (|| -> eyre::Result<()> {
+        let token_matches = fs::symlink_metadata(&local_token)
+            .map(|meta| {
+                eyre::ensure!(
+                    meta.is_file() && !meta.file_type().is_symlink(),
+                    "Unsafe local token"
+                );
+                Ok(private_token(&local_token)? == secret)
+            })
+            .unwrap_or(Ok(false))?;
+        if !token_matches {
+            let staged_token = ops::backup_path(&local_token);
+            let mut options = OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            let mut file = options.open(&staged_token)?;
+            file.write_all(secret.as_bytes())?;
+            file.sync_all()?;
+            if local_token.exists() {
+                let backup = ops::backup_path(&local_token);
+                fs::hard_link(&local_token, &backup)?;
+                backups.push((local_token.clone(), backup));
+            }
+            fs::rename(&staged_token, &local_token)?;
+        }
         for path in paths
             .iter()
             .filter(|path| path != &&target && path.exists())
@@ -451,7 +583,7 @@ pub fn write_project(home: &Path, project: &Project, stack: &Stack) -> eyre::Res
     if let Err(error) = result {
         let _ = fs::remove_file(staged);
         for (original, backup) in backups.iter().rev() {
-            if !original.exists() {
+            if original == &local_token || !original.exists() {
                 fs::rename(backup, original).wrap_err_with(|| {
                     format!(
                         "Could not restore {} from {}",
@@ -466,293 +598,11 @@ pub fn write_project(home: &Path, project: &Project, stack: &Stack) -> eyre::Res
     Ok(backups.into_iter().map(|(_, backup)| backup).collect())
 }
 
-pub fn collect(
-    terminal: &mut DefaultTerminal,
-    home: &Path,
-    dry_run: bool,
-    preset: Option<&Path>,
-) -> eyre::Result<Catalog> {
-    let mut catalog = Catalog::load(home)?;
-    'catalog: loop {
-        let names = std::iter::once(format!(
-            "Global default{}",
-            if let Some(default) = &catalog.default {
-                if catalog
-                    .tokens
-                    .get(&default.id)
-                    .is_some_and(|token| !token.is_empty())
-                {
-                    ""
-                } else {
-                    " (token missing)"
-                }
-            } else {
-                " (not configured)"
-            }
-        ))
-        .chain(catalog.stacks.iter().map(|item| {
-            format!(
-                "{} — {}{}",
-                item.name,
-                item.url,
-                if catalog
-                    .tokens
-                    .get(&item.id)
-                    .is_some_and(|token| !token.is_empty())
-                {
-                    ""
-                } else {
-                    " (token missing)"
-                }
-            )
-        }))
-        .collect::<Vec<_>>();
-        match ui::step_catalog(terminal, &names)? {
-            ui::CatalogAction::Back => return Err(Cancelled.into()),
-            ui::CatalogAction::Next => break,
-            ui::CatalogAction::Remove(index) => {
-                let item = &catalog.stacks[index];
-                if catalog
-                    .projects
-                    .iter()
-                    .any(|project| project.stack == item.id)
-                {
-                    ui::notice(
-                        terminal,
-                        "Stack in use",
-                        "Reassign its repositories before removing this stack.",
-                    )?;
-                } else {
-                    catalog.stacks.remove(index);
-                }
-            }
-            action => {
-                let index = match action {
-                    ui::CatalogAction::Edit(index) => Some(index),
-                    _ => None,
-                };
-                let old = index.and_then(|i| {
-                    if i == 0 {
-                        catalog.default.as_ref()
-                    } else {
-                        catalog.stacks.get(i - 1)
-                    }
-                });
-                let mut name = old.map(|item| item.name.clone()).unwrap_or_default();
-                let mut url = old.map(|item| item.url.clone()).unwrap_or_default();
-                let mut token = old
-                    .and_then(|item| catalog.tokens.get(&item.id))
-                    .cloned()
-                    .unwrap_or_default();
-                let global = index == Some(0);
-                if !global
-                    && ui::step_text(
-                        terminal,
-                        "Stack name",
-                        "Name for this Foundry stack",
-                        &mut name,
-                        false,
-                        ui::Field::Plain,
-                    )? != ui::Nav::Next
-                {
-                    continue;
-                }
-                if global {
-                    name = "Global default".into();
-                }
-                if name.trim().is_empty()
-                    || name.chars().any(char::is_control)
-                    || (!global && name.eq_ignore_ascii_case("Global default"))
-                    || catalog.stacks.iter().any(|item| {
-                        item.name.eq_ignore_ascii_case(&name)
-                            && old.is_none_or(|old| old.id != item.id)
-                    })
-                {
-                    ui::notice(
-                        terminal,
-                        "Invalid stack name",
-                        "Enter a unique, nonempty stack name.",
-                    )?;
-                    continue;
-                }
-                if ui::step_text(
-                    terminal,
-                    "Foundry host",
-                    "Enter the HTTPS Foundry host without a path",
-                    &mut url,
-                    false,
-                    ui::Field::Plain,
-                )? != ui::Nav::Next
-                {
-                    continue;
-                }
-                if !ops::valid_url(&url) {
-                    ui::notice(
-                        terminal,
-                        "Invalid Foundry host",
-                        "Enter an HTTPS host without a path.",
-                    )?;
-                    continue;
-                }
-                loop {
-                    match ui::step_text(
-                        terminal,
-                        "Foundry token",
-                        "Paste a private token (or leave the existing value).",
-                        &mut token,
-                        false,
-                        ui::Field::Token,
-                    )? {
-                        ui::Nav::Next => break,
-                        ui::Nav::Open => crate::open_token_page(terminal, &url, dry_run)?,
-                        _ => continue 'catalog,
-                    }
-                }
-                if token.is_empty() && dry_run {
-                    token = "dry-run-placeholder".into();
-                }
-                if token.is_empty() || token.chars().any(char::is_control) {
-                    ui::notice(
-                        terminal,
-                        "Invalid token",
-                        "A private token is required for this stack.",
-                    )?;
-                    continue;
-                }
-                let id = old.map(|item| item.id.clone()).unwrap_or_else(|| {
-                    ops::backup_path(&home.join("stack"))
-                        .file_name()
-                        .unwrap()
-                        .to_string_lossy()
-                        .replace('.', "-")
-                });
-                catalog.tokens.insert(id.clone(), token);
-                let item = Stack { id, name, url };
-                if global {
-                    catalog.default = Some(item);
-                } else if let Some(i) = index {
-                    catalog.stacks[i - 1] = item;
-                } else {
-                    catalog.stacks.push(item);
-                }
-            }
-        }
-    }
-    let mut current = home.canonicalize()?;
-    let mut paths: Vec<PathBuf> = if let Some(repo) = preset {
-        vec![repo.to_path_buf()]
-    } else {
-        catalog
-            .projects
-            .iter()
-            .map(|item| item.path.clone())
-            .collect()
-    };
-    paths.retain(|path| path.is_dir());
-    loop {
-        if ui::step_explorer(terminal, home, &mut current, &mut paths)? != ui::Nav::Next {
-            return Err(Cancelled.into());
-        }
-        paths.retain(|path| path.is_dir());
-        if let Some((path, error)) = paths
-            .iter()
-            .find_map(|path| preflight(path).err().map(|error| (path, error)))
-        {
-            ui::notice(
-                terminal,
-                "Invalid repository",
-                &format!(
-                    "{}: {error}. Unmark this folder or correct it before continuing.",
-                    path.display()
-                ),
-            )?;
-            continue;
-        }
-        break;
-    }
-    paths.sort();
-    paths.dedup();
-    let choices = catalog.choices();
-    eyre::ensure!(
-        !choices.is_empty() || paths.is_empty(),
-        "Configure the global default or add a stack before selecting repositories"
-    );
-    let names: Vec<String> = choices.iter().map(|item| item.name.clone()).collect();
-    let mut projects = Vec::new();
-    for path in paths {
-        if let Err(error) = preflight(&path) {
-            ui::notice(
-                terminal,
-                "Invalid project",
-                &format!("{}: {error}. No files were changed.", path.display()),
-            )?;
-            return Err(Cancelled.into());
-        }
-        let previous = catalog.projects.iter().find(|item| item.path == path);
-        let mut choice = previous
-            .and_then(|item| choices.iter().position(|stack| stack.id == item.stack))
-            .unwrap_or(0);
-        if ui::step_choice(
-            terminal,
-            &format!("{} — stack", path.display()),
-            &names,
-            &mut choice,
-        )? != ui::Nav::Next
-        {
-            return Err(Cancelled.into());
-        }
-        let mut rag = previous.is_some_and(|item| item.rag);
-        if ui::step_checkbox(
-            terminal,
-            &format!("{} — RAG", path.display()),
-            "Initialize RAG for this repository? Requires Node.js, npm, and Foundry embeddings.",
-            "Initialize RAG",
-            &mut rag,
-            false,
-        )? != ui::Nav::Next
-        {
-            return Err(Cancelled.into());
-        }
-        projects.push(Project {
-            path,
-            stack: choices[choice].id.clone(),
-            rag,
-        });
-    }
-    if preset.is_none()
-        && ui::step_checkbox(
-            terminal,
-            "Git worktrees",
-            "Worktrees of a selected repository share its .opencode configuration and keep their own RAG index. Optionally add `git sync-worktrees`, a Git shortcut for `foundry-opencode sync-worktrees`, which moves every worktree to the latest default branch and links the shared configuration; `git sync-worktrees --gen-rag` also reindexes RAG.",
-            "Install the git sync-worktrees alias",
-            &mut catalog.sync_alias,
-            false,
-        )? != ui::Nav::Next
-    {
-        return Err(Cancelled.into());
-    }
-    if let Some(repo) = preset {
-        let selected: Vec<_> = projects.iter().map(|item| &item.path).collect();
-        eyre::ensure!(
-            selected.len() == 1 && selected[0] == repo,
-            "Init configures only the current repository"
-        );
-        catalog
-            .projects
-            .retain(|item| !selected.contains(&&item.path));
-        catalog.projects.extend(projects);
-    } else {
-        catalog.projects = projects;
-    }
-    catalog.validate(home)?;
-    Ok(catalog)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn project_config_uses_private_central_token_and_public_registry() {
+    fn project_config_uses_local_token_and_public_registry() {
         let home = Path::new("/Users/example");
         let stack = Stack {
             id: "default".into(),
@@ -762,7 +612,7 @@ mod tests {
         let doc = project_config(home, &stack);
         assert_eq!(
             doc["providers"]["palantir-openai"]["settings"]["apiKey"],
-            "{file:/Users/example/.config/foundry-opencode/tokens/default}"
+            "{file:./token}"
         );
         assert_eq!(
             doc["mcp"]["servers"]["palantir"]["command"][2],
@@ -778,8 +628,62 @@ mod tests {
         );
         assert_eq!(
             doc["providers"]["palantir-google"]["headers"]["Authorization"],
-            "Bearer {file:/Users/example/.config/foundry-opencode/tokens/default}"
+            "Bearer {file:./token}"
         );
+    }
+
+    #[test]
+    fn ordinary_folder_gets_ignored_private_local_token() {
+        let root = ops::backup_path(&std::env::temp_dir().join("folder-config-test"));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join(".opencode")).unwrap();
+        fs::write(root.join(".opencode/.gitignore"), "!token\n").unwrap();
+        let stack = Stack {
+            id: "default".into(),
+            name: "Global default".into(),
+            url: "https://example.com".into(),
+        };
+        let project = Project {
+            path: root.canonicalize().unwrap(),
+            stack: "default".into(),
+            rag: false,
+        };
+        write_project(&root, &project, &stack, "private").unwrap();
+        let config = read_config(&root.join(".opencode/opencode.json"));
+        assert_eq!(
+            config["providers"]["palantir-openai"]["settings"]["apiKey"],
+            "{file:./token}"
+        );
+        assert_eq!(
+            private_token(&root.join(".opencode/token")).unwrap(),
+            "private"
+        );
+        assert!(
+            fs::read_to_string(root.join(".opencode/.gitignore"))
+                .unwrap()
+                .ends_with("*\n!commands/\n!commands/**\n")
+        );
+        assert!(
+            Command::new("git")
+                .args(["init", "-q"])
+                .arg(&root)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            Command::new("git")
+                .args(["check-ignore", "--quiet", "--", ".opencode/token"])
+                .current_dir(&root)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert_eq!(stack::credentials(&root).unwrap().1, "private");
+        let moved = ops::backup_path(&root);
+        fs::rename(&root, &moved).unwrap();
+        assert_eq!(stack::credentials(&moved).unwrap().1, "private");
+        fs::remove_dir_all(moved).unwrap();
     }
 
     #[test]
@@ -813,7 +717,7 @@ mod tests {
             stack: "default".into(),
             rag: false,
         };
-        let backups = write_project(&root, &project, &stack).unwrap();
+        let backups = write_project(&root, &project, &stack, "private").unwrap();
         assert_eq!(backups.len(), 3);
         assert_eq!(
             fs::read_to_string(root.join(".opencode/plugin.js")).unwrap(),
@@ -847,6 +751,26 @@ mod tests {
         std::os::unix::fs::symlink(root.join("other"), root.join(".opencode")).unwrap();
         assert!(preflight(&root).is_err());
         assert!(!root.join("other/opencode.json").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preflight_rejects_linked_or_public_local_tokens() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let root = ops::backup_path(&std::env::temp_dir().join("project-token-preflight"));
+        fs::create_dir_all(root.join(".opencode")).unwrap();
+        fs::write(root.join("elsewhere"), "secret").unwrap();
+        symlink(root.join("elsewhere"), root.join(".opencode/token")).unwrap();
+        assert!(preflight(&root).is_err());
+        fs::remove_file(root.join(".opencode/token")).unwrap();
+        fs::write(root.join(".opencode/token"), "secret").unwrap();
+        fs::set_permissions(
+            root.join(".opencode/token"),
+            fs::Permissions::from_mode(0o644),
+        )
+        .unwrap();
+        assert!(preflight(&root).is_err());
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -955,13 +879,20 @@ mod tests {
         };
         catalog.tokens.insert("default".into(), "private".into());
         catalog.save(&home).unwrap();
+        write_project(
+            &home,
+            &catalog.projects[0],
+            catalog.default.as_ref().unwrap(),
+            "private",
+        )
+        .unwrap();
         let before = fs::read(location(&home)).unwrap();
         let loaded = Catalog::saved(&home).unwrap();
         assert_eq!(loaded.tokens["default"], "private");
         assert_eq!(loaded.projects[0].path, repo);
         assert!(!loaded.projects[0].rag);
         assert_eq!(fs::read(location(&home)).unwrap(), before);
-        assert!(!repo.join(".opencode").exists());
+        assert!(repo.join(".opencode/token").exists());
 
         catalog.projects.push(catalog.projects[0].clone());
         catalog.save(&home).unwrap();
@@ -969,9 +900,22 @@ mod tests {
         catalog.projects.pop();
         catalog.save(&home).unwrap();
 
-        fs::remove_file(token_file(&home, "default")).unwrap();
+        fs::remove_file(repo.join(".opencode/token")).unwrap();
+        let central = token_file(&home, "default");
+        fs::write(&central, "stale-legacy-token").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&central, fs::Permissions::from_mode(0o600)).unwrap();
+        }
         assert!(Catalog::saved(&home).is_err());
-        catalog.save(&home).unwrap();
+        write_project(
+            &home,
+            &catalog.projects[0],
+            catalog.default.as_ref().unwrap(),
+            "private",
+        )
+        .unwrap();
         catalog.projects[0].path = home.join("missing-repository");
         catalog.save(&home).unwrap();
         assert!(Catalog::saved(&home).is_err());
