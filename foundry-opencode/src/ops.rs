@@ -50,7 +50,7 @@ pub fn stage_binary(source: &Path) -> io::Result<StagedBinary> {
 fn release_asset() -> eyre::Result<&'static str> {
     match std::env::consts::ARCH {
         "aarch64" => Ok("aarch64-apple-darwin"),
-        "x86_64" => eyre::bail("Intel macOS is no longer supported!"),
+        "x86_64" => eyre::bail!("Intel macOS is no longer supported!"),
         arch => eyre::bail!("No macOS release binary for {arch}"),
     }
 }
