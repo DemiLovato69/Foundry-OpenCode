@@ -34,11 +34,11 @@ const providers = Object.fromEntries(Object.entries(config.providers).map(([id, 
 }]));
 
 test("native config preserves proxy model IDs, title model, permissions, and disabled MCP", () => {
-  assert.equal(config.model, "palantir-openai/gpt-6-sol");
+  assert.equal(config.model, "palantir-openai/gpt-6.2-astra");
   assert.equal(config.agents.title.model, "palantir-openai/gpt-6-luna");
-  assert.equal(config.providers["palantir-openai"].models["gpt-5.6-sol"].modelID, "ri.language-model-service..language-model.gpt-5-6-sol");
-  assert.deepEqual(config.providers["palantir-openai"].models["gpt-6-1-sol"], {
-    name: "Foundry GPT-6.1 Sol", limit: { context: 1050000, output: 128000 }, modelID: "ri.language-model-service..language-model.gpt-6-1-sol",
+  assert.equal(config.providers["palantir-openai"].models["gpt-6-2-astra"].modelID, "ri.language-model-service..language-model.gpt-6-2-astra");
+  assert.deepEqual(config.providers["palantir-openai"].models["gpt-6-2-astra"], {
+    name: "Foundry GPT-6.2 Astra", limit: { context: 1050000, output: 128000 }, modelID: "ri.language-model-service..language-model.gpt-6-2-astra",
   });
   for (const [key, rid, output] of [
     ["gemini-4-argon", "ri.language-model-service..language-model.gemini-4-argon", 32768],
