@@ -33,7 +33,13 @@ Destructive CLI commands require `--yes` after reviewing their dry-run output.
 Uninstall removes only worktree token backups recorded by this release;
 unrecorded recovery tokens are left in place and reported for manual review.
 
-macOS GUI releases bundle a matching CLI. GUI authorization is requested before
-the installation pipeline starts, and only the final CLI replacement uses
-privileges. Do not run Homebrew or the GUI as root. Release binaries are not
-signed or notarized unless signing credentials are configured in CI.
+Installations built by the [Homebrew formula](../README.md#homebrew-macos)
+use `brew upgrade DemiLovato69/tap/foundry-opencode` for binary updates. CLI
+install/update leaves those executables alone. `foundry-opencode uninstall`
+keeps the Homebrew package; `HOMEBREW_NO_AUTOREMOVE=1 brew uninstall DemiLovato69/tap/foundry-opencode`
+removes only the installer executables and preserves user data.
+
+Standalone macOS GUI releases bundle a matching CLI. Only standalone setup
+requests administrator authorization, for the final CLI replacement. Do not
+run Homebrew or the GUI as root. Standalone release binaries are not signed or
+notarized.

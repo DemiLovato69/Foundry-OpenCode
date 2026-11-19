@@ -8,11 +8,26 @@ OpenCode configuration for Palantir. Requires OpenCode v2; The configuration use
 The GUI installer backs up and replaces `~/.config/opencode` and managed config files in each selected folder. It does not delete unrelated `.opencode` files or folder contents. OpenChamber is optional; existing sessions are preserved.
 
 ## Installation
-Download the matching [GUI macOS release](https://github.com/DemiLovato69/Foundry-OpenCode/releases/latest) for Apple Silicon (`aarch64-apple-darwin`) or Intel (`x86_64-apple-darwin`) and open `FoundryOpenCode.app`. Its matching plain CLI is bundled and installed last to `/usr/local/bin/foundry-opencode`. Homebrew, Git and HTTPS access to the public config repository are required.
+### Homebrew (macOS)
+
+```sh
+brew install DemiLovato69/tap/foundry-opencode
+foundry-opencode-gui
+```
+
+Use an up-to-date Homebrew. The formula builds the CLI and GUI locally for Apple Silicon or Intel, so the first install can take a few minutes. Launch the GUI from Terminal for first-time setup; `brew install` does not touch your OpenCode configuration. Git and HTTPS access to the public config repository are required during setup.
+
+If you already have a standalone install, run `type -a foundry-opencode` first. If you recognize `/usr/local/bin/foundry-opencode` as your previous standalone executable, move it to a backup location before linking on Intel or if it shadows the Brew copy on Apple Silicon. Use `type -a foundry-opencode` again after installing to verify which executable your shell runs. If the older path is a symlink or you don't recognize it, inspect it before moving anything. **Do not run `foundry-opencode uninstall` to migrate:** it deletes config, tokens, and session data. The Brew GUI can reuse your saved settings.
+
+### Standalone download (macOS)
+
+Download the matching [GUI macOS release](https://github.com/DemiLovato69/Foundry-OpenCode/releases/latest) for Apple Silicon (`aarch64-apple-darwin`) or Intel (`x86_64-apple-darwin`) and open `FoundryOpenCode.app`. Its matching CLI is bundled and installed last to `/usr/local/bin/foundry-opencode`. Homebrew, Git and HTTPS access to the public config repository are required.
 
 **macOS security:** The release binaries are not signed or notarized. Check your downloaded GUI archive with `shasum -a 256 foundry-opencode-gui-<arch>.tar.gz` and compare it to the matching line in the release's `SHA256SUMS`. macOS may block the first launch; go to **System Settings → Privacy & Security → Open Anyway** only if you trust the release. Do not disable Gatekeeper or remove the quarantine attribute globally.
 
-The GUI accepts any existing folder, including one outside a Git repository. It collects Foundry stacks, optional OpenChamber, folder assignments, and per-folder RAG choices. It requests administrator authorization before making installation changes, while Homebrew and project setup run as your ordinary account.
+### Configure Foundry
+
+The GUI accepts any existing folder, including one outside a Git repository. It collects Foundry stacks, optional OpenChamber, folder assignments, and per-folder RAG choices. Only the standalone installer requests administrator authorization to replace its CLI. Homebrew and project setup run as your ordinary account.
 
 The installer verifies that the standard Homebrew `opencode` formula targets V2. The GUI reviews any recognized legacy V1 or `opencode-v2` packages before migrating them as the ordinary user. CLI users must first run `update --dry-run`, then explicitly pass `--migrate-legacy` with `update --yes` if removal is needed. Unrecognized executables are left untouched.
 
@@ -33,14 +48,14 @@ The installer provides many commands to make developer experience better.
 
 The GUI offers **Open token page** for `https://<host>/workspace/settings/tokens`; opening the browser is optional and never happens just by entering the host.
 
-- Update everything
-`foundry-opencode update --yes` (or use the GUI to change assignments)
+- Update configuration and managed OpenCode dependencies
+`foundry-opencode update --yes` (or use the GUI to change assignments). For Homebrew installs, run `brew upgrade DemiLovato69/tap/foundry-opencode` to update the installer executables separately.
 
 The GUI reopens saved stacks and folder assignments. A selected folder config is replaced with a backup; unrelated `.opencode` files are preserved. The global default model applies unless a project overrides it.
 
 To keep all saved stacks, folder assignments and RAG choices, check **Accept loaded defaults and update** in the GUI or run `foundry-opencode update -y`. `update -y --dry-run` previews without writing. Missing or invalid saved settings stop the CLI instead of silently changing the selection.
 
-The GUI release bundles a matching CLI. A CLI update downloads and verifies the latest CLI release; both paths replace global configs from `main` and install the CLI only after project setup completes.
+Standalone GUI releases bundle a matching CLI; standalone CLI updates download and verify the latest CLI release. Both standalone paths replace the CLI only after project setup completes. All paths update global configs from `main`.
 
 Palantir MCP runs `npx` with a command-local `--registry=https://registry.npmjs.org` so project `.npmrc` files can continue to use their Foundry registry. Install/update generate this launcher in the per-project configs and optional global fallback. After deployment, use `/mcps` to reconnect `palantir` and verify a tool call from the affected repo.
 
@@ -72,7 +87,7 @@ Install/update can also add the opt-in Git alias `git sync-worktrees` for the sa
 New RAG setups also skip `.nx`, `.palantir`, `osdk-output` and `generated-imports`, which hold build caches, local ontology state and generated SDKs, and send 4 embedding requests at a time (about 1.7x faster than 2). Update upgrades an earlier installer `rag.json` in place with a backup and reindexes, keeping RAG enabled even if that reindex fails; a hand-edited one is left alone.
 
 - Remove installed tools, configs, credentials and session data permanently
-`foundry-opencode uninstall --yes` (review first with `foundry-opencode uninstall --dry-run`)
+`foundry-opencode uninstall --yes` (review first with `foundry-opencode uninstall --dry-run`). On a Homebrew install this leaves the installer executables in place. To remove **only** the Homebrew installer GUI and CLI and keep your data, run `HOMEBREW_NO_AUTOREMOVE=1 brew uninstall DemiLovato69/tap/foundry-opencode`.
 
 - Re-run the install process
 *This backs up and replaces previous configs after confirmation*

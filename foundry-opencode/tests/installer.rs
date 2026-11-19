@@ -27,10 +27,12 @@ fn reviewed_legacy_migration_and_project_writes_finish_before_cli_copy() {
 case "$*" in
   --version) echo Homebrew ;;
   --prefix) echo /no-brew-prefix ;;
+  --cellar) echo /no-brew-cellar ;;
   info*) echo '{"formulae":[{"versions":{"stable":"2.1.0"}}]}' ;;
   list*opencode-v1) test -e "$FAKE_STATE/v1" && echo 'opencode-v1 1.0.0' ;;
   list*opencode-v2) exit 1 ;;
   list*opencode) test -e "$FAKE_STATE/v2" && echo 'opencode 2.1.0' ;;
+  uninstall*opencode) rm "$FAKE_STATE/v2" ;;
   uninstall*opencode-v1) rm "$FAKE_STATE/v1" ;;
   install*opencode|upgrade*opencode) touch "$FAKE_STATE/v2" ;;
   update) : ;;
@@ -126,6 +128,7 @@ fi
         home: home.clone(),
         catalog,
         cli: env!("CARGO_BIN_EXE_foundry-opencode").into(),
+        homebrew: false,
         openchamber: false,
         dry_run: false,
         reviewed,
@@ -197,6 +200,47 @@ fi
         backups
     );
     assert!(fs::read_dir(home.join(".Trash")).unwrap().next().is_some());
+    let plan = installer::Plan {
+        homebrew: true,
+        ..plan
+    };
+    let result = installer::apply(
+        &plan,
+        &mut checkpoint,
+        |_| {},
+        || false,
+        |_| panic!("Homebrew-managed CLI must not be replaced"),
+    )
+    .unwrap();
+    assert!(result.iter().any(|line| line.contains(ops::BREW_UPGRADE)));
+    if ops::HOMEBREW {
+        for name in ["curl", "sudo", "pgrep"] {
+            executable(&bin.join(name), "#!/bin/sh\nexit 1\n");
+        }
+        executable(&bin.join("pkill"), "#!/bin/sh\nexit 0\n");
+        let update = Command::new(cli)
+            .args(["update", "--yes"])
+            .output()
+            .unwrap();
+        assert!(
+            update.status.success(),
+            "{}",
+            String::from_utf8_lossy(&update.stderr)
+        );
+        assert!(String::from_utf8_lossy(&update.stdout).contains(ops::BREW_UPGRADE));
+        let cleanup = Command::new(cli)
+            .args(["uninstall", "--yes"])
+            .output()
+            .unwrap();
+        assert!(
+            cleanup.status.success(),
+            "{}",
+            String::from_utf8_lossy(&cleanup.stderr)
+        );
+        assert!(String::from_utf8_lossy(&cleanup.stdout).contains(ops::BREW_UNINSTALL));
+        assert!(!folder.join(".opencode/token").exists());
+        assert!(Path::new(cli).is_file());
+    }
     unsafe {
         std::env::set_var("PATH", old_path);
         std::env::remove_var("FAKE_STATE");

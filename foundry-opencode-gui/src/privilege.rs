@@ -39,7 +39,7 @@ impl Privilege {
     pub fn install_cli(&self, source: &Path) -> Result<(), String> {
         replace_cli(
             source,
-            Path::new("/usr/local/bin/foundry-opencode"),
+            Path::new(foundry_opencode::ops::BIN_PATH),
             |executable, args| self.run(executable, args),
         )
     }

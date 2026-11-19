@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
     mpsc::{self, Receiver},
 };
 
-use foundry_opencode::{cleanup, installer, projects};
+use foundry_opencode::{cleanup, installer, ops, projects};
 
 use crate::privilege::Privilege;
 use crate::state::{Choices, Operation, Outcome, Repository, Request, Stack, Status, WizardState};
@@ -170,8 +170,11 @@ impl Backend {
         Ok(catalog)
     }
 
-    fn cli_source() -> Result<PathBuf, String> {
-        let current = std::env::current_exe().map_err(|error| error.to_string())?;
+    fn homebrew_cli(current: &Path) -> std::io::Result<PathBuf> {
+        Ok(current.canonicalize()?.with_file_name("foundry-opencode"))
+    }
+
+    fn standalone_cli(current: &Path) -> Result<PathBuf, String> {
         let bundle = current
             .parent()
             .and_then(|parent| parent.parent())
@@ -233,31 +236,33 @@ impl Backend {
         Ok(self.alias_preview.as_ref().unwrap().1.as_deref())
     }
 
-    pub fn ready(&self) -> bool {
+    pub fn ready(&self) -> Result<PathBuf, String> {
         if self.home.as_os_str().is_empty() {
-            return false;
+            return Err("HOME is not set; installation is unavailable".into());
         }
-        Self::cli_source()
-            .ok()
-            .and_then(|path| {
-                let capability = std::process::Command::new(&path)
-                    .arg("capabilities")
-                    .output()
-                    .ok()?;
-                let version = std::process::Command::new(&path)
-                    .arg("version")
-                    .output()
-                    .ok()?;
-                Some((capability, version))
-            })
-            .is_some_and(|(capability, version)| {
-                capability.status.success()
-                    && capability.stdout == b"foundry-opencode-headless-v1\n"
-                    && version.status.success()
-                    && String::from_utf8_lossy(&version.stdout).trim()
-                        == option_env!("FOUNDRY_OPENCODE_VERSION")
-                            .unwrap_or(env!("CARGO_PKG_VERSION"))
-            })
+        let current = std::env::current_exe().map_err(|error| error.to_string())?;
+        let cli = if ops::HOMEBREW {
+            Self::homebrew_cli(&current).map_err(|error| error.to_string())?
+        } else {
+            Self::standalone_cli(&current)?
+        };
+        let version = option_env!("FOUNDRY_OPENCODE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"));
+        if Self::matching_cli(&cli, version) {
+            Ok(cli)
+        } else if ops::HOMEBREW {
+            Err("The Homebrew CLI is missing or mismatched; run `brew reinstall DemiLovato69/tap/foundry-opencode`.".into())
+        } else {
+            Err("A matching CLI payload is required; reinstall the app bundle or build both executables.".into())
+        }
+    }
+
+    fn matching_cli(cli: &Path, version: &str) -> bool {
+        let run = |arg| std::process::Command::new(cli).arg(arg).output();
+        run("capabilities").is_ok_and(|output| {
+            output.status.success() && output.stdout == b"foundry-opencode-headless-v1\n"
+        }) && run("version").is_ok_and(|output| {
+            output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == version
+        })
     }
 
     pub fn handle(&mut self, request: Request, state: &mut WizardState) {
@@ -283,15 +288,21 @@ impl Backend {
     }
 
     fn start(&mut self, choices: Choices, state: &mut WizardState, retry: bool) {
-        if !self.ready() {
-            state.apply_status(Status::Finished {
-                outcome: Outcome::Failure,
-                message: "A matching CLI payload and HOME directory are required".into(),
-                repositories: vec![],
-                backups: vec![],
-            });
+        if self.running() {
             return;
         }
+        let cli = match self.ready() {
+            Ok(path) => path,
+            Err(error) => {
+                state.apply_status(Status::Finished {
+                    outcome: Outcome::Failure,
+                    message: error,
+                    repositories: vec![],
+                    backups: vec![],
+                });
+                return;
+            }
+        };
         let reviewed = match self.inspection(choices.install_openchamber) {
             Ok(inventory) => inventory.clone(),
             Err(error) => {
@@ -304,26 +315,11 @@ impl Backend {
                 return;
             }
         };
-        if self.running() {
-            return;
-        }
         if !retry {
             *self.checkpoint.lock().unwrap() = installer::Checkpoint::default();
         }
         let catalog = match self.catalog(&choices) {
             Ok(catalog) => catalog,
-            Err(error) => {
-                state.apply_status(Status::Finished {
-                    outcome: Outcome::Failure,
-                    message: error,
-                    repositories: vec![],
-                    backups: vec![],
-                });
-                return;
-            }
-        };
-        let cli = match Self::cli_source() {
-            Ok(path) => path,
             Err(error) => {
                 state.apply_status(Status::Finished {
                     outcome: Outcome::Failure,
@@ -345,7 +341,11 @@ impl Backend {
             state.backup_preview.clear();
         }
         state.apply_status(Status::Running {
-            label: "Checking administrator authorization".into(),
+            label: if ops::HOMEBREW {
+                "Checking configuration".into()
+            } else {
+                "Checking administrator authorization".into()
+            },
             done: 0,
             total: None,
             repositories: vec![],
@@ -358,11 +358,16 @@ impl Backend {
                     catalog,
                     openchamber,
                     cli,
+                    homebrew: ops::HOMEBREW,
                     dry_run: false,
                     reviewed,
                 };
-                installer::preflight(&plan).map_err(|error| error.to_string())?;
-                let auth = Privilege::authorize()?;
+                let auth = if plan.homebrew {
+                    None
+                } else {
+                    installer::preflight(&plan).map_err(|error| error.to_string())?;
+                    Some(Privilege::authorize()?)
+                };
                 installer::apply(
                     &plan,
                     &mut checkpoint.lock().unwrap(),
@@ -371,7 +376,8 @@ impl Backend {
                     },
                     || cancel.load(Ordering::Relaxed),
                     |cli| {
-                        auth.install_cli(cli)
+                        auth.expect("standalone installs are authorized")
+                            .install_cli(cli)
                             .map_err(|error| color_eyre::eyre::eyre!("{error}"))
                     },
                 )
@@ -433,5 +439,34 @@ impl Backend {
                 }
             }
         }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::{
+        fs,
+        os::unix::fs::{PermissionsExt, symlink},
+    };
+
+    #[test]
+    fn homebrew_gui_resolves_and_checks_its_same_keg_cli() {
+        let root = ops::backup_path(&std::env::temp_dir().join("foundry-homebrew-gui"));
+        let bin = root.join("Cellar/foundry-opencode/0.1.2/bin");
+        fs::create_dir_all(&bin).unwrap();
+        let gui = bin.join("foundry-opencode-gui");
+        fs::write(&gui, "").unwrap();
+        let link = root.join("foundry-opencode-gui");
+        symlink(gui, &link).unwrap();
+
+        let cli = Backend::homebrew_cli(&link).unwrap();
+        assert_eq!(cli, bin.canonicalize().unwrap().join("foundry-opencode"));
+        assert!(!Backend::matching_cli(&cli, "0.1.2"));
+        fs::write(&cli, "#!/bin/sh\ncase $1 in\ncapabilities) echo foundry-opencode-headless-v1;;\nversion) echo 0.1.2;;\nesac\n").unwrap();
+        fs::set_permissions(&cli, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(!Backend::matching_cli(&cli, "0.1.3"));
+        assert!(Backend::matching_cli(&cli, "0.1.2"));
+        fs::remove_dir_all(root).unwrap();
     }
 }

@@ -1,0 +1,42 @@
+class FoundryOpencode < Formula
+  desc "Configure OpenCode for Palantir Foundry"
+  homepage "https://github.com/DemiLovato69/Foundry-OpenCode"
+  url "@URL@"
+  sha256 "@SHA256@"
+
+  depends_on "rust" => :build
+  depends_on :macos
+
+  def fetch
+    %w[foundry-opencode foundry-opencode-gui].each do |crate|
+      cd crate do
+        system "cargo", "fetch", *std_cargo_fetch_args
+      end
+    end
+  end
+
+  def install
+    ENV["FOUNDRY_OPENCODE_VERSION"] = version.to_s
+    ENV["FOUNDRY_OPENCODE_HOMEBREW"] = "1"
+    ENV["CARGO_TARGET_DIR"] = buildpath/"target"
+    %w[foundry-opencode foundry-opencode-gui].each do |crate|
+      system "cargo", "install", *std_cargo_args(path: crate)
+    end
+  end
+
+  def caveats
+    <<~EOS
+      Run foundry-opencode-gui to set up your Foundry stacks and folders.
+      Homebrew installs the executables but does not modify your OpenCode configuration.
+    EOS
+  end
+
+  test do
+    assert_equal version.to_s, shell_output("#{bin}/foundry-opencode version").strip
+    assert_equal version.to_s, shell_output("#{bin}/foundry-opencode-gui --version").strip
+    assert_equal "foundry-opencode-headless-v1", shell_output("#{bin}/foundry-opencode capabilities").strip
+    output = shell_output("#{bin}/foundry-opencode uninstall --dry-run")
+    assert_match "remove them separately with `HOMEBREW_NO_AUTOREMOVE=1 brew uninstall", output
+    refute_includes output, "/usr/local/bin/foundry-opencode"
+  end
+end

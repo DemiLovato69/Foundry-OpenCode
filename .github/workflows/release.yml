@@ -29,6 +29,9 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
+      - run: cargo test --locked --test installer --test cli_dry_run
+        env:
+          FOUNDRY_OPENCODE_HOMEBREW: '1'
       - run: cargo fmt --check
         working-directory: foundry-opencode-gui
       - run: cargo clippy --locked --all-targets -- -D warnings
@@ -36,9 +39,21 @@ jobs:
       - run: cargo test --locked
         working-directory: foundry-opencode-gui
 
+  homebrew:
+    strategy:
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew update
+      - run: bash packaging/homebrew/smoke.sh
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+
   version:
     if: github.event_name == 'push'
-    needs: test
+    needs: [test, homebrew]
     runs-on: ubuntu-latest
     outputs:
       number: ${{ steps.calculate.outputs.number }}
@@ -137,3 +152,20 @@ jobs:
           else
             gh release create "$TAG" foundry-opencode-*.tar.gz SHA256SUMS --target "$GITHUB_SHA" --title "$TAG" --generate-notes
           fi
+
+  update-tap:
+    needs: [release, version]
+    runs-on: ubuntu-latest
+    concurrency: foundry-opencode-homebrew-tap
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open or update tap pull request
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.version.outputs.number }}
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo '::notice::HOMEBREW_TAP_TOKEN is missing; no tap update was published.'
+            exit 0
+          fi
+          bash packaging/homebrew/publish.sh "$VERSION" DemiLovato69/homebrew-tap

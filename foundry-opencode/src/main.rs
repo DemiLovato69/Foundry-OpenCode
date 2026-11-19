@@ -292,11 +292,22 @@ fn uninstall(dry_run: bool, yes: bool) -> eyre::Result<()> {
         );
     }
     println!(
-        "{} Homebrew opencode/opencode-v1/opencode-v2/OpenChamber, global npm {:?}, and {}",
+        "{} Homebrew opencode/opencode-v1/opencode-v2/OpenChamber and global npm {:?}",
         if dry_run { "Would remove" } else { "Remove" },
-        npm_packages,
-        ops::BIN_PATH
+        npm_packages
     );
+    if ops::HOMEBREW {
+        println!(
+            "Installer binaries are kept; remove them separately with `{}`",
+            ops::BREW_UNINSTALL
+        );
+    } else {
+        println!(
+            "{} {}",
+            if dry_run { "Would remove" } else { "Remove" },
+            ops::BIN_PATH
+        );
+    }
     if dry_run {
         return Ok(());
     }
@@ -315,13 +326,15 @@ fn uninstall(dry_run: bool, yes: bool) -> eyre::Result<()> {
             Err(error) => return Err(error.into()),
         }
     }
-    match std::fs::symlink_metadata(ops::BIN_PATH) {
-        Ok(meta) => eyre::ensure!(
-            meta.is_file() && !meta.file_type().is_symlink(),
-            "Unsafe CLI binary"
-        ),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error.into()),
+    if !ops::HOMEBREW {
+        match std::fs::symlink_metadata(ops::BIN_PATH) {
+            Ok(meta) => eyre::ensure!(
+                meta.is_file() && !meta.file_type().is_symlink(),
+                "Unsafe CLI binary"
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
     }
     let _ = Command::new("opencode").args(["service", "stop"]).status();
     stop_processes()?;
@@ -395,7 +408,7 @@ fn uninstall(dry_run: bool, yes: bool) -> eyre::Result<()> {
         remove_safe(&path)?;
     }
     let binary = Path::new(ops::BIN_PATH);
-    if binary.exists() {
+    if !ops::HOMEBREW && binary.exists() {
         eyre::ensure!(
             std::fs::symlink_metadata(binary)?.is_file()
                 && !std::fs::symlink_metadata(binary)?.file_type().is_symlink(),
@@ -428,7 +441,7 @@ fn update(dry_run: bool, yes: bool, migrate_legacy: bool) -> eyre::Result<()> {
         dry_run || !reviewed.migration_needed() || migrate_legacy,
         "Legacy packages need review: run update --dry-run, then update --yes --migrate-legacy"
     );
-    let staged = if dry_run {
+    let staged = if dry_run || ops::HOMEBREW {
         None
     } else {
         Some(ops::stage_latest_binary()?.0)
@@ -441,6 +454,7 @@ fn update(dry_run: bool, yes: bool, migrate_legacy: bool) -> eyre::Result<()> {
         catalog,
         openchamber: false,
         cli,
+        homebrew: ops::HOMEBREW,
         dry_run,
         reviewed,
     };
