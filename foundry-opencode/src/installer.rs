@@ -15,6 +15,7 @@ pub struct Plan {
     pub catalog: projects::Catalog,
     pub openchamber: bool,
     pub cli: PathBuf,
+    pub homebrew: bool,
     pub dry_run: bool,
     pub reviewed: cleanup::Inventory,
 }
@@ -161,6 +162,9 @@ pub fn preflight(plan: &Plan) -> eyre::Result<()> {
         "Homebrew is required"
     );
     cleanup::latest_is_v2()?;
+    if !plan.homebrew {
+        ops::standalone_cli_preflight()?;
+    }
     eyre::ensure!(
         cleanup::inspect(&plan.home, plan.openchamber)?.within(&plan.reviewed),
         "Installed packages changed since review; review the migration again before retrying"
@@ -224,7 +228,14 @@ pub fn apply(
                 project.rag
             ));
         }
-        report("Would install the CLI last".into());
+        report(if plan.homebrew {
+            format!(
+                "Would leave installer binaries unchanged; upgrade with `{}`",
+                ops::BREW_UPGRADE
+            )
+        } else {
+            "Would install the CLI last".into()
+        });
         return Ok(results);
     }
     eyre::ensure!(!cancelled(), "Installation cancelled before changes began");
@@ -390,13 +401,17 @@ pub fn apply(
     if let Some(alias) = worktrees::set_alias(plan.catalog.sync_alias, None)? {
         results.push(alias);
     }
-    eyre::ensure!(
-        !cancelled(),
-        "Installation cancelled before CLI replacement"
-    );
-    report("Installing CLI as final step".into());
-    install_cli(&plan.cli)?;
-    results.push("CLI installed as final step".into());
+    eyre::ensure!(!cancelled(), "Installation cancelled before completion");
+    if plan.homebrew {
+        results.push(format!(
+            "Installer binaries managed by Homebrew; upgrade with `{}`",
+            ops::BREW_UPGRADE
+        ));
+    } else {
+        report("Installing CLI as final step".into());
+        install_cli(&plan.cli)?;
+        results.push("CLI installed as final step".into());
+    }
     Ok(results)
 }
 
