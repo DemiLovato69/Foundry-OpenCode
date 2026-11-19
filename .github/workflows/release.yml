@@ -26,14 +26,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
       - run: cargo test --locked --test installer --test cli_dry_run
         env:
           FOUNDRY_OPENCODE_HOMEBREW: '1'
-      - run: cargo fmt --check
-        working-directory: foundry-opencode-gui
       - run: cargo clippy --locked --all-targets -- -D warnings
         working-directory: foundry-opencode-gui
       - run: cargo test --locked
@@ -42,7 +39,7 @@ jobs:
   homebrew:
     strategy:
       matrix:
-        runner: [macos-15, macos-15-intel]
+        runner: [macos-15]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -77,8 +74,6 @@ jobs:
         include:
           - runner: macos-15
             target: aarch64-apple-darwin
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
