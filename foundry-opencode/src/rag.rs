@@ -10,7 +10,6 @@ const PACKAGE: &str = r#"{"private":true,"type":"module","scripts":{"postinstall
 const LEGACY_PLUGIN: &str = include_str!("legacy-rag-plugin.txt");
 const PATCH: &str = include_str!("rag-patch.mjs");
 const CLI: &str = include_str!("rag-cli.mjs");
-const LEGACY_CLI: &str = include_str!("rag-cli-legacy.mjs");
 const LEGACY_IGNORE: &str = "node_modules/\nrag_db/\nrag_db.backup-*/\nrag_db_tmp/\nopencode-rag.log\nruntime-overrides.json\n";
 const IGNORE: &str = "*\n!commands/\n!commands/**\n";
 // Build caches, local ontology state and generated SDKs churn on every build and crowd out source code.
@@ -166,7 +165,7 @@ fn setup_files(
     let mut package_owned = false;
     let mut rag_owned = false;
     let mut missing = Vec::new();
-    let mut legacy_cli = false;
+    let mut replace_cli = false;
     let mut legacy_rag = false;
     let mut legacy_ignore = false;
     for (index, (path, expected)) in files.iter().enumerate() {
@@ -177,26 +176,26 @@ fn setup_files(
                     "Unsafe RAG file {}",
                     path.display()
                 );
+                reused += 1;
+                if index == 2 {
+                    replace_cli = fs::read(path)? != expected.as_bytes();
+                    continue;
+                }
                 let existing = fs::read_to_string(path)?;
                 eyre::ensure!(
                     existing == *expected
-                        || index == 2 && existing == LEGACY_CLI
                         || index == 3 && existing == LEGACY_IGNORE
                         || index == 3 && existing.ends_with(IGNORE)
                         || index == 4 && earlier(&existing, base_url),
                     "{} differs from the installer RAG file; not changing it",
                     path.display()
                 );
-                if index == 2 && existing == LEGACY_CLI {
-                    legacy_cli = true;
-                }
                 if index == 4 && earlier(&existing, base_url) {
                     legacy_rag = true;
                 }
                 if index == 3 && existing == LEGACY_IGNORE {
                     legacy_ignore = true;
                 }
-                reused += 1;
                 if index == 0 {
                     package_owned = true;
                 }
@@ -300,7 +299,9 @@ fn setup_files(
         return Ok((
             format!(
                 "Would {} RAG files and add the MCP server to OpenCode config:\n{paths}\nWould run npm install in .opencode and index this project.",
-                if reused > 0 {
+                if replace_cli {
+                    "replace .opencode/rag-cli.mjs and reconcile the remaining"
+                } else if reused > 0 {
                     "reuse matching or create missing"
                 } else {
                     "create"
@@ -330,7 +331,7 @@ fn setup_files(
         }
         return Err(e);
     }
-    for (upgrade, index) in [(legacy_cli, 2), (legacy_ignore, 3), (legacy_rag, 4)] {
+    for (upgrade, index) in [(replace_cli, 2), (legacy_ignore, 3), (legacy_rag, 4)] {
         if !upgrade {
             continue;
         }
@@ -424,16 +425,17 @@ pub fn setup(
 mod tests {
     use super::*;
     #[test]
-    fn known_legacy_rag_helper_is_backed_up_without_touching_the_index() {
+    fn differing_rag_helper_is_backed_up_and_replaced_without_touching_the_index() {
         let root = crate::ops::backup_path(&std::env::temp_dir().join("rag-helper-upgrade"));
         fs::create_dir(&root).unwrap();
         setup_files(&root, "https://example.com", false).unwrap();
         let helper = root.join(".opencode/rag-cli.mjs");
-        fs::write(&helper, LEGACY_CLI).unwrap();
+        let previous = b"arbitrary helper contents\xff";
+        fs::write(&helper, previous).unwrap();
         fs::create_dir(root.join(".opencode/rag_db")).unwrap();
         fs::write(root.join(".opencode/rag_db/index"), "preserve").unwrap();
         setup_files(&root, "https://example.com", true).unwrap();
-        assert_eq!(fs::read_to_string(&helper).unwrap(), LEGACY_CLI);
+        assert_eq!(fs::read(&helper).unwrap(), previous);
         setup_files(&root, "https://example.com", false).unwrap();
         assert_eq!(fs::read_to_string(&helper).unwrap(), CLI);
         assert_eq!(
