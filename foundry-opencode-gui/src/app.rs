@@ -14,9 +14,10 @@ impl Default for WizardApp {
     fn default() -> Self {
         let (backend, saved, error) = Backend::load();
         let mut state = WizardState::default();
-        state.backend_connected = backend.ready();
+        let ready = backend.ready();
+        state.backend_connected = ready.is_ok();
         state.saved = saved;
-        state.error = error;
+        state.error = error.or_else(|| ready.err());
         Self { state, backend }
     }
 }
@@ -253,6 +254,12 @@ impl WizardApp {
     fn review(&mut self, ui: &mut egui::Ui) {
         ui.heading("Review your choices");
         ui.label("Tokens are hidden. Existing configuration is backed up before replacement.");
+        if foundry_opencode::ops::HOMEBREW {
+            ui.label(format!(
+                "Homebrew manages the installer binaries. Upgrade them with `{}`.",
+                foundry_opencode::ops::BREW_UPGRADE
+            ));
+        }
         match self
             .backend
             .inspection(self.state.choices.install_openchamber)

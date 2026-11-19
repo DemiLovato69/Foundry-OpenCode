@@ -10,6 +10,10 @@ use color_eyre::eyre::{self, Context};
 pub const REMOTE: &str = "https://github.com/DemiLovato69/Foundry-OpenCode.git";
 static NEXT_PATH: AtomicU64 = AtomicU64::new(0);
 pub const BIN_PATH: &str = "/usr/local/bin/foundry-opencode";
+pub const HOMEBREW: bool = option_env!("FOUNDRY_OPENCODE_HOMEBREW").is_some();
+pub const BREW_UPGRADE: &str = "brew upgrade DemiLovato69/tap/foundry-opencode";
+pub const BREW_UNINSTALL: &str =
+    "HOMEBREW_NO_AUTOREMOVE=1 brew uninstall DemiLovato69/tap/foundry-opencode";
 const RELEASES: &str = "https://api.github.com/repos/DemiLovato69/Foundry-OpenCode/releases/latest";
 
 pub struct StagedBinary(PathBuf);
@@ -219,7 +223,7 @@ fn copy_binary(source: &StagedBinary, destination: &Path) -> io::Result<()> {
     result
 }
 
-pub fn install_binary(source: &StagedBinary, destination: &Path) -> eyre::Result<()> {
+fn check_binary_destination(destination: &Path) -> eyre::Result<()> {
     match fs::symlink_metadata(destination) {
         Ok(metadata) => eyre::ensure!(
             metadata.is_file() && !metadata.file_type().is_symlink(),
@@ -229,6 +233,43 @@ pub fn install_binary(source: &StagedBinary, destination: &Path) -> eyre::Result
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(error) => return Err(error.into()),
     }
+    Ok(())
+}
+
+pub fn standalone_cli_preflight() -> eyre::Result<()> {
+    fn brew_path(flag: &str) -> eyre::Result<PathBuf> {
+        let output = Command::new("brew").arg(flag).output()?;
+        eyre::ensure!(output.status.success(), "Could not run brew {flag}");
+        let path = PathBuf::from(String::from_utf8(output.stdout)?.trim());
+        eyre::ensure!(
+            path.is_absolute(),
+            "brew {flag} did not return an absolute path"
+        );
+        Ok(path)
+    }
+
+    check_standalone_cli(
+        Path::new(BIN_PATH),
+        &brew_path("--prefix")?,
+        &brew_path("--cellar")?,
+    )
+}
+
+fn check_standalone_cli(destination: &Path, prefix: &Path, cellar: &Path) -> eyre::Result<()> {
+    if let (Ok(linked), Ok(rack)) = (
+        prefix.join("bin/foundry-opencode").canonicalize(),
+        cellar.join("foundry-opencode").canonicalize(),
+    ) {
+        eyre::ensure!(
+            !linked.starts_with(rack),
+            "Foundry OpenCode is already linked by Homebrew; use its installer and `{BREW_UPGRADE}`"
+        );
+    }
+    check_binary_destination(destination)
+}
+
+pub fn install_binary(source: &StagedBinary, destination: &Path) -> eyre::Result<()> {
+    check_binary_destination(destination)?;
     let parent = destination
         .parent()
         .ok_or_else(|| eyre::eyre!("Invalid binary destination"))?;
@@ -413,6 +454,35 @@ mod tests {
         let path = backup_path(&std::env::temp_dir().join("foundry-opencode-test"));
         fs::create_dir(&path).unwrap();
         path
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn standalone_preflight_leaves_homebrew_and_unrelated_links_alone() {
+        use std::os::unix::fs::symlink;
+
+        let root = sandbox();
+        let prefix = root.join("homebrew");
+        let cellar = prefix.join("Cellar");
+        let keg = cellar.join("foundry-opencode/0.1.2/bin");
+        fs::create_dir_all(&keg).unwrap();
+        fs::create_dir(prefix.join("bin")).unwrap();
+        let cli = keg.join("foundry-opencode");
+        fs::write(&cli, "brew cli").unwrap();
+        let linked = prefix.join("bin/foundry-opencode");
+        symlink(&cli, &linked).unwrap();
+        let standalone = root.join("foundry-opencode");
+        fs::write(&standalone, "standalone cli").unwrap();
+        for destination in [&standalone, &linked] {
+            assert!(check_standalone_cli(destination, &prefix, &cellar).is_err());
+        }
+        fs::remove_file(&linked).unwrap();
+        symlink(root.join("missing"), &linked).unwrap();
+        assert!(check_standalone_cli(&linked, &prefix, &cellar).is_err());
+        assert!(check_standalone_cli(&standalone, &prefix, &cellar).is_ok());
+        assert_eq!(fs::read_to_string(&standalone).unwrap(), "standalone cli");
+        assert_eq!(fs::read_to_string(&cli).unwrap(), "brew cli");
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

@@ -18,7 +18,12 @@ fn reset_and_uninstall_preview_without_removing_user_data() {
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
-        assert!(String::from_utf8_lossy(&output.stdout).contains("Would remove"));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("Would remove"));
+        if action == "uninstall" && foundry_opencode::ops::HOMEBREW {
+            assert!(stdout.contains(foundry_opencode::ops::BREW_UNINSTALL));
+            assert!(!stdout.contains(foundry_opencode::ops::BIN_PATH));
+        }
         assert_eq!(
             fs::read_to_string(cache.join("keep")).unwrap(),
             "session data"
