@@ -12,7 +12,8 @@ static NEXT_PATH: AtomicU64 = AtomicU64::new(0);
 pub const BIN_PATH: &str = "/usr/local/bin/foundry-opencode";
 pub const HOMEBREW: bool = option_env!("FOUNDRY_OPENCODE_HOMEBREW").is_some();
 pub const BREW_UPGRADE: &str = "brew upgrade DemiLovato69/tap/foundry-opencode";
-pub const BREW_UNINSTALL: &str = "HOMEBREW_NO_AUTOREMOVE=1 brew uninstall DemiLovato69/tap/foundry-opencode";
+pub const BREW_UNINSTALL: &str =
+    "HOMEBREW_NO_AUTOREMOVE=1 brew uninstall DemiLovato69/tap/foundry-opencode";
 const RELEASES: &str = "https://api.github.com/repos/DemiLovato69/Foundry-OpenCode/releases/latest";
 
 pub struct StagedBinary(PathBuf);
