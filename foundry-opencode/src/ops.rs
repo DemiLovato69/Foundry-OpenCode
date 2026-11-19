@@ -50,7 +50,7 @@ pub fn stage_binary(source: &Path) -> io::Result<StagedBinary> {
 fn release_asset() -> eyre::Result<&'static str> {
     match std::env::consts::ARCH {
         "aarch64" => Ok("aarch64-apple-darwin"),
-        "x86_64" => Ok("x86_64-apple-darwin"),
+        "x86_64" => eyre::bail("Intel macOS is no longer supported!"),
         arch => eyre::bail!("No macOS release binary for {arch}"),
     }
 }
@@ -500,13 +500,11 @@ mod tests {
             .unwrap(),
             hash
         );
-        assert!(
-            checksum(
-                &format!("{hash}  other.tar.gz\n"),
-                "foundry-opencode-aarch64-apple-darwin.tar.gz"
-            )
-            .is_err()
-        );
+        assert!(checksum(
+            &format!("{hash}  other.tar.gz\n"),
+            "foundry-opencode-aarch64-apple-darwin.tar.gz"
+        )
+        .is_err());
     }
 
     #[cfg(target_os = "macos")]
@@ -568,14 +566,12 @@ mod tests {
             global["providers"]["palantir-google"]["headers"]["Authorization"],
             "Bearer {file:./token}"
         );
-        assert!(
-            fs::read_to_string(config.join(".git/info/exclude"))
-                .unwrap()
-                .contains("keep")
-        );
+        assert!(fs::read_to_string(config.join(".git/info/exclude"))
+            .unwrap()
+            .contains("keep"));
         assert_eq!(
-            crate::stack::read_config(&config.join("opencode.jsonc")).unwrap()["providers"]["palantir-openai"]
-                ["settings"]["transport"],
+            crate::stack::read_config(&config.join("opencode.jsonc")).unwrap()["providers"]
+                ["palantir-openai"]["settings"]["transport"],
             "http"
         );
         fs::remove_dir_all(root).unwrap();

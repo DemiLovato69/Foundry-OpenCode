@@ -15,13 +15,11 @@ brew install DemiLovato69/tap/foundry-opencode
 foundry-opencode-gui
 ```
 
-Use an up-to-date Homebrew. The formula builds the CLI and GUI locally for Apple Silicon or Intel, so the first install can take a few minutes. Launch the GUI from Terminal for first-time setup; `brew install` does not touch your OpenCode configuration. Git and HTTPS access to the public config repository are required during setup.
-
-If you already have a standalone install, run `type -a foundry-opencode` first. If you recognize `/usr/local/bin/foundry-opencode` as your previous standalone executable, move it to a backup location before linking on Intel or if it shadows the Brew copy on Apple Silicon. Use `type -a foundry-opencode` again after installing to verify which executable your shell runs. If the older path is a symlink or you don't recognize it, inspect it before moving anything. **Do not run `foundry-opencode uninstall` to migrate:** it deletes config, tokens, and session data. The Brew GUI can reuse your saved settings.
+Use an up-to-date Homebrew. The formula builds the CLI and GUI locally for Apple Silicon, so the first install can take a few minutes. Launch the GUI from Terminal for first-time setup; `brew install` does not touch your OpenCode configuration. Git and HTTPS access to the public config repository are required during setup.
 
 ### Standalone download (macOS)
 
-Download the matching [GUI macOS release](https://github.com/DemiLovato69/Foundry-OpenCode/releases/latest) for Apple Silicon (`aarch64-apple-darwin`) or Intel (`x86_64-apple-darwin`) and open `FoundryOpenCode.app`. Its matching CLI is bundled and installed last to `/usr/local/bin/foundry-opencode`. Homebrew, Git and HTTPS access to the public config repository are required.
+Download the matching [GUI macOS release](https://github.com/DemiLovato69/Foundry-OpenCode/releases/latest) for Apple Silicon (`aarch64-apple-darwin`) and open `FoundryOpenCode.app`. Its matching CLI is bundled and installed last to `/usr/local/bin/foundry-opencode`. Homebrew, Git and HTTPS access to the public config repository are required.
 
 **macOS security:** The release binaries are not signed or notarized. Check your downloaded GUI archive with `shasum -a 256 foundry-opencode-gui-<arch>.tar.gz` and compare it to the matching line in the release's `SHA256SUMS`. macOS may block the first launch; go to **System Settings → Privacy & Security → Open Anyway** only if you trust the release. Do not disable Gatekeeper or remove the quarantine attribute globally.
 
@@ -98,7 +96,7 @@ New RAG setups also skip `.nx`, `.palantir`, `osdk-output` and `generated-import
 
 Preview operations without writing files or opening a browser: `foundry-opencode init --dry-run`, `foundry-opencode update --dry-run`, `foundry-opencode uninstall --dry-run`, or `foundry-opencode --dry-run install`.
 
-Releases are created automatically from successful merges to `main` (including changes to these configs); each release contains macOS Apple Silicon and Intel binaries and checksums.
+Releases are created automatically from successful merges to `main` (including changes to these configs); each release contains macOS Apple Silicon binaries and checksums.
 
 
 ## Configuration layout
