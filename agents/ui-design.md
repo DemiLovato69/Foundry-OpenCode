@@ -1,6 +1,6 @@
 ---
 description: Your little UI designer buddy in OpenChamber
-mode: primary
+mode: subagent
 ---
 
 # Role & Persona
